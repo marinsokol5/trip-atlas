@@ -11,7 +11,19 @@ Use Node 24 or newer (`nvm use` reads `.nvmrc`). Install dependencies once with 
 - `npm run serve`: serve an existing build without rebuilding.
 - `npm test`, `npm run build`, `npm run lint`: verification.
 
-After installation, building and running require no network. No database, accounts, external APIs, or map requests are used. The production launcher only accepts GET/HEAD, binds loopback, and serves `dist/` plus the separate `trips/` directory. `vite preview` does not serve the trip directory; use the launcher instead.
+To open your own itinerary, pass its path:
+
+```sh
+npm start -- /Users/marinsokol/projects/research/asia-trip/itinerary.json
+# Or, with an existing build:
+npm run serve -- /Users/marinsokol/projects/research/asia-trip/itinerary.json
+```
+
+Run these commands from `trip-visualizer/`, or use `npm --prefix trip-visualizer start -- itinerary.json` from its parent directory. Relative paths resolve from the directory where you invoked npm (the current working directory for direct `node scripts/serve.mjs` invocation). Quote paths containing spaces. The file must already exist and be readable; invalid JSON is reported in the viewer and can be corrected, then refreshed. `--help` prints launcher usage.
+
+With a path, the launcher serves that JSON and only its explicitly referenced local documents, relative to the JSON's directory. It does not copy or bundle them. Edit the itinerary or its documents and refresh to load changes without rebuilding or restarting. Without a path, `npm start` and `npm run serve` use the `trips/` demo manifest. `npm run dev` also uses those demos.
+
+After installation, building and running require no network. No database, accounts, external APIs, or map requests are used. The production launcher only accepts GET/HEAD, binds loopback, and serves `dist/` plus the chosen trip files. `vite preview` does not serve trip files; use the launcher instead.
 
 ## Edit trips
 
