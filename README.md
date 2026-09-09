@@ -25,6 +25,20 @@ With a path, the launcher serves that JSON and only its explicitly referenced lo
 
 After installation, building and running require no network. No database, accounts, external APIs, or map requests are used. The production launcher only accepts GET/HEAD, binds loopback, and serves `dist/` plus the chosen trip files. `vite preview` does not serve trip files; use the launcher instead.
 
+## Shared itinerary skill
+
+[`skills/update-itinerary/SKILL.md`](skills/update-itinerary/SKILL.md) is the single Git-tracked skill for creating and updating the parent workspace's `itinerary.json` with Claude Code or Codex. It describes the current JSON format, sparse plans, local documents, coordinate lookup, and parser validation. The personal itinerary and installed links live outside this app repository.
+
+To install after cloning into a `trip-visualizer` folder, run these commands from its parent workspace. Keep `.agents`, `.claude`, and their `skills` directories as real directories. Check existing destinations first: retain an already-correct link, and do not replace an unrelated file, directory, or link.
+
+```sh
+mkdir -p .agents/skills .claude/skills
+ln -s ../../trip-visualizer/skills/update-itinerary .agents/skills/update-itinerary
+ln -s ../../trip-visualizer/skills/update-itinerary .claude/skills/update-itinerary
+```
+
+These project locations follow [Codex skills](https://learn.chatgpt.com/docs/build-skills) and [Claude Code skills](https://code.claude.com/docs/en/skills). Both links resolve to the same canonical skill; edit that tracked file to update both installations. The skill resolves its real path before choosing the default itinerary, so invocation from the app or workspace selects the same file. `AGENTS.md` holds the app's maintenance instructions; `CLAUDE.md` links to it for [Claude Code memory](https://code.claude.com/docs/en/memory).
+
 ## Edit trips
 
 Edit `trips/index.json` to list `{ "path": "japan/trip.json", "label": "Japan" }` entries inside its `trips` array. A trip is one JSON file across all countries. Edit a file, then **refresh the browser** to reread it. Files are fetched with `no-store`, excluded from Vite watching, and never bundled. A production trip edit needs no rebuild or server restart. Add local document files inside the selected trip folder and link them by relative path. External URLs, traversal, encoded paths, and symlink escapes are rejected. Do not publish this directory: it may contain your private documents.
