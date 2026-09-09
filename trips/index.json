@@ -1,0 +1,16 @@
+{
+  "trips": [
+    {
+      "path": "japan/trip.json",
+      "label": "Japan \u00b7 an illustrative journey"
+    },
+    {
+      "path": "undated/trip.json",
+      "label": "A trip still taking shape"
+    },
+    {
+      "path": "multicountry/trip.json",
+      "label": "Four countries \u00b7 illustrative Asia loop"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #edf1f4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button,
+select,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+}
+a {
+  color: var(--blue);
+}
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
+button,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #0b131d;
+  }
+}

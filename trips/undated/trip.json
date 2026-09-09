@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "title": "A trip still taking shape",
+  "initialPlace": "home",
+  "places": {
+    "home": {
+      "name": "Starting city"
+    },
+    "next": {
+      "name": "Somewhere next"
+    }
+  },
+  "days": [
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "next"
+        }
+      ]
+    },
+    {}
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "title": "Four countries, one journey",
+  "startDate": "2026-12-27",
+  "initialPlace": "tokyo",
+  "places": {
+    "tokyo": {
+      "name": "Tokyo",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lon": 139.749462,
+        "lat": 35.686963
+      }
+    },
+    "hanoi": {
+      "name": "Hanoi",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lon": 105.848068,
+        "lat": 21.035273
+      }
+    },
+    "bangkok": {
+      "name": "Bangkok",
+      "country": "TH",
+      "timezone": "Asia/Bangkok",
+      "coordinates": {
+        "lon": 100.514699,
+        "lat": 13.751945
+      }
+    },
+    "taipei": {
+      "name": "Taipei",
+      "country": "TW",
+      "timezone": "Asia/Taipei",
+      "coordinates": {
+        "lon": 121.568333,
+        "lat": 25.035833
+      }
+    }
+  },
+  "days": [
+    {
+      "notes": "Illustrative route across Japan, Vietnam, Thailand and Taiwan. Times are examples, not bookings."
+    },
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "hanoi",
+          "start": "10:00",
+          "end": "13:00",
+          "mode": "Flight"
+        }
+      ]
+    },
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "bangkok",
+          "start": "09:00",
+          "end": "11:00",
+          "mode": "Flight"
+        }
+      ]
+    },
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "taipei",
+          "start": "23:00",
+          "end": "04:00",
+          "endDay": 7,
+          "mode": "Flight",
+          "notes": "Overnight flight. Departure and arrival clocks are local."
+        }
+      ]
+    },
+    {},
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "tokyo",
+          "start": "10:00",
+          "end": "14:00",
+          "mode": "Flight"
+        }
+      ]
+    },
+    {}
+  ]
+}

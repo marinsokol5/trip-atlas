@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "title": "Japan \u00b7 an illustrative journey",
+  "startDate": "2026-12-01",
+  "initialPlace": "tokyo",
+  "places": {
+    "tokyo": {
+      "name": "Tokyo",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.6762,
+        "lon": 139.6503
+      }
+    },
+    "hakone": {
+      "name": "Hakone",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.2324,
+        "lon": 139.1069
+      }
+    },
+    "kyoto": {
+      "name": "Kyoto",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.0116,
+        "lon": 135.7681
+      }
+    },
+    "hiroshima": {
+      "name": "Hiroshima",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.3853,
+        "lon": 132.4553
+      }
+    },
+    "osaka": {
+      "name": "Osaka",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.6937,
+        "lon": 135.5023
+      }
+    }
+  },
+  "days": [
+    {
+      "notes": "Illustrative itinerary \u2014 replace with your own plans. Nothing here is a booking.",
+      "documents": [
+        {
+          "label": "Example local document",
+          "path": "document.txt"
+        }
+      ]
+    },
+    {},
+    {},
+    {},
+    {},
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "hakone",
+          "start": "10:00",
+          "end": "12:00",
+          "mode": "train"
+        }
+      ]
+    },
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "kyoto",
+          "start": "10:00",
+          "end": "13:00",
+          "mode": "bus + train"
+        }
+      ]
+    },
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "hiroshima",
+          "start": "09:00",
+          "end": "11:00",
+          "mode": "train"
+        }
+      ]
+    },
+    {},
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "osaka",
+          "start": "10:00",
+          "end": "11:30",
+          "mode": "train"
+        }
+      ]
+    },
+    {},
+    {},
+    {},
+    {},
+    {
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "tokyo",
+          "start": "10:00",
+          "end": "12:30",
+          "mode": "train"
+        }
+      ]
+    },
+    {}
+  ]
+}
