@@ -44,9 +44,9 @@ import {
   mapRoute,
   mapPointStyle,
   transferPlaces,
-  mapConnections,
-  mapConnectionVisible,
-  mapConnectionDuration,
+  mapDisplayConnections,
+  mapDisplayDuration,
+  directedCurvePoint,
   zoomMap,
   mapZoomMin,
   mapZoomMax,
@@ -182,7 +182,7 @@ function TripMap({
   >(undefined);
   const groups = useMemo(() => visualGroups(model), [model]);
   const transfers = useMemo(() => transferPlaces(model), [model]);
-  const connections = useMemo(() => mapConnections(model), [model]);
+  const connections = useMemo(() => mapDisplayConnections(model), [model]);
   const geometry = useMemo(() => {
     const locations = Object.entries(model.trip.places)
       .filter(([, p]) => p.coordinates)
@@ -234,12 +234,12 @@ function TripMap({
     const points = Object.fromEntries(
       locations.map((p) => [p.id, projection(p.coordinates)!]),
     );
-    const routes = model.legs
-      .filter((l) => l.from && points[l.from] && points[l.to])
-      .map((l) => ({
-        leg: l,
-        curve: routeCurve(points[l.from!], points[l.to]),
-      }));
+    const routes = connections.flatMap(({ outbound, inbound }) => outbound.legs
+      .flatMap((leg, index) => leg.from && points[leg.from] && points[leg.to] ? [{
+        leg,
+        reverseLeg: inbound?.legs[inbound.legs.length - 1 - index],
+        curve: routeCurve(points[leg.from], points[leg.to]),
+      }] : []));
     const path = geoPath(projection);
     const shapes = world.features.map((feature, i) => ({
       id: i,
@@ -262,7 +262,7 @@ function TripMap({
         : [];
     });
     return { points, routes, shapes, labels };
-  }, [model, groups, transfers]);
+  }, [model, groups, transfers, connections]);
   // Lay out text in physical pixels again after zooming, so labels never scale or collide.
   const screen = (point: Point): Point => [
     (view.x + point[0] * view.k) * frameScale,
@@ -338,26 +338,23 @@ function TripMap({
     ]);
     return position ? [{ ...label, position }] : [];
   });
-  const connectionLabels = connections
-    .filter((connection) =>
-      mapConnectionVisible(model, connection, durationFilter),
-    )
-    .flatMap((connection) => {
+  const connectionLabels = connections.flatMap((connection) => {
+      const text = mapDisplayDuration(model, connection, durationFilter);
+      if (!text) return [];
       const routes = geometry.routes.filter((route) =>
-        connection.legs.some((leg) => leg.id === route.leg.id),
+        connection.outbound.legs.some((leg) => leg.id === route.leg.id),
       );
       const route = routes.sort(
         (a, b) =>
           Math.hypot(b.curve.b[0] - b.curve.a[0], b.curve.b[1] - b.curve.a[1]) -
           Math.hypot(a.curve.b[0] - a.curve.a[0], a.curve.b[1] - a.curve.a[1]),
       )[0];
-      const selected = connection.legs.some(
+      const selected = [...connection.outbound.legs, ...(connection.inbound?.legs ?? [])].some(
         (leg) => leg.day <= day.index + 1 && leg.endDay >= day.index + 1,
       );
       if (!route || (compact && !selected)) return [];
       const anchor = curvePoint(route.curve, 0.5);
-      const text = mapConnectionDuration(connection),
-        width = text.length * 7 + 12;
+      const width = text.length * 7 + 12;
       const position = placeLabel(anchor, width, 22, [
         [8, -26],
         [8, 8],
@@ -375,10 +372,10 @@ function TripMap({
       ]);
       return position ? [{ connection, anchor, position, width, text }] : [];
     });
-  const active = geometry.routes.find((r) => r.leg.id === moment.leg?.id);
+  const active = geometry.routes.find((r) => r.leg.id === moment.leg?.id || r.reverseLeg?.id === moment.leg?.id);
   const marker =
     moment.leg && active && moment.progress !== undefined
-      ? curvePoint(active.curve, moment.progress)
+      ? directedCurvePoint(active.curve, moment.progress, active.reverseLeg?.id === moment.leg.id)
       : moment.place
         ? geometry.points[moment.place]
         : undefined;
@@ -471,7 +468,7 @@ function TripMap({
                   markerWidth={5 / pixelScale}
                   markerHeight={5 / pixelScale}
                   markerUnits="userSpaceOnUse"
-                  orient="auto"
+                  orient="auto-start-reverse"
                 >
                   <path
                     d="M0 0 10 5 0 10Z"
@@ -491,11 +488,11 @@ function TripMap({
                   </path>
                 ))}
               </g>
-              {geometry.routes.map(({ leg, curve }) => {
+              {geometry.routes.map(({ leg, reverseLeg, curve }) => {
                 const internal =
                     groupKey(model, leg.from) === groupKey(model, leg.to),
-                  isActive = selected.has(leg.id);
-                const { curve: c, arrow } = mapRoute(
+                  isActive = selected.has(leg.id) || (!!reverseLeg && selected.has(reverseLeg.id));
+                const { curve: c, arrow, arrowStart } = mapRoute(
                   curve,
                   internal,
                   pixelScale,
@@ -506,25 +503,33 @@ function TripMap({
                     ),
                     moment.place === leg.to,
                   ),
+                  mapPointStyle(
+                    transfers.has(leg.from!),
+                    activeLegs(model, day).some(l => l.from === leg.from || l.to === leg.from),
+                    moment.place === leg.from,
+                  ),
+                  !!reverseLeg,
                 );
                 return (
                   <g key={leg.id}>
                     <path
                       data-leg={leg.id}
+                      data-return-leg={reverseLeg?.id}
                       className={`route${isActive ? " active" : ""}`}
                       style={{
                         stroke: internal ? color(model, leg.to) : undefined,
                         strokeWidth: (isActive ? 1.9 : 1.15) / pixelScale,
                       }}
                       d={`M${c.a}Q${c.c} ${c.b}`}
+                      markerStart={arrowStart ? `url(#${reverseLeg && selected.has(reverseLeg.id) ? "active" : "route"}-arrow)` : undefined}
                       markerEnd={
                         arrow
-                          ? `url(#${isActive ? "active" : "route"}-arrow)`
+                          ? `url(#${selected.has(leg.id) ? "active" : "route"}-arrow)`
                           : undefined
                       }
                     >
                       <title>
-                        {name(model, leg.from)} → {name(model, leg.to)}
+                        {name(model, leg.from)} {reverseLeg ? "↔" : "→"} {name(model, leg.to)}
                       </title>
                     </path>
                   </g>
@@ -532,7 +537,7 @@ function TripMap({
               })}
               {connectionLabels.map(
                 ({ connection, anchor, position, width, text }) => (
-                  <g key={connection.id} data-connection={connection.id}>
+                  <g key={connection.outbound.id} data-connection={connection.outbound.id} data-return-connection={connection.inbound?.id}>
                     <line
                       x1={anchor[0]}
                       y1={anchor[1]}
@@ -559,7 +564,7 @@ function TripMap({
                       >
                         <span
                           className="connection-duration"
-                          title={`${name(model, connection.from)} → ${name(model, connection.to)} · vehicle time`}
+                          title={`${name(model, connection.outbound.from)} ${connection.inbound ? "↔" : "→"} ${name(model, connection.outbound.to)} · ${connection.inbound ? "Longer direction's vehicle time" : "Vehicle time"}`}
                         >
                           {text}
                         </span>

@@ -162,6 +162,42 @@ export function mapConnectionDuration(connection: MapConnection) {
   const minutes = Math.round(connection.minutes);
   return `${connection.approximate ? "~" : ""}${minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h${minutes % 60 || ""}`}`;
 }
+export interface MapDisplayConnection {
+  outbound: MapConnection;
+  inbound?: MapConnection;
+}
+export function mapDisplayConnections(model: Itinerary): MapDisplayConnection[] {
+  const connections = mapConnections(model);
+  const pairs = new Map<string, MapConnection[]>();
+  for (const connection of connections) {
+    if (!connection.from || groupKey(model, connection.from) === groupKey(model, connection.to)) continue;
+    const key = JSON.stringify([connection.from, connection.to].sort());
+    pairs.set(key, [...(pairs.get(key) ?? []), connection]);
+  }
+  const consumed = new Set<string>();
+  return connections.flatMap(outbound => {
+    if (consumed.has(outbound.id)) return [];
+    const candidates = pairs.get(JSON.stringify([outbound.from, outbound.to].sort()));
+    const inbound = candidates?.length === 2 ? candidates.find(c => c !== outbound) : undefined;
+    const path = [outbound.from, ...outbound.legs.map(leg => leg.to)];
+    const reversePath = inbound ? [inbound.from, ...inbound.legs.map(leg => leg.to)].reverse() : [];
+    // Match actual waypoints, not just group labels; ambiguous repeated passes stay separate.
+    if (inbound && new Set(path).size === path.length && path.length === reversePath.length && path.every((id, i) => id === reversePath[i])) {
+      consumed.add(inbound.id);
+      return [{ outbound, inbound }];
+    }
+    return [{ outbound }];
+  });
+}
+export function mapDisplayDuration(model: Itinerary, connection: MapDisplayConnection, filter: MapDurationFilter) {
+  const directions = connection.inbound
+    ? [connection.outbound, connection.inbound]
+    : [connection.outbound];
+  const longest = directions
+    .filter(direction => mapConnectionVisible(model, direction, filter))
+    .sort((a, b) => b.minutes! - a.minutes! || Number(b.approximate) - Number(a.approximate))[0];
+  return longest ? mapConnectionDuration(longest) : "";
+}
 export const mapZoomMin = 0.35;
 export const mapZoomMax = 12;
 export function zoomMap(
@@ -243,6 +279,12 @@ export interface Curve {
   a: Point;
   b: Point;
   c: Point;
+}
+export function reverseCurve(curve: Curve): Curve {
+  return { a: curve.b, b: curve.a, c: curve.c };
+}
+export function directedCurvePoint(curve: Curve, progress: number, reverse = false): Point {
+  return curvePoint(curve, reverse ? 1 - progress : progress);
 }
 export function routeCurve(a: Point, b: Point): Curve {
   const dx = b[0] - a[0],
@@ -455,10 +497,18 @@ export function mapRoute(
   internal: boolean,
   pixelScale: number,
   point = mapPointStyle(false, false),
+  startPoint = mapPointStyle(false, false),
+  bidirectional = false,
 ) {
   // refX=10 pins the marker tip to this endpoint: 2.5 physical pixels beyond the dot's painted edge.
   const trimmed = internal
     ? undefined
     : trimCurve(curve, (point.radius + point.stroke / 2 + 2.5) / pixelScale);
-  return { curve: trimmed ?? curve, arrow: !!trimmed };
+  if (trimmed) {
+    // A plain tail has a small gap too; a double-headed route matches the tip gap at both ends.
+    const startGap = bidirectional ? 2.5 : 2;
+    const startTrimmed = trimCurve(reverseCurve(trimmed), (startPoint.radius + startPoint.stroke / 2 + startGap) / pixelScale);
+    return startTrimmed ? { curve: reverseCurve(startTrimmed), arrow: true, arrowStart: bidirectional } : { curve, arrow: false, arrowStart: false };
+  }
+  return { curve: trimmed ?? curve, arrow: !!trimmed, arrowStart: false };
 }
