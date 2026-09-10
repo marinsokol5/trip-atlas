@@ -1,5 +1,6 @@
 import {
   Map as MapIcon,
+  LayoutDashboard,
   Calendar as CalendarIcon,
   BedDouble,
   Sun,
@@ -75,6 +76,7 @@ import {
 import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
+import { Overview } from "./Overview";
 import { ThemedSelect } from "./ThemedSelect";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { useMapLabelPreference } from "./use-map-label-preference";
@@ -171,6 +173,7 @@ function Icon({ kind }: { kind: string }) {
   const Component =
     (
       {
+        overview: LayoutDashboard,
         map: MapIcon,
         calendar: CalendarIcon,
         bed: BedDouble,
@@ -1438,7 +1441,17 @@ function App() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [value, setSemanticValue] = useState(0),
-    [tab, setTab] = useState<"map" | "calendar">("map");
+    [tab, setTab] = useState<"overview" | "map" | "calendar">(() => {
+      try {
+        const saved = window.localStorage.getItem("trip-atlas-view");
+        if (saved === "overview" || saved === "map" || saved === "calendar")
+          return saved;
+      } catch {
+        /* Use Overview without storage. */
+      }
+      return "overview";
+    });
+  const carriedCountry = useRef("");
   const [playing, setPlaying] = useState(false);
   const [country, setCountry] = useState("");
   const days = useMemo(
@@ -1620,8 +1633,13 @@ function App() {
             const saved = window.localStorage.getItem(
               `trip-atlas-area:${selected}`,
             );
-            if (saved && mapAreas(model).some((area) => area.country === saved))
-              savedCountry = saved;
+            const requestedCountry =
+              saved === null ? carriedCountry.current : saved;
+            if (
+              requestedCountry &&
+              mapAreas(model).some((area) => area.country === requestedCountry)
+            )
+              savedCountry = requestedCountry;
           } catch {
             // Open the whole trip when browser storage is unavailable.
           }
@@ -1663,7 +1681,7 @@ function App() {
       : "";
   return (
     <main
-      className="app-shell"
+      className={`app-shell ${tab === "overview" ? "overview-shell" : ""}`}
       data-theme={theme}
       style={{ colorScheme: theme } as CSSProperties}
     >
@@ -1690,6 +1708,7 @@ function App() {
                   label: entry.label,
                 }))}
                 onChange={(path) => {
+                  carriedCountry.current = country;
                   setPlaying(false);
                   setLoading(true);
                   setError("");
@@ -1729,7 +1748,7 @@ function App() {
             </div>
           )}
           <nav aria-label="Trip view">
-            {(["map", "calendar"] as const).map((t) => (
+            {(["overview", "map", "calendar"] as const).map((t) => (
               <button
                 key={t}
                 aria-pressed={tab === t}
@@ -1737,10 +1756,19 @@ function App() {
                 onClick={() => {
                   setPlaying(false);
                   setTab(t);
+                  try {
+                    window.localStorage.setItem("trip-atlas-view", t);
+                  } catch {
+                    /* Keep the session selection. */
+                  }
                 }}
               >
                 <Icon kind={t} />
-                {t === "map" ? "Map" : "Calendar"}
+                {t === "overview"
+                  ? "Overview"
+                  : t === "map"
+                    ? "Map"
+                    : "Calendar"}
               </button>
             ))}
           </nav>
@@ -1759,7 +1787,17 @@ function App() {
         </section>
       ) : itinerary && day && moment ? (
         <>
-          <div className={`view-layout ${tab}`}>
+          {tab === "overview" && (
+            <Overview
+              key={`${selected}:${country}`}
+              model={itinerary}
+              country={country}
+            />
+          )}
+          <div
+            className={`view-layout ${tab === "overview" ? "map" : tab}`}
+            hidden={tab === "overview"}
+          >
             <section aria-label={tab === "map" ? "Map view" : "Calendar view"}>
               <div className="map-view" hidden={tab !== "map"}>
                 <TripMap
@@ -1797,7 +1835,7 @@ function App() {
               folder={selected.slice(0, selected.lastIndexOf("/"))}
             />
           </div>
-          <footer className="scrubber">
+          <footer className="scrubber" hidden={tab === "overview"}>
             <div className="time-head">
               <label htmlFor="trip-time">
                 {country

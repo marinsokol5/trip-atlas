@@ -20,7 +20,12 @@ export interface TravelComponent {
   mode: string;
   estimatedDurationMinutes?: number;
 }
+export interface CountryBudget {
+  livingPerDay?: number;
+  accommodationPerNight?: number;
+}
 export interface TravelBlock {
+  estimatedCost?: number;
   components?: TravelComponent[];
   type: "travel";
   to: string;
@@ -44,6 +49,8 @@ export interface TripDay {
   blocks?: (TravelBlock | PlaceBlock)[];
 }
 export interface Trip {
+  currency?: string;
+  budget?: { countries: Record<string, CountryBudget> };
   version: 1;
   title?: string;
   startDate?: string;
@@ -160,6 +167,35 @@ function zoneValid(zone: unknown, path: string) {
 export function parseTrip(input: unknown): Trip {
   const t = object(input, "trip");
 
+  let hasPrices = false;
+  const price = (value: unknown, path: string) => {
+    if (value === undefined) return;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
+      fail(path, "expected a finite nonnegative amount");
+    hasPrices = true;
+  };
+  if (
+    t.currency !== undefined &&
+    (typeof t.currency !== "string" || !/^[A-Z]{3}$/.test(t.currency))
+  )
+    fail("currency", "expected uppercase ISO3 currency code, e.g. EUR");
+  if (t.budget !== undefined) {
+    const budget = object(t.budget, "budget");
+    const countries = object(budget.countries, "budget.countries");
+    for (const [code, value] of Object.entries(countries)) {
+      if (!/^[A-Z]{2}$/.test(code))
+        fail(
+          `budget.countries.${code}`,
+          "expected uppercase ISO2 country code",
+        );
+      const rates = object(value, `budget.countries.${code}`);
+      price(rates.livingPerDay, `budget.countries.${code}.livingPerDay`);
+      price(
+        rates.accommodationPerNight,
+        `budget.countries.${code}.accommodationPerNight`,
+      );
+    }
+  }
   const groups = t.groups === undefined ? {} : object(t.groups, "groups");
   for (const [id, value] of Object.entries(groups)) {
     if (!id.trim()) fail("groups", "empty group ID");
@@ -229,6 +265,7 @@ export function parseTrip(input: unknown): Trip {
           b = object(v, p);
         if (b.type === "place") place(b.place, p + ".place");
         else if (b.type === "travel") {
+          price(b.estimatedCost, p + ".estimatedCost");
           place(b.to, p + ".to");
           if (b.from !== undefined) place(b.from, p + ".from");
           for (const k of ["start", "end"])
@@ -283,6 +320,11 @@ export function parseTrip(input: unknown): Trip {
       });
     }
   });
+  if (hasPrices && t.currency === undefined)
+    fail(
+      "currency",
+      "required when budget rates or estimatedCost are supplied; use one uppercase ISO3 currency for the whole trip",
+    );
   return {
     ...t,
     title: t.title ?? "Untitled journey",

@@ -332,3 +332,48 @@ test("optional visual groups, estimates and components validate without breaking
     /components/,
   );
 });
+
+test("optional budgets accept zero, preserve legacy trips, and require one currency", () => {
+  const trip = base();
+  assert.equal(normalizeTrip(trip).trip.currency, undefined);
+  trip.currency = "EUR";
+  trip.budget = {
+    countries: { JP: { livingPerDay: 0, accommodationPerNight: 140 } },
+  };
+  const travel = trip.days[1].blocks![0];
+  if (travel.type !== "travel") throw new Error("fixture");
+  travel.estimatedCost = 0;
+  assert.equal(normalizeTrip(trip).trip.budget!.countries.JP.livingPerDay, 0);
+  for (const invalid of [-1, Infinity, NaN, null, "100"]) {
+    assert.throws(
+      () =>
+        normalizeTrip({
+          ...trip,
+          budget: { countries: { JP: { livingPerDay: invalid } } },
+        }),
+      /budget.countries.JP.livingPerDay/,
+    );
+    assert.throws(
+      () =>
+        normalizeTrip({
+          ...trip,
+          days: [{ blocks: [{ ...travel, estimatedCost: invalid }] }],
+        }),
+      /estimatedCost/,
+    );
+  }
+  assert.throws(
+    () => normalizeTrip({ ...trip, currency: undefined }),
+    /currency: required/,
+  );
+  for (const currency of ["eur", "EU", "", null])
+    assert.throws(() => normalizeTrip({ ...trip, currency }), /currency:/);
+  assert.throws(
+    () => normalizeTrip({ ...trip, budget: { countries: { jp: {} } } }),
+    /uppercase ISO2/,
+  );
+  assert.throws(
+    () => normalizeTrip({ ...trip, budget: {} }),
+    /budget.countries/,
+  );
+});

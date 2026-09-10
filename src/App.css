@@ -1768,3 +1768,268 @@ main[data-theme="dark"] {
     grid-template-rows: auto clamp(280px, 45vh, 450px) auto;
   }
 }
+
+/* Overview uses the complete main pane, with its own scroll on desktop. */
+.overview-view {
+  padding: 28px;
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+}
+.overview-intro,
+.overview-stay-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.overview-intro {
+  margin-bottom: 24px;
+}
+.overview-intro > p,
+.overview-metric > p:last-child {
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.overview-headlines {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1.1fr;
+  gap: 16px;
+}
+.overview-metric {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+}
+.overview-metric h3 {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.overview-number {
+  margin: 0;
+  font-size: 36px;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.overview-number span {
+  font-size: 21px;
+  letter-spacing: -0.02em;
+}
+.overview-travel {
+  display: flex;
+  gap: 28px;
+}
+.overview-travel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.overview-travel strong {
+  font-size: 25px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.overview-travel span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.overview-costs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 19px 22px;
+  margin: 12px 0 32px;
+  background: var(--wash);
+  border-radius: 10px;
+  gap: 20px;
+}
+.overview-costs > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.overview-costs span {
+  color: var(--muted);
+}
+.overview-costs strong {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.overview-stays {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+}
+.overview-toggle {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.overview-toggle button {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-radius: 5px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.overview-toggle button[aria-pressed="true"] {
+  background: var(--wash);
+  color: var(--blue);
+}
+.overview-table-scroll {
+  overflow-x: auto;
+}
+.overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.overview-table th,
+.overview-table td {
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-weight: 400;
+}
+.overview-table thead th {
+  color: var(--muted);
+  font-size: 12px;
+  padding-top: 0;
+  white-space: nowrap;
+}
+.overview-table th:first-child {
+  text-align: left;
+  width: 55%;
+  padding-left: 0;
+}
+.overview-table td:last-child,
+.overview-table th:last-child {
+  padding-right: 0;
+  white-space: nowrap;
+}
+.overview-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.overview-place i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.overview-bar {
+  display: block;
+  height: 5px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin: 9px 0 0 17px;
+  max-width: 460px;
+}
+.overview-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+.overview-note,
+.overview-notes {
+  color: var(--muted);
+  font-size: 12px;
+}
+.overview-note {
+  margin: 15px 0 0;
+}
+.overview-notes {
+  margin-top: 20px;
+  max-width: 850px;
+}
+.overview-notes summary {
+  cursor: pointer;
+}
+.overview-notes p {
+  line-height: 1.6;
+}
+@media (max-width: 1050px) {
+  .overview-costs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .overview-view {
+    padding: 20px 16px;
+  }
+  .overview-intro > p {
+    display: none;
+  }
+  .overview-headlines {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .overview-metric {
+    padding: 16px;
+  }
+  .overview-budget {
+    grid-column: 1 / -1;
+  }
+  .overview-travel {
+    gap: 16px;
+  }
+  .overview-travel strong {
+    font-size: 21px;
+  }
+  .overview-costs {
+    padding: 16px;
+    gap: 12px 24px;
+    margin-bottom: 22px;
+  }
+  .overview-costs > div {
+    flex-direction: column;
+    gap: 3px;
+  }
+  .overview-stays {
+    padding: 16px;
+  }
+  .overview-stay-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .overview-table th:first-child {
+    width: 45%;
+    min-width: 105px;
+  }
+  .overview-table th,
+  .overview-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+@media (min-width: 900px) and (min-height: 640px) {
+  .app-shell.overview-shell {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .view-toolbar {
+    row-gap: 12px;
+  }
+  .view-toolbar nav {
+    margin-top: 0;
+  }
+}
+
+/* Keep the map camera mounted between views without leaving hidden grid tracks. */
+.app-shell .view-layout[hidden],
+.app-shell .scrubber[hidden] {
+  display: none;
+}
