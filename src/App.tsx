@@ -1543,22 +1543,6 @@ function App() {
           </div>
         </div>
         <div className="view-toolbar">
-          <nav aria-label="Trip view">
-            {(["map", "calendar"] as const).map((t) => (
-              <button
-                key={t}
-                aria-pressed={tab === t}
-                className={tab === t ? "tab active" : "tab"}
-                onClick={() => {
-                  setPlaying(false);
-                  setTab(t);
-                }}
-              >
-                <Icon kind={t} />
-                {t === "map" ? "Map" : "Calendar"}
-              </button>
-            ))}
-          </nav>
           {itinerary && (
             <div className="global-area">
               <span>Area</span>
@@ -1576,6 +1560,22 @@ function App() {
               />
             </div>
           )}
+          <nav aria-label="Trip view">
+            {(["map", "calendar"] as const).map((t) => (
+              <button
+                key={t}
+                aria-pressed={tab === t}
+                className={tab === t ? "tab active" : "tab"}
+                onClick={() => {
+                  setPlaying(false);
+                  setTab(t);
+                }}
+              >
+                <Icon kind={t} />
+                {t === "map" ? "Map" : "Calendar"}
+              </button>
+            ))}
+          </nav>
         </div>
       </header>
       {loading ? (

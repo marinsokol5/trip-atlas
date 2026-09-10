@@ -1525,8 +1525,8 @@ select option {
 .view-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 24px;
   flex-wrap: wrap;
 }
 .global-area {
