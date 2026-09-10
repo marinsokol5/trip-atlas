@@ -192,8 +192,13 @@ function TripMap({
     const node = frame.current;
     if (!node) return;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry.contentRect.width > 0)
-        setFrameScale(entry.contentRect.width / 900);
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0)
+        setFrameScale(
+          Math.min(
+            entry.contentRect.width / 900,
+            entry.contentRect.height / 480,
+          ),
+        );
     });
     observer.observe(node);
     return () => observer.disconnect();
@@ -430,6 +435,7 @@ function TripMap({
         <div className="map-controls">
           <button
             onClick={togglePlayback}
+            className="playback-toggle"
             aria-label={
               playing
                 ? "Pause itinerary"
@@ -507,8 +513,7 @@ function TripMap({
             }}
             onPointerMove={(e) => {
               if (drag.current) {
-                const scale =
-                  900 / e.currentTarget.getBoundingClientRect().width;
+                const scale = 1 / frameScale;
                 setView((v) => ({
                   ...v,
                   x: drag.current!.vx + (e.clientX - drag.current!.x) * scale,
@@ -1147,7 +1152,11 @@ function App() {
       : undefined;
   const readout = day ? `${dayLabel(day)} · ${time ?? "Planned day"}` : "";
   return (
-    <main data-theme={theme} style={{ colorScheme: theme } as CSSProperties}>
+    <main
+      className="app-shell"
+      data-theme={theme}
+      style={{ colorScheme: theme } as CSSProperties}
+    >
       <header className="top">
         <div className="heading">
           <div>
@@ -1225,7 +1234,7 @@ function App() {
         <>
           <div className={`view-layout ${tab}`}>
             <section aria-label={tab === "map" ? "Map view" : "Calendar view"}>
-              <div hidden={tab !== "map"}>
+              <div className="map-view" hidden={tab !== "map"}>
                 <TripMap
                   key={selected}
                   model={itinerary}
