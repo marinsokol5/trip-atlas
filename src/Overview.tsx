@@ -53,7 +53,7 @@ export function Overview({
           <p className="overview-number">
             {moneyLabel(data.costs.total, currency)}
           </p>
-          <p>Whole travelling party</p>
+          <p>Per person</p>
         </section>
       </div>
       <div className="overview-costs" aria-label="Cost breakdown">
@@ -135,7 +135,8 @@ export function Overview({
           Crossing days can appear in more than one country.
         </p>
         <p>
-          ~ means estimated; + means some values are missing; ? means unknown.
+          All costs are per person. ~ means estimated; + means some values are
+          missing; ? means unknown.
           No daily budget or travel prices are assumed. Living costs use one
           country per day; accommodation excludes nights in transit.
         </p>

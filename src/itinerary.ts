@@ -21,10 +21,13 @@ export interface TravelComponent {
   estimatedDurationMinutes?: number;
 }
 export interface CountryBudget {
+  /** Daily living estimate for one person, in the trip currency. */
   livingPerDay?: number;
+  /** One person's accommodation share per night, in the trip currency. */
   accommodationPerNight?: number;
 }
 export interface TravelBlock {
+  /** Estimated price for one person, in the trip currency. */
   estimatedCost?: number;
   components?: TravelComponent[];
   type: "travel";

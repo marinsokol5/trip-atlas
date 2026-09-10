@@ -8,6 +8,7 @@ import {
   timeLabel,
   travelTimes,
 } from "./overview-model.ts";
+// Rates and fares are per person, including the accommodation share.
 const fixture = (): Trip => ({
   version: 1,
   currency: "EUR",
@@ -53,7 +54,7 @@ const fixture = (): Trip => ({
     {},
   ],
 });
-test("days, bed nights and in-transit nights remain distinct across repeat visits", () => {
+test("per-person budgets preserve day and night allocation across repeat visits", () => {
   const m = normalizeTrip(fixture()),
     whole = overview(m),
     jp = overview(m, "JP"),
@@ -69,6 +70,7 @@ test("days, bed nights and in-transit nights remain distinct across repeat visit
   assert.equal(whole.costs.living.value, 310);
   assert.equal(whole.costs.accommodation.value, 330);
   assert.equal(whole.costs.total.value, 840);
+  assert.equal(moneyLabel(whole.costs.total, "EUR"), "~€840");
   assert.equal(jp.costs.living.value, 280);
   assert.equal(vn.costs.living.value, 30);
   assert.equal(jp.costs.flights.value, 200);
