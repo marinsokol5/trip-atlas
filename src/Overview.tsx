@@ -1,23 +1,41 @@
 import { useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronRight,
+  ArrowLeft,
+} from "lucide-react";
 import type { Itinerary } from "./itinerary";
 import { mapAreas } from "./view-model";
 import {
   averageLabel,
+  combine,
   headlineTimeLabel,
   moneyLabel,
   nightShare,
   overview,
   timeLabel,
 } from "./overview-model";
+import {
+  defaultStaySort,
+  orderStayRows,
+  parseStaySort,
+} from "./overview-presentation";
+import type { StaySortKey } from "./overview-presentation";
 
 export function Overview({
   model,
   country,
+  onSelectCountry,
 }: {
   model: Itinerary;
   country: string;
+  onSelectCountry: (country: string) => void;
 }) {
-  const canCompareCountries = !country && mapAreas(model).length > 1;
+  const areas = mapAreas(model);
+  const visitedCountries = new Set(areas.map((area) => area.country));
+  const canCompareCountries = !country && areas.length > 1;
   const [preferredBreakdown, setBreakdown] = useState<"countries" | "places">(
     "countries",
   );
@@ -40,34 +58,130 @@ export function Overview({
   ] as const;
   const unallocatedTime = data.times.unallocated.known > 0;
   const unallocatedCost = data.costs.unallocated.known > 0;
+  const [preferredSort, setSort] = useState(() => {
+    try {
+      return parseStaySort(
+        window.localStorage.getItem("trip-atlas-overview-sort"),
+      );
+    } catch {
+      return defaultStaySort;
+    }
+  });
+  const sort =
+    countryCosts || preferredSort.key === "nights"
+      ? preferredSort
+      : defaultStaySort;
+  const rows = orderStayRows(data.stays, data.countries, sort);
+  const hasNights = data.nights > 0;
+  const placeCostLabel = hasNights ? "Living + stay" : "Living";
+  const countrySubtotal = combine(
+    ...[...data.countries]
+      .filter(([code]) => code !== "unknown")
+      .map(([, value]) => value.total),
+  );
+  const hasExtraAmounts = extraBuckets.some(
+    ([, value]) => value.value > 0 || value.missing > 0,
+  );
+  const sortColumn = (key: StaySortKey) => {
+    const next = {
+      key,
+      direction:
+        sort.key === key && sort.direction === "descending"
+          ? ("ascending" as const)
+          : ("descending" as const),
+    };
+    setSort(next);
+    try {
+      window.localStorage.setItem(
+        "trip-atlas-overview-sort",
+        JSON.stringify(next),
+      );
+    } catch {
+      /* Sorting remains usable without storage. */
+    }
+  };
+  const sortHeading = (key: StaySortKey, label: string, hidden = false) => {
+    const active = sort.key === key;
+    const SortIcon = active
+      ? sort.direction === "descending"
+        ? ArrowDown
+        : ArrowUp
+      : ArrowUpDown;
+    return (
+      <th hidden={hidden} aria-sort={active ? sort.direction : "none"}>
+        {rows.length > 1 ? (
+          <button
+            className="overview-sort"
+            type="button"
+            onClick={() => sortColumn(key)}
+            aria-label={`Sort by ${key === "average" ? "average daily cost" : key === "total" ? "total cost" : "nights"}`}
+            title={`Sort ${active && sort.direction === "descending" ? "ascending" : "descending"} by ${key === "nights" ? "nights" : "the supplied estimate"}`}
+          >
+            {label}
+            <SortIcon className="overview-sort-icon" aria-hidden="true" />
+          </button>
+        ) : (
+          label
+        )}
+      </th>
+    );
+  };
+  const travelItems = [
+    ["Flights", data.times.flights],
+    ["Other transport", data.times.other],
+  ] as const;
+  const applicableTravel = travelItems.filter(
+    ([, value]) => value.known || value.missing,
+  );
+  const costItems = [
+    ["Living", data.costs.living],
+    ["Accommodation", data.costs.accommodation],
+    [country ? "Domestic flights" : "Flights", data.costs.flights],
+    [country ? "In-country transport" : "Other transport", data.costs.other],
+    ...(unallocatedCost
+      ? [["Mixed transport", data.costs.unallocated] as const]
+      : []),
+  ] as const;
   return (
     <section className="overview-view" aria-label="Overview view">
+      {country && areas.length > 1 && (
+        <button
+          className="overview-back"
+          type="button"
+          onClick={() => onSelectCountry("")}
+        >
+          <ArrowLeft aria-hidden="true" />
+          Whole trip
+        </button>
+      )}
       <div className={`overview-headlines ${showCosts ? "has-budget" : ""}`}>
         <section className="overview-metric">
           <h3>Duration</h3>
           <p className="overview-number">
-            {data.days} <span>days</span>
+            {data.days} <span>{data.days === 1 ? "day" : "days"}</span>
           </p>
           <p>
-            {data.nights} {data.nights === 1 ? "night" : "nights"}
+            {hasNights
+              ? `${data.nights} ${data.nights === 1 ? "night" : "nights"}`
+              : "No overnight stays"}
           </p>
         </section>
         <section className="overview-metric">
           <h3>Travel time</h3>
-          <div className="overview-travel">
-            <div>
-              <strong title={timeLabel(data.times.flights)} tabIndex={0}>
-                {headlineTimeLabel(data.times.flights)}
-              </strong>
-              <span>Flights</span>
+          {applicableTravel.length ? (
+            <div className="overview-travel">
+              {applicableTravel.map(([label, value]) => (
+                <div key={label}>
+                  <strong title={timeLabel(value)} tabIndex={0}>
+                    {headlineTimeLabel(value)}
+                  </strong>
+                  <span>{label}</span>
+                </div>
+              ))}
             </div>
-            <div>
-              <strong title={timeLabel(data.times.other)} tabIndex={0}>
-                {headlineTimeLabel(data.times.other)}
-              </strong>
-              <span>Other transport</span>
-            </div>
-          </div>
+          ) : (
+            <p className="overview-empty-metric">No vehicle travel</p>
+          )}
         </section>
         {showCosts && (
           <section className="overview-metric overview-budget">
@@ -78,47 +192,49 @@ export function Overview({
             <p className="overview-number">
               {moneyLabel(data.costs.total, currency)}
             </p>
-            <p>Per person</p>
-            {country && (
-              <p
-                className="overview-average"
-                title={`Total divided by ${data.budgetDays} budgeted days`}
-              >
-                <strong>
-                  {averageLabel(data.costs.total, data.budgetDays, currency)}
-                </strong>{" "}
-                / day · {data.budgetDays} budgeted days
-              </p>
-            )}
+            <p className="overview-average">
+              Per person
+              {data.budgetDays > 0 && (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span
+                    title={`Total divided by ${data.budgetDays} ${country ? "days assigned to this country's living budget" : "trip days"}`}
+                  >
+                    <strong>
+                      {averageLabel(
+                        data.costs.total,
+                        data.budgetDays,
+                        currency,
+                      )}
+                    </strong>{" "}
+                    / day
+                  </span>
+                </>
+              )}
+            </p>
           </section>
         )}
       </div>
       {!showCosts && (
         <p className="overview-budget-empty">
-          {country ? "Country budget not provided" : "Budget not provided"}
+          {country
+            ? data.costs.total.missing
+              ? "Country budget not provided"
+              : "No in-country costs"
+            : "Budget not provided"}
         </p>
       )}
       {showCosts && (
         <div className="overview-costs" aria-label="Cost breakdown">
-          {(
-            [
-              ["Living", data.costs.living],
-              ["Accommodation", data.costs.accommodation],
-              [country ? "Domestic flights" : "Flights", data.costs.flights],
-              [
-                country ? "In-country transport" : "Other transport",
-                data.costs.other,
-              ],
-              ...(unallocatedCost
-                ? [["Mixed transport", data.costs.unallocated] as const]
-                : []),
-            ] as const
-          ).map(([label, cost]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{moneyLabel(cost, currency)}</strong>
-            </div>
-          ))}
+          {costItems
+            .filter(([, cost]) => cost.known || cost.missing)
+            .map(([label, cost]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{moneyLabel(cost, currency)}</strong>
+              </div>
+            ))}
         </div>
       )}
       {showSeparateCosts &&
@@ -142,17 +258,22 @@ export function Overview({
         <div className="overview-stay-heading">
           <div>
             <h2 id="stays-heading">
-              {countryCosts ? "Country comparison" : "Where you’ll stay"}
+              {countryCosts
+                ? "Country comparison"
+                : hasNights
+                  ? "Where you’ll stay"
+                  : "Places visited"}
             </h2>
             <p className="overview-stay-caption">
-              Share of {data.nights} {data.nights === 1 ? "night" : "nights"} in
-              this area
+              {hasNights
+                ? `Share of ${data.nights} ${data.nights === 1 ? "night" : "nights"}`
+                : "Day visits and travel stops"}
             </p>
             {(countryCosts || data.hasStayCosts) && (
               <p className="overview-stay-caption">
                 {breakdown === "countries"
-                  ? "Living, stays and in-country travel · per person"
-                  : "Living + stay only · per person"}
+                  ? "In-country costs · per person"
+                  : `${placeCostLabel} only · per person`}
               </p>
             )}
           </div>
@@ -179,19 +300,19 @@ export function Overview({
                 <th>
                   {breakdown === "countries" ? "Country" : "Place / area"}
                 </th>
-                <th>Nights</th>
+                {sortHeading("nights", "Nights", !hasNights)}
                 {countryCosts ? (
                   <>
-                    <th>Total</th>
-                    <th>Average/day</th>
+                    {sortHeading("total", "Total")}
+                    {sortHeading("average", "Avg/day")}
                   </>
                 ) : (
-                  data.hasStayCosts && <th>Living + stay</th>
+                  data.hasStayCosts && <th>{placeCostLabel}</th>
                 )}
               </tr>
             </thead>
             <tbody>
-              {data.stays.map((row) => (
+              {rows.map((row) => (
                 <tr
                   key={row.key}
                   className={
@@ -199,12 +320,27 @@ export function Overview({
                   }
                 >
                   <th scope="row">
-                    <span className="overview-place">
-                      <i style={{ backgroundColor: row.color }} />
-                      {row.name}
-                    </span>
+                    {canCompareCountries &&
+                    breakdown === "countries" &&
+                    visitedCountries.has(row.key) ? (
+                      <button
+                        className="overview-place overview-country-link"
+                        type="button"
+                        aria-label={`View ${row.name}`}
+                        onClick={() => onSelectCountry(row.key)}
+                      >
+                        <i style={{ backgroundColor: row.color }} />
+                        <span className="overview-place-name">{row.name}</span>
+                        <ChevronRight aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <span className="overview-place">
+                        <i style={{ backgroundColor: row.color }} />
+                        <span className="overview-place-name">{row.name}</span>
+                      </span>
+                    )}
                   </th>
-                  <td>
+                  <td hidden={!hasNights}>
                     <div className="overview-night-measure">
                       <span
                         className="overview-bar"
@@ -266,16 +402,32 @@ export function Overview({
             </tbody>
             {countryCosts && !country && (
               <tfoot>
+                {hasExtraAmounts && (
+                  <tr>
+                    <th scope="row">Countries subtotal</th>
+                    <td hidden={!hasNights}>—</td>
+                    <td>{moneyLabel(countrySubtotal, currency)}</td>
+                    <td>—</td>
+                  </tr>
+                )}
                 {extraBuckets
                   .filter(([, cost]) => cost.known || cost.missing)
                   .map(([label, cost]) => (
                     <tr key={label}>
                       <th scope="row">{label}</th>
-                      <td>—</td>
+                      <td hidden={!hasNights}>—</td>
                       <td>{moneyLabel(cost, currency)}</td>
                       <td>—</td>
                     </tr>
                   ))}
+                <tr className="overview-grand-total">
+                  <th scope="row">Trip total</th>
+                  <td hidden={!hasNights}>—</td>
+                  <td>{moneyLabel(data.costs.total, currency)}</td>
+                  <td>
+                    {averageLabel(data.costs.total, data.budgetDays, currency)}
+                  </td>
+                </tr>
               </tfoot>
             )}
           </table>
@@ -289,12 +441,17 @@ export function Overview({
           {timeLabel(data.times.other)}.
         </p>
         <p>
+          Column headings sort the supplied figures; incomplete estimates keep
+          their + marker and unknown values stay last. Country names open that
+          area's overview.
+        </p>
+        <p>
           Days touched count every listed day spent in a country or place,
           including crossing days. They can overlap and should not be added
           together.
         </p>
         <dl className="overview-days-touched">
-          {data.stays.map((row) => (
+          {rows.map((row) => (
             <div key={row.key}>
               <dt>{row.name}</dt>
               <dd>

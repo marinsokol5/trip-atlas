@@ -1802,6 +1802,7 @@ function App() {
               key={`${selected}:${country}`}
               model={itinerary}
               country={country}
+              onSelectCountry={changeArea}
             />
           )}
           <div
