@@ -861,11 +861,26 @@ function App() {
     [loading, setLoading] = useState(true),
     [value, setValue] = useState(0.5),
     [tab, setTab] = useState<"map" | "calendar">("map");
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    window.matchMedia("(prefers-color-scheme: dark)").matches
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const saved = window.localStorage.getItem("trip-atlas-theme");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch {
+      // Use the system preference if browser storage is unavailable.
+    }
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
-      : "light",
-  );
+      : "light";
+  });
+  function toggleTheme() {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    try {
+      window.localStorage.setItem("trip-atlas-theme", next);
+    } catch {
+      // Switching themes still works when storage is unavailable.
+    }
+  }
   useEffect(() => {
     let active = true;
     json("/trips/index.json")
@@ -989,7 +1004,7 @@ function App() {
             <button
               className="theme-button"
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
-              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              onClick={toggleTheme}
             >
               <Icon kind={theme === "light" ? "moon" : "sun"} />
             </button>
