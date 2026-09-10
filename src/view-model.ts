@@ -1,3 +1,4 @@
+import { dateAt } from "./itinerary.ts";
 import type { Itinerary, Leg, NormalizedDay } from "./itinerary.ts";
 
 export const palette = [
@@ -111,7 +112,9 @@ export function calendarCountries(model: Itinerary, day: NormalizedDay) {
     const country = id ? model.trip.places[id]?.country : undefined;
     if (country && countries.at(-1) !== country) countries.push(country);
   };
-  const carried = activeLegs(model, day).filter((leg) => leg.day < day.index + 1);
+  const carried = activeLegs(model, day).filter(
+    (leg) => leg.day < day.index + 1,
+  );
   // On arrival days startPlace may already be the destination: start with the carried journey.
   if (!carried.length) add(day.startPlace);
   for (const leg of carried) {
@@ -265,17 +268,28 @@ export function mapConnections(
   let pending: Leg[] = [];
   const flush = () => {
     if (!pending.length) return;
-    const durations = pending.map(vehicleDuration);
-    result.push({
-      id: pending[0].id,
-      from: pending[0].from,
-      to: pending.at(-1)!.to,
-      legs: pending,
-      minutes: durations.every((part) => part.minutes !== undefined)
-        ? durations.reduce((sum, part) => sum + part.minutes!, 0)
-        : undefined,
-      approximate: durations.some((part) => part.approximate),
-    });
+    const path = [pending[0].from, ...pending.map((leg) => leg.to)];
+    const halfway = pending.length / 2;
+    const returnTrip =
+      pending.length % 2 === 0 &&
+      path.every((id, i) => id === path[path.length - 1 - i]) &&
+      new Set(path.slice(0, halfway + 1)).size === halfway + 1;
+    const journeys = returnTrip
+      ? [pending.slice(0, halfway), pending.slice(halfway)]
+      : [pending];
+    for (const journey of journeys) {
+      const durations = journey.map(vehicleDuration);
+      result.push({
+        id: journey[0].id,
+        from: journey[0].from,
+        to: journey.at(-1)!.to,
+        legs: journey,
+        minutes: durations.every((part) => part.minutes !== undefined)
+          ? durations.reduce((sum, part) => sum + part.minutes!, 0)
+          : undefined,
+        approximate: durations.some((part) => part.approximate),
+      });
+    }
     pending = [];
   };
   for (const leg of model.legs) {
@@ -299,15 +313,14 @@ export function mapConnections(
   flush();
   return result;
 }
-export type MapDurationFilter = "all" | "60" | "120" | "none";
+export type MapDurationFilter = "all" | "30" | "60" | "120" | "240" | "none";
 export function mapConnectionVisible(
-  model: Itinerary,
+  _model: Itinerary,
   connection: MapConnection,
   filter: MapDurationFilter,
 ) {
   return (
     filter !== "none" &&
-    groupKey(model, connection.from) !== groupKey(model, connection.to) &&
     connection.minutes !== undefined &&
     connection.minutes > (filter === "all" ? 0 : Number(filter))
   );
@@ -328,11 +341,7 @@ export function mapDisplayConnections(
   const connections = mapConnections(model, country);
   const pairs = new Map<string, MapConnection[]>();
   for (const connection of connections) {
-    if (
-      !connection.from ||
-      groupKey(model, connection.from) === groupKey(model, connection.to)
-    )
-      continue;
+    if (!connection.from || connection.from === connection.to) continue;
     const key = JSON.stringify([connection.from, connection.to].sort());
     pairs.set(key, [...(pairs.get(key) ?? []), connection]);
   }
@@ -647,15 +656,24 @@ export function durationTotals(model: Itinerary) {
     const legs = model.legs
       .flatMap((leg) => {
         const parts = componentLegs(leg);
-        return leg.block.components && leg.durationMs !== undefined
+        return leg.block.components &&
+          (leg.durationMs !== undefined ||
+            (leg.block.estimatedDurationMinutes !== undefined &&
+              leg.block.components.some(
+                (part) => part.estimatedDurationMinutes === undefined,
+              )))
           ? [
-              ...parts,
+              ...(leg.durationMs !== undefined ? parts : []),
               {
                 ...leg,
                 block: {
                   type: "travel" as const,
                   to: leg.to,
                   mode: "mixed / unallocated",
+                  estimatedDurationMinutes:
+                    leg.durationMs === undefined
+                      ? leg.block.estimatedDurationMinutes
+                      : undefined,
                 },
               },
             ]
@@ -753,6 +771,42 @@ export function calendarSlots(model: Itinerary): (NormalizedDay | undefined)[] {
   return Array.from(
     { length: Math.ceil((offset + model.days.length) / 7) * 7 },
     (_, i) => model.days[i - offset],
+  );
+}
+
+/** Keep complete calendar weeks around scoped presence; omit unrelated intervening weeks. */
+export function scopedCalendarSlots(model: Itinerary, country = "") {
+  const eligible = new Set(areaDays(model, country).map((day) => day.index));
+  if (!model.trip.startDate)
+    return model.days
+      .filter((day) => eligible.has(day.index))
+      .map((day, index, days) => ({
+        day,
+        date: day.date,
+        inScope: true,
+        gapBefore: index > 0 && day.index > days[index - 1].index + 1,
+      }));
+  const slots = calendarSlots(model);
+  const offset = slots.findIndex((day) => day !== undefined);
+  const weeks = new Set(
+    slots.flatMap((day, i) =>
+      day && eligible.has(day.index) ? [Math.floor(i / 7)] : [],
+    ),
+  );
+  return slots.flatMap((day, i) =>
+    weeks.has(Math.floor(i / 7))
+      ? [
+          {
+            day,
+            date: dateAt(model.trip.startDate!, i - offset),
+            inScope: !!day && eligible.has(day.index),
+            gapBefore:
+              i % 7 === 0 &&
+              i / 7 > Math.min(...weeks) &&
+              !weeks.has(i / 7 - 1),
+          },
+        ]
+      : [],
   );
 }
 

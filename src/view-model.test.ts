@@ -9,6 +9,7 @@ import {
   areaDays,
   dayCountries,
   calendarCountries,
+  scopedCalendarSlots,
   scopedPosition,
   tripPosition,
   advancePlayback,
@@ -570,4 +571,69 @@ test("calendar country context survives overnight arrivals and absent metadata",
   );
   const sparse = normalizeTrip({ version: 1, places: { a: {} }, days: [{}] });
   assert.equal(calendarCountries(sparse, sparse.days[0]), "");
+});
+
+test("scoped calendar preserves whole boundary weeks, skips gaps and marks revisits", () => {
+  const model = normalizeTrip({
+    version: 1,
+    startDate: "2026-12-28",
+    initialPlace: "jp",
+    places: { jp: { country: "JP" }, vn: { country: "VN" } },
+    days: Array.from({ length: 24 }, (_, i) =>
+      i === 2
+        ? { blocks: [{ type: "place", place: "vn" }] }
+        : i === 22
+          ? { blocks: [{ type: "place", place: "jp" }] }
+          : {},
+    ),
+  });
+  const slots = scopedCalendarSlots(model, "JP");
+  assert.equal(slots.length, 14);
+  assert.deepEqual(
+    slots.filter((slot) => slot.inScope).map((slot) => slot.day?.index),
+    [0, 1, 2, 22, 23],
+  );
+  assert.equal(slots[0].date, "2026-12-28");
+  assert.equal(slots[6].date, "2027-01-03");
+  assert.equal(slots[7].date, "2027-01-18");
+  assert.equal(slots[7].gapBefore, true);
+  assert.equal(slots[3].inScope, false);
+  assert.equal(slots.at(-1)?.day, undefined);
+  assert.equal(scopedCalendarSlots(model).length, 28);
+  assert.equal(scopedCalendarSlots(model, "VN")[0].gapBefore, false);
+});
+
+test("scoped calendar handles undated gaps, unknown countries and a single day", () => {
+  const model = scopeTrip();
+  assert.deepEqual(
+    scopedCalendarSlots(model, "JP").map((slot) => slot.day?.index),
+    [0, 1, 4, 5, 6],
+  );
+  assert.equal(scopedCalendarSlots(model, "JP")[2].gapBefore, true);
+  assert.equal(scopedCalendarSlots(model, "TH").length, 0);
+  const sparse = normalizeTrip({
+    version: 1,
+    startDate: "2026-12-31",
+    places: {},
+    days: [{}],
+  });
+  assert.equal(scopedCalendarSlots(sparse).length, 7);
+  assert.equal(
+    scopedCalendarSlots(sparse).filter((slot) => slot.inScope).length,
+    1,
+  );
+});
+
+test("first scoped calendar week is never labeled a later visit", () => {
+  const model = normalizeTrip({
+    version: 1,
+    startDate: "2026-12-28",
+    initialPlace: "a",
+    places: { a: { country: "VN" }, b: { country: "JP" } },
+    days: Array.from({ length: 15 }, (_, i) =>
+      i === 10 ? { blocks: [{ type: "travel", to: "b" }] } : {},
+    ),
+  });
+  assert.equal(scopedCalendarSlots(model, "JP")[0].date, "2027-01-04");
+  assert.equal(scopedCalendarSlots(model, "JP")[0].gapBefore, false);
 });

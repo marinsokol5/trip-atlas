@@ -33,12 +33,7 @@ import {
 import type { CSSProperties } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { GeoPermissibleObjects } from "d3-geo";
-import {
-  dateAt,
-  documentUrl,
-  normalizeTrip,
-  safeRelativePath,
-} from "./itinerary";
+import { documentUrl, normalizeTrip, safeRelativePath } from "./itinerary";
 import type { Itinerary, NormalizedDay, DocumentLink, Leg } from "./itinerary";
 import {
   activeLegs,
@@ -75,7 +70,7 @@ import {
   wheelZoomFactor,
   mapZoomMin,
   mapZoomMax,
-  calendarSlots,
+  scopedCalendarSlots,
   calendarCountries,
   routeCurve,
 } from "./view-model";
@@ -208,8 +203,19 @@ function LegChip({ leg }: { leg: Leg }) {
         {componentLegs(leg).map((c) => (
           <LegChip key={c.id} leg={c} />
         ))}
-        {leg.durationMs !== undefined && (
-          <span className="leg-chip">{duration(leg.durationMs)} total</span>
+        {legDuration(leg) && (
+          <span
+            className="leg-chip"
+            title={
+              leg.block.components.every(
+                (part) => part.estimatedDurationMinutes !== undefined,
+              )
+                ? "Whole connection total; component estimates shown separately"
+                : "Whole connection; missing mode durations are not allocated"
+            }
+          >
+            {legDuration(leg)} total
+          </span>
         )}
       </>
     );
@@ -347,7 +353,6 @@ function TripMap({
   value,
   clock,
   country,
-  changeArea,
   status,
   day,
   playing,
@@ -360,7 +365,6 @@ function TripMap({
   value: number;
   clock: Playhead;
   country: string;
-  changeArea: (country: string) => void;
   status: string;
   day: NormalizedDay;
   playing: boolean;
@@ -371,7 +375,6 @@ function TripMap({
 }) {
   const moment = mapMomentAt(model, value);
 
-  const areas = useMemo(() => mapAreas(model), [model]);
   const area = useMemo(() => mapArea(model, country), [model, country]);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [viewCountry, setViewCountry] = useState(country);
@@ -383,7 +386,6 @@ function TripMap({
   const frame = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
   const frameScale = Math.min(frameSize.width / 900, frameSize.height / 480);
-  const compact = useCompactScreen();
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
@@ -591,6 +593,7 @@ function TripMap({
     ]);
     return position ? [{ ...label, position }] : [];
   });
+  let durationLabelCandidates = 0;
   const connectionLabels = connections.flatMap((connection) => {
     const text = mapDisplayDuration(model, connection, durationFilter);
     if (!text) return [];
@@ -602,11 +605,8 @@ function TripMap({
         Math.hypot(b.curve.b[0] - b.curve.a[0], b.curve.b[1] - b.curve.a[1]) -
         Math.hypot(a.curve.b[0] - a.curve.a[0], a.curve.b[1] - a.curve.a[1]),
     )[0];
-    const selected = [
-      ...connection.outbound.legs,
-      ...(connection.inbound?.legs ?? []),
-    ].some((leg) => leg.day <= day.index + 1 && leg.endDay >= day.index + 1);
-    if (!route || (compact && !selected)) return [];
+    if (!route) return [];
+    durationLabelCandidates++;
     const anchor = curvePoint(route.curve, 0.5);
     const width = text.length * 7 + 12;
     const position = placeLabel(anchor, width, 22, [
@@ -623,6 +623,23 @@ function TripMap({
       ...[-80, 64, -108, 92].flatMap((dy) =>
         [-width - 60, -width / 2, 60].map((dx) => [dx, dy] as Point),
       ),
+      ...Array.from(
+        { length: Math.max(0, Math.floor((480 * frameScale - 32) / 28)) },
+        (_, row) =>
+          Array.from(
+            {
+              length: Math.max(
+                0,
+                Math.floor((900 * frameScale - 10) / (width + 10)),
+              ),
+            },
+            (_, column) =>
+              [
+                5 + column * (width + 10) - screen(anchor)[0],
+                5 + row * 28 - screen(anchor)[1],
+              ] as Point,
+          ),
+      ).flat(),
     ]);
     return position ? [{ connection, anchor, position, width, text }] : [];
   });
@@ -649,26 +666,8 @@ function TripMap({
           <div
             className="map-primary-controls"
             role="group"
-            aria-label="Map area and zoom"
+            aria-label="Map zoom"
           >
-            <div className="map-duration-filter">
-              Area
-              <ThemedSelect
-                label="Map area"
-                value={country}
-                options={[
-                  { value: "", label: "Whole trip" },
-                  ...areas.map((area) => ({
-                    value: area.country,
-                    label: area.name,
-                  })),
-                ]}
-                onChange={(country) => {
-                  changeArea(country);
-                  drag.current = undefined;
-                }}
-              />
-            </div>
             <button
               aria-label="Zoom in"
               disabled={view.k >= mapZoomMax}
@@ -731,8 +730,10 @@ function TripMap({
                 value={durationFilter}
                 options={[
                   { value: "all", label: "All" },
+                  { value: "30", label: ">30m" },
                   { value: "60", label: ">1h" },
                   { value: "120", label: ">2h" },
+                  { value: "240", label: ">4h" },
                   { value: "none", label: "None" },
                 ]}
                 onChange={(filter) =>
@@ -757,13 +758,12 @@ function TripMap({
               };
             }}
             onPointerMove={(e) => {
-              if (drag.current) {
-                const scale = 1 / frameScale;
-                setView((v) => ({
-                  ...v,
-                  x: drag.current!.vx + (e.clientX - drag.current!.x) * scale,
-                  y: drag.current!.vy + (e.clientY - drag.current!.y) * scale,
-                }));
+              const start = drag.current;
+              if (start) {
+                // React may apply this update after pointerup clears the drag ref.
+                const x = start.vx + (e.clientX - start.x) / frameScale;
+                const y = start.vy + (e.clientY - start.y) / frameScale;
+                setView((v) => ({ ...v, x, y }));
               }
             }}
             onPointerUp={() => {
@@ -806,7 +806,8 @@ function TripMap({
               </g>
               {geometry.routes.map(({ leg, reverseLeg, curve }) => {
                 const internal =
-                    groupKey(model, leg.from) === groupKey(model, leg.to),
+                    groupKey(model, leg.from) === groupKey(model, leg.to) &&
+                    modeKind(leg) === "walk",
                   isActive =
                     selected.has(leg.id) ||
                     (!!reverseLeg && selected.has(reverseLeg.id));
@@ -897,7 +898,7 @@ function TripMap({
                       >
                         <span
                           className="connection-duration"
-                          title={`${name(model, connection.outbound.from)} ${connection.inbound ? "↔" : "→"} ${name(model, connection.outbound.to)} · ${connection.inbound ? "Longer direction's vehicle time" : "Vehicle time"}`}
+                          title={`${name(model, connection.outbound.from)} ${connection.inbound ? "↔" : "→"} ${name(model, connection.outbound.to)} · ${connection.inbound ? "One-way vehicle time (longer direction); return journey shown by both arrowheads" : connection.outbound.from === connection.outbound.to ? "Total vehicle time for this circuit" : "One-way vehicle time"}`}
                         >
                           {text}
                         </span>
@@ -993,9 +994,16 @@ function TripMap({
           />
         </div>
         <div className="map-source">
+          {durationLabelCandidates > connectionLabels.length && (
+            <span className="omitted-durations">
+              {durationLabelCandidates - connectionLabels.length} more duration
+              labels · zoom, pan or select an area ·{" "}
+            </span>
+          )}
+
           {Object.keys(geometry.points).length
             ? "Drag to pan · scroll down to zoom in · schematic connections · Natural Earth"
-            : `No coordinates for visited places${country ? ` in ${areas.find((area) => area.country === country)?.name ?? country}` : ""} · Natural Earth`}
+            : `No coordinates for visited places${country ? ` in ${mapAreas(model).find((area) => area.country === country)?.name ?? country}` : ""} · Natural Earth`}
         </div>
       </div>
       <div className="legend">
@@ -1021,23 +1029,64 @@ function Calendar({
   model,
   selectedDay,
   selectDay,
+  country,
   folder,
 }: {
   model: Itinerary;
   selectedDay: number;
   selectDay: (n: number) => void;
+  country: string;
   folder: string;
 }) {
   const compact = useCompactScreen();
-  const slots = model.trip.startDate ? calendarSlots(model) : model.days;
-  const offset = slots.findIndex((day) => day !== undefined);
-  const selectedSlot = selectedDay + offset;
+  const slots = useMemo(
+    () => scopedCalendarSlots(model, country),
+    [model, country],
+  );
+  const selectedSlot = slots.findIndex(
+    (slot) => slot.inScope && slot.day?.index === selectedDay,
+  );
+  const segmentStart = Math.max(
+    0,
+    slots.findLastIndex(
+      (slot, index) => index <= selectedSlot && slot.gapBefore,
+    ),
+  );
+  const selectedRowEnd = slots.findIndex((_, index) => {
+    const rowEnd =
+      (index - segmentStart) % 2 === 1 ||
+      index === slots.length - 1 ||
+      slots[index + 1].gapBefore;
+    return selectedSlot >= 0 && index >= selectedSlot && rowEnd;
+  });
+  const scroller = useRef<HTMLDivElement>(null);
+  const selectedCell = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const container = scroller.current,
+      cell = selectedCell.current;
+    if (!container || !cell) return;
+    const bounds = container.getBoundingClientRect(),
+      selected = cell.getBoundingClientRect();
+    const delta =
+      selected.top < bounds.top
+        ? selected.top - bounds.top - 8
+        : selected.bottom > bounds.bottom
+          ? selected.bottom - bounds.bottom + 8
+          : 0;
+    if (delta)
+      container.scrollTo({
+        top: container.scrollTop + delta,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
+  }, [selectedDay, country]);
   return (
-    <div className="calendar">
+    <div className="calendar" ref={scroller}>
       <div className="month-heading">
         <h2>
           {model.trip.startDate
-            ? `${dayLabel(model.days[0])} – ${dayLabel(model.days.at(-1)!)}`
+            ? `${slots.find((slot) => slot.inScope)?.date ? dateLabel(slots.find((slot) => slot.inScope)!.date!) : ""} – ${slots.findLast((slot) => slot.inScope)?.date ? dateLabel(slots.findLast((slot) => slot.inScope)!.date!) : ""}`
             : "Days ahead"}
         </h2>
         <span>~ approximate duration · bands show route sequence</span>
@@ -1048,12 +1097,25 @@ function Calendar({
         ))}
       </div>
       <div className="calendar-grid">
-        {slots.map((day, i) => (
-          <Fragment key={i}>
-            {day ? (
+        {slots.map(({ day, date, inScope, gapBefore }, i) => (
+          <Fragment key={date ?? day?.index ?? i}>
+            {gapBefore && (
+              <div className="calendar-gap">
+                Later visit ·{" "}
+                {date
+                  ? dateLabel(date, {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })
+                  : `Day ${day!.index + 1}`}
+              </div>
+            )}
+            {day && inScope ? (
               <button
                 key={i}
                 className="calendar-day"
+                ref={day.index === selectedDay ? selectedCell : undefined}
                 data-day={day.index + 1}
                 aria-pressed={day.index === selectedDay}
                 onClick={() => selectDay(day.index)}
@@ -1094,27 +1156,24 @@ function Calendar({
             ) : (
               <div
                 className="empty-day"
-                aria-label={`${dateLabel(dateAt(model.trip.startDate!, i - offset), { day: "numeric", month: "long", weekday: "long" })}, outside itinerary`}
+                aria-label={`${date ? dateLabel(date, { day: "numeric", month: "long", weekday: "long" }) : `Day ${day!.index + 1}`}, ${day ? "outside selected area" : "outside itinerary"}`}
               >
                 <span className="day-date">
-                  {dateLabel(dateAt(model.trip.startDate!, i - offset), {
-                    day: "numeric",
-                    month: "short",
-                  })}
+                  {date
+                    ? dateLabel(date, { day: "numeric", month: "short" })
+                    : `Day ${day!.index + 1}`}
                 </span>
               </div>
             )}
-            {compact &&
-              (i % 2 === 1 || i === slots.length - 1) &&
-              Math.floor(selectedSlot / 2) === Math.floor(i / 2) && (
-                <div className="inline-day-details">
-                  <DayDetails
-                    model={model}
-                    day={model.days[selectedDay]}
-                    folder={folder}
-                  />
-                </div>
-              )}
+            {compact && i === selectedRowEnd && (
+              <div className="inline-day-details">
+                <DayDetails
+                  model={model}
+                  day={model.days[selectedDay]}
+                  folder={folder}
+                />
+              </div>
+            )}
           </Fragment>
         ))}
       </div>
@@ -1483,22 +1542,41 @@ function App() {
             </button>
           </div>
         </div>
-        <nav aria-label="Trip view">
-          {(["map", "calendar"] as const).map((t) => (
-            <button
-              key={t}
-              aria-pressed={tab === t}
-              className={tab === t ? "tab active" : "tab"}
-              onClick={() => {
-                setPlaying(false);
-                setTab(t);
-              }}
-            >
-              <Icon kind={t} />
-              {t === "map" ? "Map" : "Calendar"}
-            </button>
-          ))}
-        </nav>
+        <div className="view-toolbar">
+          <nav aria-label="Trip view">
+            {(["map", "calendar"] as const).map((t) => (
+              <button
+                key={t}
+                aria-pressed={tab === t}
+                className={tab === t ? "tab active" : "tab"}
+                onClick={() => {
+                  setPlaying(false);
+                  setTab(t);
+                }}
+              >
+                <Icon kind={t} />
+                {t === "map" ? "Map" : "Calendar"}
+              </button>
+            ))}
+          </nav>
+          {itinerary && (
+            <div className="global-area">
+              <span>Area</span>
+              <ThemedSelect
+                label="Trip area"
+                value={country}
+                options={[
+                  { value: "", label: "Whole trip" },
+                  ...mapAreas(itinerary).map((area) => ({
+                    value: area.country,
+                    label: area.name,
+                  })),
+                ]}
+                onChange={changeArea}
+              />
+            </div>
+          )}
+        </div>
       </header>
       {loading ? (
         <div className="message" role="status">
@@ -1522,7 +1600,6 @@ function App() {
                   value={value}
                   clock={clock}
                   country={country}
-                  changeArea={changeArea}
                   status={status}
                   day={day}
                   playing={playing}
@@ -1538,9 +1615,9 @@ function App() {
                 <Calendar
                   model={itinerary}
                   selectedDay={dayIndex}
+                  country={country}
                   folder={selected.slice(0, selected.lastIndexOf("/"))}
                   selectDay={(n) => {
-                    if (!days.some((day) => day.index === n)) setCountry("");
                     selectPosition(n + (clock.get() % 1));
                   }}
                 />

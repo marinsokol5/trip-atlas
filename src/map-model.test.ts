@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { normalizeTrip } from "./itinerary.ts";
 import {
   mapConnections,
+  mapDisplayConnections,
+  mapDisplayDuration,
+  durationTotals,
   mapConnectionVisible,
   mapConnectionDuration,
   transferPlaces,
@@ -164,13 +167,14 @@ test("return-to-base excursion cannot inflate onward intercity label or another 
   assert.deepEqual(
     connections.map((c) => [c.from, c.to, c.minutes]),
     [
-      ["nagano", "nagano", 90],
+      ["nagano", "park", 45],
+      ["park", "nagano", 45],
       ["nagano", "tokyo", 120],
       ["tokyo", "nagano", 120],
     ],
   );
-  assert.equal(mapConnectionVisible(model, connections[0], "all"), false);
-  assert.equal(mapConnectionDuration(connections[1]), "~2h");
+  assert.equal(mapConnectionVisible(model, connections[0], "all"), true);
+  assert.equal(mapConnectionDuration(connections[2]), "~2h");
 });
 
 test("missing vehicle shares suppress totals; unknown walking time does not invent vehicle time", () => {
@@ -345,4 +349,161 @@ test("arrow tips clear each painted circle by 2.5 screen pixels at every zoom", 
   assert.ok(zoomMap({ x: 0, y: 0, k: 1 }, 1 / 1.5).k < 1);
   assert.equal(zoomMap({ x: 0, y: 0, k: 1 }, 0.001).k, mapZoomMin);
   assert.equal(zoomMap({ x: 0, y: 0, k: 1 }, 100).k, mapZoomMax);
+});
+
+test("unsplit bus and boat estimates survive as total without invented component shares", () => {
+  for (const minutes of [360, 270]) {
+    const model = normalizeTrip({
+      version: 1,
+      initialPlace: "a",
+      places: { a: {}, b: {} },
+      days: [
+        {
+          blocks: [
+            {
+              type: "travel",
+              to: "b",
+              mode: "other",
+              estimatedDurationMinutes: minutes,
+              components: [{ mode: "bus" }, { mode: "ferry" }, { mode: "bus" }],
+            },
+          ],
+        },
+      ],
+    });
+    const [connection] = mapDisplayConnections(model);
+    assert.equal(connection.outbound.minutes, minutes);
+    assert.equal(
+      mapDisplayDuration(model, connection, "60"),
+      minutes === 360 ? "~6h" : "~4h30",
+    );
+    assert.equal(
+      durationTotals(model).find((t) => t.category === "mixed")?.estimatedMs,
+      minutes * 60000,
+    );
+    assert.equal(durationTotals(model)[0].estimatedMs, 0);
+    assert.ok(
+      model.legs[0].block.components!.every(
+        (part) => part.estimatedDurationMinutes === undefined,
+      ),
+    );
+  }
+});
+
+test("internal circuits retain all waypoints while return trips display one-way durations", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "base",
+    groups: { area: { name: "Area" } },
+    places: {
+      base: { group: "area" },
+      a: { group: "area" },
+      b: { group: "area" },
+      park: { group: "area" },
+    },
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "a",
+            mode: "car",
+            estimatedDurationMinutes: 30,
+          },
+          {
+            type: "travel",
+            to: "b",
+            mode: "car",
+            estimatedDurationMinutes: 25,
+          },
+          {
+            type: "travel",
+            to: "base",
+            mode: "car",
+            estimatedDurationMinutes: 20,
+          },
+        ],
+      },
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "park",
+            mode: "car",
+            estimatedDurationMinutes: 150,
+          },
+          {
+            type: "travel",
+            to: "base",
+            mode: "car",
+            estimatedDurationMinutes: 150,
+          },
+        ],
+      },
+    ],
+  });
+  const [circuit, excursion] = mapDisplayConnections(model);
+  assert.deepEqual(
+    circuit.outbound.legs.map((leg) => leg.to),
+    ["a", "b", "base"],
+  );
+  assert.equal(mapDisplayDuration(model, circuit, "all"), "~1h15");
+  assert.equal(excursion.inbound?.minutes, 150);
+  assert.equal(mapDisplayDuration(model, excursion, "120"), "~2h30");
+  assert.equal(mapDisplayDuration(model, excursion, "240"), "");
+  for (const threshold of ["30", "60", "120", "240"] as const) {
+    assert.equal(
+      mapConnectionVisible(
+        model,
+        { ...circuit.outbound, minutes: Number(threshold) },
+        threshold,
+      ),
+      false,
+    );
+    assert.equal(
+      mapConnectionVisible(
+        model,
+        { ...circuit.outbound, minutes: Number(threshold) + 0.1 },
+        threshold,
+      ),
+      true,
+    );
+  }
+  assert.equal(
+    mapConnectionVisible(model, { ...circuit.outbound, minutes: 45 }, "all"),
+    true,
+  );
+  assert.equal(
+    mapConnectionVisible(model, { ...circuit.outbound, minutes: 45 }, "60"),
+    false,
+  );
+});
+
+test("a partially allocated whole estimate is counted once in summaries", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "a",
+    places: { a: {}, b: {} },
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "b",
+            estimatedDurationMinutes: 100,
+            components: [
+              { mode: "bus", estimatedDurationMinutes: 20 },
+              { mode: "ferry" },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const totals = durationTotals(model);
+  assert.equal(
+    totals.reduce((sum, total) => sum + total.estimatedMs, 0),
+    100 * 60000,
+  );
+  assert.equal(model.legs[0].block.components![0].estimatedDurationMinutes, 20);
 });
