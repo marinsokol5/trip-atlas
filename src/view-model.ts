@@ -11,7 +11,9 @@ export const palette = [
 ];
 export function duration(ms: number) {
   const minutes = Math.round(ms / 60000);
-  return `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
+  return minutes < 60
+    ? `${minutes}m`
+    : `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
 }
 export function dateLabel(
   date: string,
@@ -101,4 +103,199 @@ export function curvePoint({ a, b, c }: Curve, t: number): Point {
     (1 - t) ** 2 * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0],
     (1 - t) ** 2 * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1],
   ];
+}
+
+export function groupKey(model: Itinerary, id?: string) {
+  return id
+    ? model.trip.places[id].group
+      ? `group:${model.trip.places[id].group}`
+      : `place:${id}`
+    : "unknown";
+}
+export function visualGroups(model: Itinerary) {
+  const result = new Map<
+    string,
+    { key: string; name: string; members: string[]; color: string }
+  >();
+  for (const [id, p] of Object.entries(model.trip.places)) {
+    const key = groupKey(model, id),
+      group = p.group ? model.trip.groups?.[p.group] : undefined;
+    if (!result.has(key))
+      result.set(key, {
+        key,
+        name: group?.name ?? p.name ?? id,
+        members: [],
+        color: group?.color ?? palette[result.size % palette.length],
+      });
+    result.get(key)!.members.push(id);
+  }
+  return [...result.values()];
+}
+export function placeColor(model: Itinerary, id?: string) {
+  return (
+    visualGroups(model).find((g) => g.key === groupKey(model, id))?.color ??
+    "var(--transit)"
+  );
+}
+const modePatterns = [
+  ["walk", /walk|hike|trek/],
+  ["train", /train|rail|shinkansen/],
+  ["bus", /bus|coach/],
+  ["flight", /flight|plane|fly/],
+  ["ferry", /ferry|boat/],
+  ["car", /car|taxi|drive/],
+] as const;
+function modeCategories(leg: Leg) {
+  const mode = leg.block.mode?.toLowerCase() ?? "";
+  return modePatterns
+    .filter(([, pattern]) => pattern.test(mode))
+    .map(([kind]) => kind);
+}
+export function modeKind(leg: Leg) {
+  const kinds = modeCategories(leg);
+  return kinds.length === 1 ? kinds[0] : "other";
+}
+export function estimatedMinutes(leg: Leg) {
+  const parts = leg.block.components;
+  return (
+    leg.block.estimatedDurationMinutes ??
+    (parts?.every((p) => p.estimatedDurationMinutes !== undefined)
+      ? parts.reduce((s, p) => s + p.estimatedDurationMinutes!, 0)
+      : undefined)
+  );
+}
+export function componentLegs(leg: Leg): Leg[] {
+  return (
+    leg.block.components?.map((p, i) => ({
+      ...leg,
+      id: `${leg.id}-c${i}`,
+      durationMs: undefined,
+      block: { type: "travel", to: leg.to, ...p },
+    })) ?? [leg]
+  );
+}
+export function legDuration(leg: Leg) {
+  return leg.durationMs !== undefined
+    ? duration(leg.durationMs)
+    : estimatedMinutes(leg) !== undefined
+      ? `~${duration(estimatedMinutes(leg)! * 60000)}`
+      : "";
+}
+export function durationTotals(model: Itinerary) {
+  return (["transport", "walking", "mixed"] as const).map((category) => {
+    const legs = model.legs
+      .flatMap((leg) => {
+        const parts = componentLegs(leg);
+        return leg.block.components && leg.durationMs !== undefined
+          ? [
+              ...parts,
+              {
+                ...leg,
+                block: {
+                  type: "travel" as const,
+                  to: leg.to,
+                  mode: "mixed / unallocated",
+                },
+              },
+            ]
+          : parts;
+      })
+      .filter((l) => {
+        const mode = l.block.mode?.toLowerCase() ?? "";
+        const kind =
+          mode === "mixed / unallocated" ||
+          (modeCategories(l).includes("walk") &&
+            modeCategories(l).some((kind) => kind !== "walk"))
+            ? "mixed"
+            : modeKind(l) === "walk"
+              ? "walking"
+              : "transport";
+        return kind === category;
+      });
+    const known = legs.filter((l) => l.durationMs !== undefined),
+      estimated = legs.filter(
+        (l) =>
+          l.durationMs === undefined &&
+          l.block.estimatedDurationMinutes !== undefined,
+      );
+    return {
+      category,
+      count: legs.length,
+      covered: known.length + estimated.length,
+      knownMs: known.reduce((s, l) => s + l.durationMs!, 0),
+      estimatedMs: estimated.reduce(
+        (s, l) => s + l.block.estimatedDurationMinutes! * 60000,
+        0,
+      ),
+    };
+  });
+}
+export interface DisplayBand {
+  place?: string;
+  transfer: boolean;
+  weight: number;
+}
+export function dayBands(model: Itinerary, day: NormalizedDay): DisplayBand[] {
+  const internal = (leg: Leg) =>
+    modeKind(leg) === "walk" &&
+    !!leg.from &&
+    groupKey(model, leg.from) === groupKey(model, leg.to);
+  if (!day.hasUnknownTiming)
+    return day.segments.map((s) => ({
+      place: s.leg && internal(s.leg) ? s.leg.to : s.place,
+      transfer: s.type === "travel" && !internal(s.leg!),
+      weight: s.durationMs!,
+    }));
+  const legs = activeLegs(model, day);
+  if (!legs.length)
+    return [{ place: day.overnight, transfer: false, weight: 1 }];
+  const bands: DisplayBand[] = [];
+  if (day.startPlace)
+    bands.push({ place: day.startPlace, transfer: false, weight: 4 });
+  for (const leg of legs)
+    bands.push({
+      place: internal(leg) ? leg.to : undefined,
+      transfer: !internal(leg),
+      weight: internal(leg) ? 5 : 1,
+    });
+  if (day.overnight)
+    bands.push({ place: day.overnight, transfer: false, weight: 4 });
+  return bands;
+}
+// Trim a quadratic at a real distance from the destination. Marker tip uses refX=10.
+export function trimCurve(curve: Curve, gap: number): Curve | undefined {
+  if (Math.hypot(curve.a[0] - curve.b[0], curve.a[1] - curve.b[1]) <= gap * 1.5)
+    return undefined;
+  let lo = 0,
+    hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const t = (lo + hi) / 2,
+      p = curvePoint(curve, t);
+    if (Math.hypot(p[0] - curve.b[0], p[1] - curve.b[1]) > gap) lo = t;
+    else hi = t;
+  }
+  const t = (lo + hi) / 2;
+  return {
+    a: curve.a,
+    b: curvePoint(curve, t),
+    c: [
+      curve.a[0] + t * (curve.c[0] - curve.a[0]),
+      curve.a[1] + t * (curve.c[1] - curve.a[1]),
+    ],
+  };
+}
+export function calendarSlots(model: Itinerary): (NormalizedDay | undefined)[] {
+  const first = model.days[0];
+  const offset = first.date
+    ? (new Date(`${first.date}T12:00:00Z`).getUTCDay() + 6) % 7
+    : 0;
+  return Array.from(
+    { length: Math.ceil((offset + model.days.length) / 7) * 7 },
+    (_, i) => model.days[i - offset],
+  );
+}
+
+export function mapRoute(curve: Curve, internal: boolean, pixelScale: number) {
+  const trimmed = internal ? undefined : trimCurve(curve, 16 / pixelScale);
+  return { curve: trimmed ?? curve, arrow: !!trimmed };
 }

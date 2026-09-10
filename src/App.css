@@ -733,3 +733,404 @@ nav {
 .map-geometry > svg {
   overflow: visible;
 }
+/* Atlas v2: compact route-first presentation. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.map-controls {
+  position: absolute;
+  right: 14px;
+  top: 16px;
+  z-index: 2;
+  display: flex;
+  gap: 5px;
+}
+.map-controls button,
+.day-step button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px;
+  font-size: 11px;
+}
+.map-geometry svg {
+  touch-action: none;
+  cursor: grab;
+}
+.map-geometry svg:active {
+  cursor: grabbing;
+}
+.place-label,
+.endpoint-label {
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: var(--land);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.endpoint-label {
+  font-weight: 600;
+}
+.leg-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.route-label {
+  pointer-events: none;
+}
+.route-label .leg-chip {
+  padding: 3px 5px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 11px;
+}
+.route-label .icon {
+  width: 13px;
+  height: 13px;
+}
+.day-chips,
+.cell-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-self: start;
+}
+.details details {
+  font-size: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.details .leg-detail {
+  display: block;
+  padding: 8px 0;
+}
+.details details p {
+  white-space: pre-wrap;
+}
+.view-layout.calendar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  background: var(--paper);
+  padding: 0;
+}
+.view-layout.calendar > .details {
+  position: sticky;
+  top: 12px;
+  padding: 20px 18px;
+  max-height: 65vh;
+  overflow: auto;
+}
+.calendar {
+  padding: 18px;
+}
+.calendar-day {
+  min-height: 105px;
+}
+.cell-chips {
+  gap: 5px;
+}
+.cell-chips .leg-chip {
+  font-size: 10px;
+}
+.cell-chips .icon {
+  width: 13px;
+  height: 13px;
+}
+.calendar-day > .night {
+  overflow-wrap: anywhere;
+}
+.totals {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 10px 24px;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.range-ticks {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  margin-top: 0;
+}
+.range-ticks button {
+  position: relative;
+  border: 0;
+  background: none;
+  padding: 5px 0 18px;
+  font-size: 11px;
+  color: var(--muted);
+  border-radius: 4px;
+}
+.range-ticks button[aria-pressed="true"] {
+  background: var(--blue);
+  color: var(--paper);
+  font-weight: 700;
+}
+.range-ticks small {
+  position: absolute;
+  top: 22px;
+  left: 0;
+  font-size: 10px;
+}
+.day-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+  margin-top: 5px;
+}
+.scrubber {
+  position: static;
+  padding: 12px 24px;
+}
+.live-status {
+  margin-top: 6px;
+}
+.documents a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+@media (min-width: 1000px) {
+  .view-layout.map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+  }
+  .view-layout.map > .details {
+    height: 100%;
+    box-sizing: border-box;
+  }
+  .map-canvas {
+    height: 380px;
+  }
+  .map-geometry {
+    width: 100%;
+  }
+  .map-caption strong {
+    font-size: 14px;
+  }
+  .map-controls {
+    top: auto;
+    bottom: 28px;
+    right: 10px;
+  }
+}
+@media (max-width: 760px) {
+  .view-layout.calendar {
+    display: flex;
+    flex-direction: column;
+  }
+  .view-layout.calendar > .details {
+    position: static;
+    max-height: none;
+    order: -1;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .map-caption {
+    max-width: 60%;
+    top: 8px;
+  }
+  .map-controls {
+    top: auto;
+    bottom: 30px;
+    right: 8px;
+  }
+  .range-ticks {
+    min-width: 600px;
+  }
+  .scrubber {
+    overflow-x: auto;
+  }
+  .whole-trip {
+    min-width: 600px;
+  }
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .week {
+    display: grid;
+  }
+  .empty-day {
+    display: block;
+  }
+  .calendar-day {
+    padding: 5px;
+    min-height: 92px;
+  }
+  .calendar-day .night {
+    font-size: 9px;
+  }
+  .day-date {
+    font-size: 10px;
+  }
+  .cell-chips .leg-chip {
+    font-size: 9px;
+  }
+  .cell-chips .icon {
+    width: 11px;
+    height: 11px;
+  }
+  .calendar {
+    padding: 10px;
+  }
+  .month-heading > span {
+    display: none;
+  }
+}
+@media (min-width: 1000px) {
+  .map-geometry {
+    width: min(100%, 712px);
+  }
+}
+.inline-day-details {
+  grid-column: 1/-1;
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .view-layout.calendar > .details {
+    display: none;
+  }
+  .view-layout.calendar .calendar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .view-layout.calendar .week {
+    display: none;
+  }
+  .view-layout.calendar .calendar-day {
+    padding: 12px;
+    min-height: 120px;
+    gap: 8px;
+  }
+  .view-layout.calendar .day-date {
+    font-size: 13px;
+  }
+  .view-layout.calendar .cell-chips {
+    gap: 7px;
+  }
+  .view-layout.calendar .cell-chips .leg-chip,
+  .view-layout.calendar .calendar-day .night {
+    font-size: 12px;
+    overflow-wrap: normal;
+  }
+  .view-layout.calendar .cell-chips .icon {
+    width: 16px;
+    height: 16px;
+  }
+  .inline-day-details .details {
+    border: 1px solid var(--blue);
+    border-radius: 8px;
+    margin: 0 0 8px;
+    padding: 14px;
+    background: var(--wash);
+  }
+  .map-caption {
+    max-width: 75%;
+  }
+}
+.map-mobile-connections {
+  position: absolute;
+  z-index: 1;
+  left: 14px;
+  top: 70px;
+  right: 14px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.map-mobile-connections > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .map-canvas {
+    display: flex;
+    flex-direction: column;
+    aspect-ratio: auto;
+    height: auto;
+  }
+  .map-header {
+    order: 0;
+    padding: 12px 16px 8px;
+  }
+  .map-header .map-caption {
+    position: static;
+    padding: 0;
+    max-width: none;
+    background: none;
+  }
+  .map-header .map-mobile-connections {
+    position: static;
+    margin-top: 8px;
+  }
+  .map-canvas .map-geometry {
+    order: 1;
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    overflow: hidden;
+  }
+  .map-canvas .map-controls {
+    order: 2;
+    position: static;
+    justify-content: flex-end;
+    padding: 8px 12px;
+  }
+  .map-canvas .map-source {
+    order: 3;
+    position: static;
+    max-width: none;
+    align-self: flex-end;
+    margin: 0 8px 8px;
+  }
+}
+.timeline-scroll {
+  overflow-x: auto;
+  min-width: 0;
+  padding-bottom: 3px;
+}
+@media (max-width: 760px) {
+  .scrubber {
+    overflow: visible;
+  }
+  .scrubber .time-head,
+  .scrubber .day-step,
+  .scrubber .live-status {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

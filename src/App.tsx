@@ -1,9 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  Map as MapIcon,
+  Calendar as CalendarIcon,
+  BedDouble,
+  Sun,
+  Moon,
+  TrainFront,
+  Bus,
+  Footprints,
+  Plane,
+  Ship,
+  Car,
+  ArrowRight,
+  Plus,
+  Minus,
+  Maximize,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+} from "lucide-react";
+import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import type { CSSProperties } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { GeoPermissibleObjects } from "d3-geo";
 import { documentUrl, normalizeTrip, safeRelativePath } from "./itinerary";
-import type { Itinerary, NormalizedDay, DocumentLink } from "./itinerary";
+import type { Itinerary, NormalizedDay, DocumentLink, Leg } from "./itinerary";
 import {
   activeLegs,
   clockAt,
@@ -12,7 +32,16 @@ import {
   dayLabel,
   duration,
   momentAt,
-  palette,
+  componentLegs,
+  placeColor,
+  visualGroups,
+  groupKey,
+  modeKind,
+  legDuration,
+  durationTotals,
+  dayBands,
+  mapRoute,
+  calendarSlots,
   routeCurve,
 } from "./view-model";
 import type { Moment, Point } from "./view-model";
@@ -22,10 +51,7 @@ import "./App.css";
 type Entry = { path: string; label: string };
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
-const color = (model: Itinerary, id?: string) =>
-  id
-    ? palette[Object.keys(model.trip.places).indexOf(id) % palette.length]
-    : "var(--transit)";
+const color = placeColor;
 async function json(path: string) {
   const response = await fetch(path, { cache: "no-store" });
   if (!response.ok)
@@ -36,76 +62,115 @@ async function json(path: string) {
     throw new Error(`${path}: invalid JSON`);
   }
 }
-function Icon({ kind }: { kind: "map" | "calendar" | "bed" | "sun" | "moon" }) {
-  const paths = {
-    map: "m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16",
-    calendar: "M4 5h16v16H4zM8 3v4m8-4v4M4 10h16m-12 4h2m4 0h2m-8 3h2",
-    bed: "M3 18V8m18 10V8M3 15h18M5 8h14v7M8 8V5h8v3",
-    sun: "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
-    moon: "M20 15.4A9 9 0 0 1 8.6 4 9 9 0 1 0 20 15.4",
-  };
+function Icon({ kind }: { kind: string }) {
+  const Component =
+    (
+      {
+        map: MapIcon,
+        calendar: CalendarIcon,
+        bed: BedDouble,
+        sun: Sun,
+        moon: Moon,
+        train: TrainFront,
+        bus: Bus,
+        walk: Footprints,
+        flight: Plane,
+        ferry: Ship,
+        car: Car,
+        other: ArrowRight,
+        plus: Plus,
+        minus: Minus,
+        reset: Maximize,
+        prev: ChevronLeft,
+        next: ChevronRight,
+        link: ExternalLink,
+      } as Record<string, typeof MapIcon>
+    )[kind] ?? ArrowRight;
+  return <Component className="icon" aria-hidden="true" strokeWidth={1.6} />;
+}
+function LegChip({ leg }: { leg: Leg }) {
+  if (leg.block.components)
+    return (
+      <>
+        {componentLegs(leg).map((c) => (
+          <LegChip key={c.id} leg={c} />
+        ))}
+        {leg.durationMs !== undefined && (
+          <span className="leg-chip">{duration(leg.durationMs)} total</span>
+        )}
+      </>
+    );
   return (
-    <svg
-      className="icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={paths[kind]} />
-    </svg>
+    <span className="leg-chip" title={leg.block.mode ?? "Travel"}>
+      <Icon kind={modeKind(leg)} />
+      <span>{legDuration(leg)}</span>
+      <span className="sr-only">{modeKind(leg)}</span>
+    </span>
   );
 }
 function Bands({ model, day }: { model: Itinerary; day: NormalizedDay }) {
-  const timelessStay =
-    day.hasUnknownTiming &&
-    !day.source.blocks?.some((b) => b.type === "place") &&
-    day.segments.length === 1 &&
-    day.segments[0].type === "stay";
   return (
     <div
-      className={`bands ${day.hasUnknownTiming && !timelessStay ? "unknown-band" : ""}`}
+      className="bands"
       aria-label={
         day.hasUnknownTiming
-          ? timelessStay
-            ? `Stay in ${name(model, day.overnight)}`
-            : "Timing unknown; no elapsed proportions"
-          : `${duration(day.durationMs!)} elapsed day`
+          ? "Schematic sequence; widths estimated, not clock times"
+          : "Elapsed day proportions"
       }
     >
-      {(!day.hasUnknownTiming || timelessStay) &&
-        day.segments.map((segment, i) => (
-          <span
-            key={i}
-            className={
-              segment.type === "travel"
-                ? "transit-band"
-                : segment.type === "unknown"
-                  ? "unknown-band"
-                  : ""
-            }
-            style={{
-              flex: day.durationMs ? segment.durationMs! / day.durationMs : 1,
-              backgroundColor: color(model, segment.place),
-            }}
-            title={`${segment.type === "stay" ? name(model, segment.place) : segment.type === "travel" ? "Transit" : "Location open"}${segment.durationMs !== undefined ? ` · ${duration(segment.durationMs)}` : ""}`}
-          />
-        ))}
+      {dayBands(model, day).map((b, i) => (
+        <span
+          key={i}
+          className={b.transfer ? "transit-band" : ""}
+          style={{ flex: b.weight, backgroundColor: color(model, b.place) }}
+        />
+      ))}
     </div>
   );
+}
+function useCompactScreen() {
+  const [compact, setCompact] = useState(
+    () => window.matchMedia("(max-width: 760px)").matches,
+  );
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 760px)");
+    const update = () => setCompact(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return compact;
 }
 function TripMap({
   model,
   moment,
   status,
+  day,
 }: {
   model: Itinerary;
   moment: Moment;
   status: string;
+  day: NormalizedDay;
 }) {
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const frame = useRef<HTMLDivElement>(null);
+  const [frameScale, setFrameScale] = useState(1);
+  const compact = useCompactScreen();
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0)
+        setFrameScale(entry.contentRect.width / 900);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const pixelScale = frameScale * view.k;
+  const numbered = frameScale < 0.9;
+  const drag = useRef<
+    { x: number; y: number; vx: number; vy: number } | undefined
+  >(undefined);
+  const groups = useMemo(() => visualGroups(model), [model]);
   const geometry = useMemo(() => {
     const locations = Object.entries(model.trip.places)
       .filter(([, p]) => p.coordinates)
@@ -151,8 +216,8 @@ function TripMap({
         ]);
     } else projection.scale(135).translate([450, 260]);
     projection.clipExtent([
-      [-1000, 0],
-      [1900, 480],
+      [-5000, -5000],
+      [5000, 5000],
     ]);
     const points = Object.fromEntries(
       locations.map((p) => [p.id, projection(p.coordinates)!]),
@@ -171,9 +236,11 @@ function TripMap({
     }));
     // Labels use screen-space offsets and collision avoidance, independent of the selected day.
     const placed: { x: number; y: number; width: number }[] = [];
-    const labels = locations.map(({ id }) => {
+    const labels = groups.map((group) => {
+      const id = group.members.find((id) => points[id]);
+      if (!id) return undefined;
       const [x, y] = points[id],
-        width = name(model, id).length * 7 + 12;
+        width = (numbered ? 30 : group.name.length * 7 + 12) / frameScale;
       const offsets = [
         [12, -20],
         [12, 25],
@@ -185,46 +252,189 @@ function TripMap({
       ];
       const position = offsets
         .map(([dx, dy]) => ({
-          x: Math.max(10, Math.min(890 - width, x + dx)),
+          x: Math.max(10, Math.min(870 - width, x + dx)),
           y: Math.max(80, Math.min(440, y + dy)),
           width,
         }))
         .find((p) =>
           placed.every(
             (q) =>
-              Math.abs(p.y - q.y) > 21 ||
+              Math.abs(p.y - q.y) > 23 / frameScale ||
               p.x + p.width < q.x ||
               q.x + q.width < p.x,
           ),
         ) ?? { x: x + 12, y: y - 20, width };
       placed.push(position);
-      return { id, ...position };
+      return { id, name: group.name, ...position };
     });
-    return { points, routes, shapes, labels };
-  }, [model]);
+    const routeLabels = new Map<string, Point>();
+    for (const { leg, curve } of routes) {
+      if (
+        groupKey(model, leg.from) === groupKey(model, leg.to) ||
+        !legDuration(leg)
+      )
+        continue;
+      const p = curvePoint(curve, 0.5),
+        width = 90 / frameScale;
+      const choices = [
+        [0, -8],
+        [0, 20],
+        [-90, -8],
+        [-90, 20],
+        [5, -35],
+        [-90, 45],
+        ...[-65, 65, -95, 95].flatMap((dy) =>
+          [-100, 0, 100].map((dx) => [dx / frameScale, dy / frameScale]),
+        ),
+      ];
+      const candidate = choices
+        .map(([dx, dy]) => ({
+          x: Math.max(8, Math.min(805, p[0] + dx)),
+          y: Math.max(70, Math.min(438, p[1] + dy)),
+          width,
+        }))
+        .find((p) =>
+          placed.every(
+            (q) =>
+              Math.abs(p.y - q.y) > 26 / frameScale ||
+              p.x + p.width < q.x ||
+              q.x + q.width < p.x,
+          ),
+        );
+      if (candidate) {
+        placed.push(candidate);
+        routeLabels.set(leg.id, [candidate.x, candidate.y]);
+      }
+    }
+    return {
+      points,
+      routes,
+      shapes,
+      labels: labels.filter((l) => l !== undefined),
+      routeLabels,
+    };
+  }, [model, groups, frameScale, numbered]);
+  const numberedPositions = new Map<string, Point>();
+  const occupied: Point[] = [];
+  for (const label of geometry.labels) {
+    const point = geometry.points[label.id];
+    const options = [
+      [10, -12],
+      [10, 18],
+      [-22, -12],
+      [-22, 18],
+      [12, -32],
+      [12, 38],
+      [-22, -32],
+      [-22, 38],
+    ];
+    const chosen =
+      options
+        .map(
+          ([x, y]) =>
+            [point[0] + x / pixelScale, point[1] + y / pixelScale] as Point,
+        )
+        .find((p) =>
+          occupied.every(
+            (q) => Math.hypot(p[0] - q[0], p[1] - q[1]) * pixelScale > 21,
+          ),
+        ) ?? point;
+    occupied.push(chosen);
+    numberedPositions.set(label.id, chosen);
+  }
   const active = geometry.routes.find((r) => r.leg.id === moment.leg?.id);
-  const marker = moment.leg
-    ? active
-      ? curvePoint(active.curve, moment.progress!)
-      : undefined
-    : moment.place
-      ? geometry.points[moment.place]
-      : undefined;
-  const missing = Object.entries(model.trip.places).filter(
-    ([, p]) => !p.coordinates,
-  );
+  const marker =
+    moment.leg && active && moment.progress !== undefined
+      ? curvePoint(active.curve, moment.progress)
+      : moment.place
+        ? geometry.points[moment.place]
+        : undefined;
+  const selected = new Set(activeLegs(model, day).map((l) => l.id));
+  const first = model.legs[0]?.from ?? model.days[0].startPlace;
+  const last = model.days.at(-1)?.overnight ?? model.legs.at(-1)?.to;
+  const zoom = (factor: number) =>
+    setView((v) => {
+      const k = Math.max(1, Math.min(12, v.k * factor));
+      return {
+        k,
+        x: 450 - ((450 - v.x) * k) / v.k,
+        y: 240 - ((240 - v.y) * k) / v.k,
+      };
+    });
   return (
     <>
       <div className="map-canvas" data-testid="map-canvas">
-        <div className="map-caption">
-          <span>Along your route</span>
-          <strong>{status}</strong>
+        <div className="map-header">
+          <div className="map-caption">
+            <span>Along your route</span>
+            <strong>{status}</strong>
+          </div>
+          {compact && (
+            <div className="map-mobile-connections">
+              {activeLegs(model, day)
+                .filter(
+                  (l) => groupKey(model, l.from) !== groupKey(model, l.to),
+                )
+                .map((l) => (
+                  <span
+                    key={l.id}
+                    title={`${name(model, l.from)} → ${name(model, l.to)}`}
+                  >
+                    <span>
+                      {groups.findIndex((g) =>
+                        g.members.includes(l.from ?? ""),
+                      ) + 1}{" "}
+                      → {groups.findIndex((g) => g.members.includes(l.to)) + 1}
+                    </span>
+                    <LegChip leg={l} />
+                  </span>
+                ))}
+            </div>
+          )}
         </div>
-        <div className="map-geometry">
+        <div className="map-controls">
+          <button aria-label="Zoom in" onClick={() => zoom(1.5)}>
+            <Icon kind="plus" />
+          </button>
+          <button aria-label="Zoom out" onClick={() => zoom(1 / 1.5)}>
+            <Icon kind="minus" />
+          </button>
+          <button onClick={() => setView({ x: 0, y: 0, k: 1 })}>
+            <Icon kind="reset" />
+            Show whole trip
+          </button>
+        </div>
+        <div className="map-geometry" ref={frame}>
           <svg
             viewBox="0 0 900 480"
             role="img"
             aria-label={`Trip map. ${status}`}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              drag.current = {
+                x: e.clientX,
+                y: e.clientY,
+                vx: view.x,
+                vy: view.y,
+              };
+            }}
+            onPointerMove={(e) => {
+              if (drag.current) {
+                const scale =
+                  900 / e.currentTarget.getBoundingClientRect().width;
+                setView((v) => ({
+                  ...v,
+                  x: drag.current!.vx + (e.clientX - drag.current!.x) * scale,
+                  y: drag.current!.vy + (e.clientY - drag.current!.y) * scale,
+                }));
+              }
+            }}
+            onPointerUp={() => {
+              drag.current = undefined;
+            }}
+            onPointerCancel={() => {
+              drag.current = undefined;
+            }}
           >
             <defs>
               {["route", "active"].map((id) => (
@@ -232,10 +442,11 @@ function TripMap({
                   key={id}
                   id={`${id}-arrow`}
                   viewBox="0 0 10 10"
-                  refX="9"
+                  refX="10"
                   refY="5"
-                  markerWidth="5"
-                  markerHeight="5"
+                  markerWidth={7 / pixelScale}
+                  markerHeight={7 / pixelScale}
+                  markerUnits="userSpaceOnUse"
                   orient="auto"
                 >
                   <path
@@ -245,103 +456,188 @@ function TripMap({
                 </marker>
               ))}
             </defs>
-            <g className="geography">
-              {geometry.shapes.map((s) => (
-                <path key={s.id} d={s.path ?? ""}>
-                  <title>{s.name}</title>
-                </path>
+            <g
+              transform={`translate(${view.x} ${view.y}) scale(${view.k})`}
+              data-testid="map-transform"
+            >
+              <g className="geography">
+                {geometry.shapes.map((s) => (
+                  <path key={s.id} d={s.path ?? ""}>
+                    <title>{s.name}</title>
+                  </path>
+                ))}
+              </g>
+              {geometry.routes.map(({ leg, curve }) => {
+                const internal =
+                    groupKey(model, leg.from) === groupKey(model, leg.to),
+                  isActive = selected.has(leg.id);
+                const { curve: c, arrow } = mapRoute(
+                  curve,
+                  internal,
+                  pixelScale,
+                );
+                const midpoint = geometry.routeLabels.get(leg.id);
+                return (
+                  <g key={leg.id}>
+                    <path
+                      data-leg={leg.id}
+                      className={`route${isActive ? " active" : ""}`}
+                      style={{
+                        stroke: internal ? color(model, leg.to) : undefined,
+                        strokeWidth: (isActive ? 3 : 1.6) / pixelScale,
+                      }}
+                      d={`M${c.a}Q${c.c} ${c.b}`}
+                      markerEnd={
+                        arrow
+                          ? `url(#${isActive ? "active" : "route"}-arrow)`
+                          : undefined
+                      }
+                    >
+                      <title>
+                        {name(model, leg.from)} → {name(model, leg.to)}
+                      </title>
+                    </path>
+                    {!internal && midpoint && (!compact || isActive) && (
+                      <>
+                        <line
+                          x1={curvePoint(curve, 0.5)[0]}
+                          y1={curvePoint(curve, 0.5)[1]}
+                          x2={
+                            curvePoint(curve, 0.5)[0] +
+                            (midpoint[0] -
+                              curvePoint(curve, 0.5)[0] +
+                              25 / frameScale) /
+                              view.k
+                          }
+                          y2={
+                            curvePoint(curve, 0.5)[1] +
+                            (midpoint[1] -
+                              curvePoint(curve, 0.5)[1] +
+                              8 / frameScale) /
+                              view.k
+                          }
+                          stroke="var(--transit)"
+                          strokeWidth={0.6 / pixelScale}
+                          opacity={0.5}
+                        />
+                        <foreignObject
+                          className="route-label"
+                          x={
+                            curvePoint(curve, 0.5)[0] +
+                            (midpoint[0] - curvePoint(curve, 0.5)[0]) / view.k
+                          }
+                          y={
+                            curvePoint(curve, 0.5)[1] +
+                            (midpoint[1] - curvePoint(curve, 0.5)[1]) / view.k
+                          }
+                          width={100 / pixelScale}
+                          height={26 / pixelScale}
+                          overflow="visible"
+                        >
+                          <div
+                            style={{
+                              transform: `scale(${1 / pixelScale})`,
+                              transformOrigin: "top left",
+                            }}
+                          >
+                            <LegChip leg={leg} />
+                          </div>
+                        </foreignObject>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
+              {Object.entries(geometry.points).map(([id, p]) => (
+                <g key={id}>
+                  <circle
+                    cx={p[0]}
+                    cy={p[1]}
+                    r={
+                      (activeLegs(model, day).some(
+                        (l) => l.from === id || l.to === id,
+                      )
+                        ? 7
+                        : 5) / pixelScale
+                    }
+                    fill={color(model, id)}
+                    stroke="var(--paper)"
+                    strokeWidth={2 / pixelScale}
+                  />
+                  {(id === first || id === last) && (
+                    <text
+                      className="endpoint-label"
+                      style={{ strokeWidth: 3 / pixelScale }}
+                      x={p[0]}
+                      y={p[1] + 20 / pixelScale}
+                      fontSize={11 / pixelScale}
+                      textAnchor="middle"
+                    >
+                      {id === first && id === last
+                        ? "Start / Finish"
+                        : id === first
+                          ? "Start"
+                          : "Finish"}
+                    </text>
+                  )}
+                </g>
               ))}
-            </g>
-            <g className="routes">
-              {geometry.routes.map(({ leg, curve: { a, b, c } }) => (
-                <path
-                  key={leg.id}
-                  data-route={leg.id}
-                  className={
-                    moment.leg?.id === leg.id ? "route active" : "route"
-                  }
-                  d={`M${a}Q${c} ${b}`}
-                  markerEnd={`url(#${moment.leg?.id === leg.id ? "active" : "route"}-arrow)`}
-                >
-                  <title>
-                    {name(model, leg.from)} → {name(model, leg.to)}
-                  </title>
-                </path>
-              ))}
-            </g>
-            {Object.entries(geometry.points).map(([id, p]) => (
-              <g key={id}>
-                <circle
-                  cx={p[0]}
-                  cy={p[1]}
-                  r="5"
-                  fill={color(model, id)}
-                  stroke="var(--paper)"
-                  strokeWidth="2"
-                />
+              {geometry.labels.map((l) => (
                 <text
-                  className="point-number"
-                  x={p[0]}
-                  y={p[1] - 12}
-                  textAnchor="middle"
+                  className="place-label"
+                  style={{ strokeWidth: 3 / pixelScale }}
+                  key={l.id}
+                  x={
+                    numbered
+                      ? numberedPositions.get(l.id)![0]
+                      : geometry.points[l.id][0] +
+                        (l.x - geometry.points[l.id][0]) / view.k
+                  }
+                  y={
+                    numbered
+                      ? numberedPositions.get(l.id)![1]
+                      : geometry.points[l.id][1] +
+                        (l.y - geometry.points[l.id][1]) / view.k
+                  }
+                  fontSize={12 / pixelScale}
                 >
-                  {Object.keys(model.trip.places).indexOf(id) + 1}
+                  {numbered
+                    ? groups.findIndex((g) => g.members.includes(l.id)) + 1
+                    : l.name}
                 </text>
-              </g>
-            ))}
-            {marker && (
-              <g
-                data-testid="traveler"
-                data-place={moment.place ?? ""}
-                data-leg={moment.leg?.id ?? ""}
-                transform={`translate(${marker})`}
-              >
-                <circle r="14" fill="var(--blue)" opacity=".18" />
-                <circle
-                  r="7"
-                  fill="var(--blue)"
-                  stroke="var(--paper)"
-                  strokeWidth="3"
-                />
-              </g>
-            )}
+              ))}
+              {marker && (
+                <g
+                  data-testid="traveler"
+                  data-place={moment.place ?? ""}
+                  data-leg={moment.leg?.id ?? ""}
+                  transform={`translate(${marker})`}
+                >
+                  <circle r={10 / pixelScale} fill="var(--blue)" opacity=".2" />
+                  <circle
+                    r={6 / pixelScale}
+                    fill="var(--blue)"
+                    stroke="var(--paper)"
+                    strokeWidth={2 / pixelScale}
+                  />
+                </g>
+              )}
+            </g>
           </svg>
-          <div className="map-labels">
-            {geometry.labels.map((l) => (
-              <span
-                key={l.id}
-                style={{ left: `${l.x / 9}%`, top: `${l.y / 4.8}%` }}
-              >
-                {name(model, l.id)}
-              </span>
-            ))}
-          </div>
         </div>
         <div className="map-source">
-          Natural Earth · connecting lines, not exact routes
+          Drag to pan · schematic connections · Natural Earth
         </div>
       </div>
       <div className="legend">
-        {Object.keys(model.trip.places).map((id, i) => (
-          <span key={id}>
-            <i style={{ background: color(model, id) }} />
-            <b className="legend-number">{i + 1}.</b>
-            {name(model, id)}
-            {!model.trip.places[id].coordinates && <small>unmapped</small>}
+        {groups.map((g, i) => (
+          <span key={g.key}>
+            <i style={{ background: g.color }} />
+            {numbered && <b>{i + 1}.</b>}
+            {g.name}
           </span>
         ))}
-        <span>
-          <i className="transit-band" />
-          Transit
-        </span>
       </div>
-      {missing.length > 0 && (
-        <p className="unmapped">
-          {missing.length === Object.keys(model.trip.places).length
-            ? "Add coordinates to place this journey on the map."
-            : "Places without coordinates remain in the calendar and day details."}
-        </p>
-      )}
     </>
   );
 }
@@ -349,115 +645,74 @@ function Calendar({
   model,
   selectedDay,
   selectDay,
+  folder,
 }: {
   model: Itinerary;
   selectedDay: number;
   selectDay: (n: number) => void;
+  folder: string;
 }) {
-  const months = [
-    ...new Set(model.days.map((d) => d.date?.slice(0, 7) ?? "undated")),
-  ];
+  const compact = useCompactScreen();
   return (
     <div className="calendar">
-      {months.map((month) => {
-        const days = model.days.filter(
-          (d) => (d.date?.slice(0, 7) ?? "undated") === month,
-        );
-        const dated = month !== "undated";
-        const offset = dated
-          ? (new Date(`${month}-01T12:00:00Z`).getUTCDay() + 6) % 7
-          : 0;
-        const total = dated
-          ? Math.min(
-              new Date(
-                Date.UTC(
-                  Number(month.slice(0, 4)),
-                  Number(month.slice(5, 7)),
-                  0,
-                ),
-              ).getUTCDate(),
-              Math.ceil((offset + Number(days.at(-1)!.date!.slice(8))) / 7) *
-                7 -
-                offset,
-            )
-          : days.length;
-        return (
-          <section className="month" key={month}>
-            <div className="month-heading">
-              <h2>
-                {dated
-                  ? dateLabel(`${month}-01`, { month: "long", year: "numeric" })
-                  : "Days ahead"}
-              </h2>
-              <span>Bars show each day’s elapsed share</span>
-            </div>
-            {dated && (
-              <div className="week">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                  <span key={d}>{d}</span>
-                ))}
-              </div>
-            )}
-            <div className="calendar-grid">
-              {Array.from({ length: offset }, (_, i) => (
-                <div className="empty-day" key={`blank-${i}`} />
-              ))}
-              {Array.from({ length: total }, (_, i) => {
-                const day = dated
-                  ? days.find((d) => Number(d.date!.slice(8)) === i + 1)
-                  : days[i];
-                if (!day)
-                  return (
-                    <div className="empty-day" key={i}>
-                      {i + 1}
-                    </div>
-                  );
-                const legs = activeLegs(model, day);
-                return (
-                  <button
-                    className="calendar-day"
-                    key={i}
-                    data-day={day.index + 1}
-                    aria-pressed={day.index === selectedDay}
-                    aria-label={`${dayLabel(day)}. ${legs.map((l) => `${name(model, l.from)} to ${name(model, l.to)}`).join(". ")}. ${day.inTransit ? "Night in transit" : `Night: ${name(model, day.overnight)}`}`}
-                    onClick={() => selectDay(day.index)}
-                  >
-                    <span className="day-date">
-                      {dated ? i + 1 : `Day ${i + 1}`}
-                      <span className="mobile-weekday">
-                        {day.date
-                          ? ` · ${dateLabel(day.date, { weekday: "short" })}`
-                          : ""}
-                      </span>
-                    </span>
-                    {legs.map((l) => (
-                      <span className="cell-travel" key={l.id}>
-                        <span>
-                          {name(model, l.from)} → {name(model, l.to)}
-                        </span>
-                        <small>
-                          {l.block.mode ?? "Travel"} ·{" "}
-                          {l.durationMs !== undefined
-                            ? duration(l.durationMs)
-                            : "timing open"}
-                          {l.endDay > l.day ? " · overnight" : ""}
-                        </small>
-                      </span>
-                    ))}
-                    <span className="night">
-                      {!day.inTransit && <Icon kind="bed" />}
-                      {day.inTransit
-                        ? "In transit"
-                        : name(model, day.overnight)}
-                    </span>
-                    <Bands model={model} day={day} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
+      <div className="month-heading">
+        <h2>
+          {model.trip.startDate
+            ? `${dayLabel(model.days[0])} – ${dayLabel(model.days.at(-1)!)}`
+            : "Days ahead"}
+        </h2>
+        <span>~ approximate duration · bands show route sequence</span>
+      </div>
+      <div className="week">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+      </div>
+      <div className="calendar-grid">
+        {(compact ? model.days : calendarSlots(model)).map((day, i) =>
+          day ? (
+            <Fragment key={i}>
+              <button
+                key={i}
+                className="calendar-day"
+                data-day={day.index + 1}
+                aria-pressed={day.index === selectedDay}
+                onClick={() => selectDay(day.index)}
+                aria-label={`${dayLabel(day)}. Night: ${name(model, day.overnight)}`}
+              >
+                <span className="day-date">
+                  {day.date
+                    ? dateLabel(day.date, { day: "numeric", month: "short" })
+                    : `Day ${day.index + 1}`}
+                </span>
+                <span className="cell-chips">
+                  {activeLegs(model, day).map((l) => (
+                    <LegChip key={l.id} leg={l} />
+                  ))}
+                </span>
+                <span className="night">
+                  <Icon kind="bed" />
+                  {day.inTransit ? "In transit" : name(model, day.overnight)}
+                </span>
+                <Bands model={model} day={day} />
+              </button>
+              {compact &&
+                (i % 2 === 1 || i === model.days.length - 1) &&
+                Math.floor(selectedDay / 2) === Math.floor(i / 2) && (
+                  <div className="inline-day-details">
+                    <DayDetails
+                      model={model}
+                      day={model.days[selectedDay]}
+                      folder={folder}
+                    />
+                  </div>
+                )}
+            </Fragment>
+          ) : (
+            <div key={i} className="empty-day" />
+          ),
+        )}
+      </div>
     </div>
   );
 }
@@ -477,7 +732,7 @@ function Documents({
           target="_blank"
           rel="noreferrer"
         >
-          ↗ {d.label}
+          <Icon kind="link" /> {d.label}
         </a>
       ))}
     </div>
@@ -495,86 +750,59 @@ function DayDetails({
   const legs = activeLegs(model, day);
   return (
     <section className="details" aria-label="Selected day">
-      <div>
-        <p className="selected-date">
-          {day.date
-            ? dateLabel(day.date, {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })
-            : "Dates open"}{" "}
-          · Day {day.index + 1} of {model.days.length}
-        </p>
-        <h2>
-          {legs.length
-            ? `${name(model, legs[0].from)} → ${name(model, legs.at(-1)!.to)}`
-            : name(model, day.overnight)}
-        </h2>
+      <p className="selected-date">
+        {dayLabel(day)} · Day {day.index + 1} of {model.days.length}
+      </p>
+      <h2>
+        {legs.length
+          ? `${name(model, legs[0].from)} → ${name(model, legs.at(-1)!.to)}`
+          : name(model, day.overnight)}
+      </h2>
+      <div className="day-chips">
         {legs.map((l) => (
-          <div className="leg-detail" key={l.id}>
-            <strong>
-              {legs.length > 1
-                ? `${name(model, l.from)} → ${name(model, l.to)} · `
-                : ""}
-              {l.block.mode ?? "Travel"} ·{" "}
-              {l.durationMs !== undefined
-                ? duration(l.durationMs)
-                : "duration unknown"}
-            </strong>
-            <span>
-              {l.block.start ?? "Departure open"} {name(model, l.from)} →{" "}
-              {l.block.end ?? "arrival open"} {name(model, l.to)}
-              {l.endDay > l.day ? ` · arrives Day ${l.endDay}` : ""}
-            </span>
-            <small>
-              Local times
-              {l.from && model.trip.places[l.from].timezone
-                ? ` · ${model.trip.places[l.from].timezone}`
-                : ""}
-              {model.trip.places[l.to].timezone &&
-              model.trip.places[l.to].timezone !==
-                model.trip.places[l.from ?? ""]?.timezone
-                ? ` → ${model.trip.places[l.to].timezone}`
-                : ""}
-            </small>
+          <LegChip key={l.id} leg={l} />
+        ))}
+      </div>
+      <span className="night">
+        <Icon kind="bed" />
+        {day.inTransit
+          ? "Night in transit"
+          : `Night: ${name(model, day.overnight)}`}
+      </span>
+      <Bands model={model} day={day} />
+      <small className="timing-note">
+        {day.hasUnknownTiming
+          ? "Schematic sequence · widths estimated, not clock times"
+          : "Bands follow entered times"}
+      </small>
+      <details key={day.index}>
+        <summary>Day details · notes & documents</summary>
+        {legs.map((l) => (
+          <details className="leg-detail" key={l.id}>
+            <summary>
+              {name(model, l.from)} → {name(model, l.to)} ·{" "}
+              {l.block.mode ?? "Travel"} {legDuration(l)}
+            </summary>
+            {(l.block.start || l.block.end) && (
+              <p>
+                {l.block.start && `Departs ${l.block.start}`}{" "}
+                {l.block.end && `· arrives ${l.block.end}`}
+                {l.endDay > l.day ? ` · Day ${l.endDay}` : ""}
+                {l.block.start &&
+                l.block.end &&
+                model.trip.places[l.from ?? ""]?.timezone !==
+                  model.trip.places[l.to]?.timezone
+                  ? ` · ${model.trip.places[l.from ?? ""]?.timezone ?? model.trip.timezone} → ${model.trip.places[l.to]?.timezone ?? model.trip.timezone}`
+                  : ""}
+              </p>
+            )}
             {l.block.notes && <p>{l.block.notes}</p>}
             <Documents documents={l.block.documents} folder={folder} />
-          </div>
+          </details>
         ))}
         {day.source.notes && <p className="day-note">{day.source.notes}</p>}
         <Documents documents={day.source.documents} folder={folder} />
-      </div>
-      <div className="day-breakdown">
-        <div className="day-hours">
-          <span>{day.durationMs ? "00" : ""}</span>
-          <Bands model={model} day={day} />
-          <span>{day.durationMs ? duration(day.durationMs) : ""}</span>
-        </div>
-        <div className="segment-labels">
-          {!day.hasUnknownTiming &&
-            day.segments.map((s, i) => (
-              <span key={i}>
-                <i style={{ background: color(model, s.place) }} />
-                {s.type === "stay"
-                  ? name(model, s.place)
-                  : s.type === "travel"
-                    ? "Transit"
-                    : "Location open"}{" "}
-                · {duration(s.durationMs!)}
-              </span>
-            ))}
-        </div>
-        {day.hasUnknownTiming && activeLegs(model, day).length > 0 && (
-          <p className="timing-note">Timing unknown · no elapsed proportions</p>
-        )}
-        <span className="night">
-          {!day.inTransit && <Icon kind="bed" />}
-          {day.inTransit
-            ? "Night in transit"
-            : `Night: ${name(model, day.overnight)}`}
-        </span>
-      </div>
+      </details>
     </section>
   );
 }
@@ -663,7 +891,9 @@ function App() {
         ? `${name(itinerary, moment.leg.from)} → ${name(itinerary, moment.leg.to)}`
         : moment.place
           ? `In ${name(itinerary, moment.place)}`
-          : "Location timing unknown"
+          : day
+            ? `${name(itinerary, day.startPlace)} → ${name(itinerary, day.overnight ?? activeLegs(itinerary, day).at(-1)?.to)}`
+            : "Route"
       : "";
   const time =
     itinerary && moment
@@ -671,9 +901,7 @@ function App() {
         ? `${clockAt(itinerary, moment.at, moment.leg.from)} → ${clockAt(itinerary, moment.at, moment.leg.to)}`
         : clockAt(itinerary, moment.at, moment.place)
       : undefined;
-  const readout = day
-    ? `${dayLabel(day)} · ${time ?? (moment?.unknown ? "timing unknown" : "time open")}`
-    : "";
+  const readout = day ? `${dayLabel(day)} · ${time ?? "Planned day"}` : "";
   return (
     <main data-theme={theme} style={{ colorScheme: theme } as CSSProperties}>
       <header className="top">
@@ -683,7 +911,7 @@ function App() {
             <h1>{itinerary?.trip.title ?? "Trip Atlas"}</h1>
             <p className="meta">
               {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"} · ${itinerary.days.length} days · ${Object.keys(itinerary.trip.places).length} places${itinerary.legs.length ? ` · ${duration(itinerary.knownTravelDurationMs)} ${itinerary.legs.some((l) => l.durationMs === undefined) ? "known" : "entered"} travel` : ""}`
+                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"} · ${itinerary.days.length} days · ${visualGroups(itinerary).length} destinations`
                 : "A little perspective, before you go."}
             </p>
           </div>
@@ -747,55 +975,105 @@ function App() {
         </section>
       ) : itinerary && day && moment ? (
         <>
-          <section aria-label={tab === "map" ? "Map view" : "Calendar view"}>
-            {tab === "map" ? (
-              <TripMap model={itinerary} moment={moment} status={status} />
-            ) : (
-              <Calendar
-                model={itinerary}
-                selectedDay={dayIndex}
-                selectDay={(n) => setValue(n + (value % 1))}
-              />
-            )}
-          </section>
-          <DayDetails
-            model={itinerary}
-            day={day}
-            folder={selected.slice(0, selected.lastIndexOf("/"))}
-          />
+          <div className={`view-layout ${tab}`}>
+            <section aria-label={tab === "map" ? "Map view" : "Calendar view"}>
+              <div hidden={tab !== "map"}>
+                <TripMap
+                  key={selected}
+                  model={itinerary}
+                  moment={moment}
+                  status={status}
+                  day={day}
+                />
+              </div>
+              {tab === "calendar" && (
+                <Calendar
+                  model={itinerary}
+                  selectedDay={dayIndex}
+                  folder={selected.slice(0, selected.lastIndexOf("/"))}
+                  selectDay={(n) => setValue(n + (value % 1))}
+                />
+              )}
+            </section>
+            <DayDetails
+              model={itinerary}
+              day={day}
+              folder={selected.slice(0, selected.lastIndexOf("/"))}
+            />
+          </div>
+          <div className="totals">
+            {durationTotals(itinerary)
+              .filter((t) => t.count)
+              .map((t) => (
+                <span key={t.category}>
+                  {t.category === "mixed" ? "mixed / unallocated" : t.category}:{" "}
+                  {t.knownMs ? `${duration(t.knownMs)} entered` : ""}
+                  {t.knownMs && t.estimatedMs ? " + " : ""}
+                  {t.estimatedMs
+                    ? `~${duration(t.estimatedMs)} estimated`
+                    : ""}{" "}
+                  · {t.covered}/{t.count} sections with duration
+                </span>
+              ))}
+          </div>
           <footer className="scrubber">
             <div className="time-head">
               <label htmlFor="trip-time">Move through the trip</label>
               <output htmlFor="trip-time">{readout}</output>
             </div>
-            <div className="whole-trip">
-              <div className="whole-bands">
-                {itinerary.days.map((d) => (
-                  <Bands key={d.index} model={itinerary} day={d} />
+            <div className="timeline-scroll">
+              <div className="whole-trip">
+                <div className="whole-bands">
+                  {itinerary.days.map((d) => (
+                    <Bands key={d.index} model={itinerary} day={d} />
+                  ))}
+                </div>
+                <input
+                  id="trip-time"
+                  aria-label="Trip timeline"
+                  aria-valuetext={`${readout}. ${status}`}
+                  type="range"
+                  min="0"
+                  max={itinerary.days.length - 0.01}
+                  step="0.01"
+                  value={value}
+                  onChange={(e) => setValue(Number(e.target.value))}
+                />
+              </div>
+              <div className="range-ticks">
+                {itinerary.days.map((d, i) => (
+                  <button
+                    key={i}
+                    aria-label={`Select ${dayLabel(d)}`}
+                    aria-pressed={i === dayIndex}
+                    onClick={() => setValue(i + 0.5)}
+                  >
+                    <span>{d.date ? Number(d.date.slice(8)) : i + 1}</span>
+                    {(i === 0 || d.date?.slice(8) === "01") && (
+                      <small>
+                        {d.date ? dateLabel(d.date, { month: "short" }) : "Day"}
+                      </small>
+                    )}
+                  </button>
                 ))}
               </div>
-              <input
-                id="trip-time"
-                aria-label="Trip timeline"
-                aria-valuetext={`${readout}. ${status}`}
-                type="range"
-                min="0"
-                max={itinerary.days.length - 0.01}
-                step="0.01"
-                value={value}
-                onChange={(e) => setValue(Number(e.target.value))}
-              />
             </div>
-            <div className="range-ticks">
-              {[
-                ...new Set([
-                  0,
-                  Math.floor((itinerary.days.length - 1) / 2),
-                  itinerary.days.length - 1,
-                ]),
-              ].map((i) => (
-                <span key={i}>{dayLabel(itinerary.days[i])}</span>
-              ))}
+            <div className="day-step">
+              <button
+                aria-label="Previous day"
+                disabled={dayIndex === 0}
+                onClick={() => setValue(dayIndex - 0.5)}
+              >
+                <Icon kind="prev" />
+              </button>
+              <strong>{dayLabel(day)}</strong>
+              <button
+                aria-label="Next day"
+                disabled={dayIndex === itinerary.days.length - 1}
+                onClick={() => setValue(dayIndex + 1.5)}
+              >
+                <Icon kind="next" />
+              </button>
             </div>
             <div className="live-status" aria-live="polite">
               <span>

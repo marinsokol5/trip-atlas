@@ -15,13 +15,23 @@ Read the user's current instructions and the existing target before editing. Pre
 
 A trip across all countries belongs in one file. Required fields are `version: 1`, an object `places`, and a nonempty ordered array `days`. An unknown-location plan can use `"places": {}` and `"days": [{}]`.
 
-- Trip options: `title`, `startDate` (real `YYYY-MM-DD`), `initialPlace` (a place ID), and `timezone` (IANA fallback for places without their own zone). Without a start date, days have Day 1, Day 2 labels.
+- Trip options: `title`, `startDate` (real `YYYY-MM-DD`), `initialPlace` (a place ID), optional `groups` (described below), and `timezone` (IANA fallback for places without their own zone). Without a start date, days have Day 1, Day 2 labels.
 - Each `places` key is a unique nonempty ID. Its value may contain `name`, `country` (uppercase ISO2, e.g. `JP`), `timezone` (IANA), and `coordinates: {"lat": number, "lon": number}`. Latitude must be within −90…90 and longitude within −180…180. A missing name falls back to the ID.
 - Each day is an object with optional `notes` (string), `documents` (see below), and `blocks` (ordered array). `{}` is a valid day. Empty days inherit the last destination, except while an overnight journey is in transit. Without an initial or carried place, the location remains unknown.
-- A travel block requires `{"type": "travel", "to": "place-id"}`. Optional fields are `from`, `start`, `end`, `endDay`, `mode`, `notes`, and `documents`. Every place reference must exist in `places`. Origin is inferred from current location; use `from` only for an explicit override.
+- A travel block requires `{"type": "travel", "to": "place-id"}`. Optional fields are `from`, `start`, `end`, `endDay`, `mode`, `estimatedDurationMinutes`, `components`, `notes`, and `documents`. Every place reference must exist in `places`. Origin is inferred from current location; use `from` only for an explicit override.
 - A location reset is `{"type": "place", "place": "place-id"}`. It claims no timed movement and makes that day's timing unknown. Prefer `initialPlace` and travel carry-forward for ordinary routes.
 
 Provided optional strings must be nonempty. Hotels, activities, stays, overnight locations, and percentages are not current input fields or block types. Put actual hotel/activity details in day or travel notes and local document links; the viewer derives stays and overnight locations.
+
+### Groups and rough durations
+
+Use optional trip `groups: {"kumano": {"name": "Kumano Kodo", "color": "#249881"}}` and explicit `places[id].group: "kumano"` to group a crowded route from actual travel context. `color` is optional and, when supplied, must be six-digit hex. Every membership must reference a declared group. Keep all underlying place IDs, GPS coordinates and connecting travel blocks; nearby places outside the trail remain separate unless the plan supports membership. Ungrouped places remain individual destinations.
+
+Use clean transport `mode` values: `train`, `bus`, `walk`, `hike`, `flight`, `ferry`, `car`, or `other`. Legacy strings still load. Put explanation, service names and caveats in notes. Optional `estimatedDurationMinutes` is one positive finite number. Convert a provided duration range to its upper bound and keep the original context in notes; do not invent a duration when none is supported. The UI displays these durations with `~`; an estimate never creates departure/arrival clocks or a confirmed duration.
+
+For a single connection with multiple modes and no supported intermediate place, use optional `components: [{"mode":"bus","estimatedDurationMinutes":5},{"mode":"hike","estimatedDurationMinutes":360}]`. Components are a nonempty ordered array with required nonempty `mode` and optional positive finite `estimatedDurationMinutes`. Omit a duplicate top-level estimate when every component is estimated: the viewer derives their sum. Missing component durations remain missing; don't invent GPS waypoints or split exact clocks. Component totals retain their estimated status even when the whole connection has exact clocks. The exact whole connection duration is shown separately as mixed / unallocated rather than inventing exact mode shares.
+
+Only fields documented here affect the viewer. Legacy extra metadata is preserved but is not interpreted: do not introduce unsupported fields expecting the UI to show them. Put supported travel details in notes/documents.
 
 ### Travel timing
 
@@ -29,7 +39,7 @@ Provided optional strings must be nonempty. Hotels, activities, stays, overnight
 
 An earlier arrival clock never automatically means next day. For arrival at next midnight, use `end: "00:00"` and the correct `endDay`, never `24:00`. Do not put blocks between an overnight departure and its arrival day, or after that departure on the departure day. Further travel on the arrival day must follow the arrival.
 
-Actual elapsed duration requires `startDate`, both clocks, and applicable timezones; it is computed across zones rather than by subtracting local clocks. Missing information stays unknown. Do not invent times or elapsed percentages to fill the calendar. Normalization rejects chronological overlaps, arrival before departure, and ambiguous/nonexistent DST clocks. Resolve those from the user's plan or reliable evidence; do not silently shift a confirmed booking.
+Actual elapsed duration requires `startDate`, both clocks, and applicable timezones; it is computed across zones rather than by subtracting local clocks. Missing information stays unknown. Do not invent times or elapsed percentages to fill the calendar. Rough days use schematic colored route sequences; their widths are explicitly estimated, not clock proportions. Normalization rejects chronological overlaps, arrival before departure, and ambiguous/nonexistent DST clocks. Resolve those from the user's plan or reliable evidence; do not silently shift a confirmed booking.
 
 ### Place metadata
 
