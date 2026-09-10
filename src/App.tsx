@@ -42,6 +42,7 @@ import {
   dayGroups,
   duration,
   momentAt,
+  mapMomentAt,
   componentLegs,
   placeColor,
   visualGroups,
@@ -62,7 +63,7 @@ import {
   calendarSlots,
   routeCurve,
 } from "./view-model";
-import type { Moment, Point, MapDurationFilter } from "./view-model";
+import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
 
@@ -164,7 +165,7 @@ function useCompactScreen() {
 }
 function TripMap({
   model,
-  moment,
+  value,
   status,
   day,
   playing,
@@ -174,7 +175,7 @@ function TripMap({
   changePlaybackSpeed,
 }: {
   model: Itinerary;
-  moment: Moment;
+  value: number;
   status: string;
   day: NormalizedDay;
   playing: boolean;
@@ -183,22 +184,22 @@ function TripMap({
   playbackSpeed: number;
   changePlaybackSpeed: (speed: number) => void;
 }) {
+  const moment = mapMomentAt(model, value);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
   const frame = useRef<HTMLDivElement>(null);
-  const [frameScale, setFrameScale] = useState(1);
+  const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
+  const frameScale = Math.min(frameSize.width / 900, frameSize.height / 480);
   const compact = useCompactScreen();
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
     const observer = new ResizeObserver(([entry]) => {
       if (entry.contentRect.width > 0 && entry.contentRect.height > 0)
-        setFrameScale(
-          Math.min(
-            entry.contentRect.width / 900,
-            entry.contentRect.height / 480,
-          ),
-        );
+        setFrameSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
     });
     observer.observe(node);
     return () => observer.disconnect();
@@ -421,6 +422,27 @@ function TripMap({
       : moment.place
         ? geometry.points[moment.place]
         : undefined;
+  let heading = 0;
+  if (active && moment.leg && moment.progress !== undefined) {
+    const reverse = active.reverseLeg?.id === moment.leg.id;
+    const t = reverse ? 1 - moment.progress : moment.progress;
+    const { a, b, c } = active.curve;
+    const direction = reverse ? -1 : 1;
+    const dx = direction * ((1 - t) * (c[0] - a[0]) + t * (b[0] - c[0]));
+    const dy = direction * ((1 - t) * (c[1] - a[1]) + t * (b[1] - c[1]));
+    heading = (Math.atan2(dy, dx) * 180) / Math.PI + 45;
+  }
+  const markerPosition = marker
+    ? {
+        left: (frameSize.width - 900 * frameScale) / 2 + screen(marker)[0],
+        top: (frameSize.height - 480 * frameScale) / 2 + screen(marker)[1],
+      }
+    : undefined;
+  const markerLabel = moment.leg
+    ? `${name(model, moment.leg.from)} → ${name(model, moment.leg.to)}`
+    : moment.place
+      ? name(model, moment.place)
+      : status;
   const selected = new Set(activeLegs(model, day).map((l) => l.id));
   const zoom = (factor: number) => setView((view) => zoomMap(view, factor));
   return (
@@ -428,8 +450,11 @@ function TripMap({
       <div className="map-canvas" data-testid="map-canvas">
         <div className="map-header">
           <div className="map-caption">
-            <span>Along your route</span>
-            <strong>{status}</strong>
+            <span>
+              {dayLabel(day)} ·{" "}
+              {moment.schematic ? "Illustrative progress" : "Selected position"}
+            </span>
+            <strong>{markerLabel}</strong>
           </div>
         </div>
         <div className="map-controls">
@@ -501,7 +526,7 @@ function TripMap({
           <svg
             viewBox="0 0 900 480"
             role="img"
-            aria-label={`Trip map. ${status}`}
+            aria-label={`Trip map. ${markerLabel}${moment.schematic ? ". Illustrative position" : ""}`}
             onPointerDown={(e) => {
               e.currentTarget.setPointerCapture(e.pointerId);
               drag.current = {
@@ -735,24 +760,28 @@ function TripMap({
                   </text>
                 </g>
               ))}
-              {marker && (
-                <g
-                  data-testid="traveler"
-                  data-place={moment.place ?? ""}
-                  data-leg={moment.leg?.id ?? ""}
-                  transform={`translate(${marker})`}
-                >
-                  <circle r={10 / pixelScale} fill="var(--blue)" opacity=".2" />
-                  <circle
-                    r={6 / pixelScale}
-                    fill="var(--blue)"
-                    stroke="var(--paper)"
-                    strokeWidth={2 / pixelScale}
-                  />
-                </g>
-              )}
             </g>
           </svg>
+          {marker && markerPosition && (
+            <div
+              className="map-airplane"
+              data-testid="traveler"
+              data-place={moment.place ?? ""}
+              data-leg={moment.leg?.id ?? ""}
+              data-schematic={moment.schematic}
+              data-map-x={marker[0]}
+              data-map-y={marker[1]}
+              style={markerPosition}
+              role="img"
+              aria-label={`${markerLabel} · ${moment.schematic ? "illustrative" : "selected"} position`}
+            >
+              <Plane
+                style={{ transform: `rotate(${heading}deg)` }}
+                strokeWidth={1.7}
+                aria-hidden="true"
+              />
+            </div>
+          )}
         </div>
         <div className="map-source">
           Drag to pan · schematic connections · Natural Earth
@@ -1238,7 +1267,7 @@ function App() {
                 <TripMap
                   key={selected}
                   model={itinerary}
-                  moment={moment}
+                  value={value}
                   status={status}
                   day={day}
                   playing={playing}

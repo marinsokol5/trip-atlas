@@ -299,6 +299,74 @@ export function momentAt(model: Itinerary, value: number): Moment {
   }
   return { place: segment?.place, at, unknown: !segment?.place };
 }
+
+/** A replay cursor, not a new schedule: untimed routes use illustrative progress. */
+export function mapMomentAt(
+  model: Itinerary,
+  value: number,
+): Moment & { schematic: boolean } {
+  const entered = momentAt(model, value);
+  if (!entered.unknown) return { ...entered, schematic: false };
+  const index = Math.min(model.days.length - 1, Math.max(0, Math.floor(value)));
+  const day = model.days[index];
+  const legs = activeLegs(model, day);
+  if (!legs.length)
+    return {
+      place: day.overnight ?? day.startPlace,
+      unknown: true,
+      schematic: true,
+    };
+  const steps: {
+    place?: string;
+    leg?: Leg;
+    start?: number;
+    end?: number;
+    weight: number;
+  }[] = [];
+  // Omit an origin pause when the selected day begins partway through an overnight leg.
+  if (legs[0].day === index + 1 && legs[0].from)
+    steps.push({ place: legs[0].from, weight: 1.5 });
+  for (const [i, leg] of legs.entries()) {
+    const span = leg.endDay - leg.day + 1;
+    const parts = leg.block.components;
+    const estimate =
+      leg.durationMs !== undefined
+        ? leg.durationMs / 60000
+        : (leg.block.estimatedDurationMinutes ??
+          (parts?.every((p) => p.estimatedDurationMinutes !== undefined)
+            ? parts.reduce((sum, p) => sum + p.estimatedDurationMinutes!, 0)
+            : undefined));
+    steps.push({
+      leg,
+      start: (index + 1 - leg.day) / span,
+      end: (index + 2 - leg.day) / span,
+      weight: Math.max(
+        0.1,
+        (estimate === undefined ? 1 : estimate / 120) / span,
+      ),
+    });
+    if (leg.endDay === index + 1)
+      steps.push({ place: leg.to, weight: i === legs.length - 1 ? 1.5 : 0.5 });
+  }
+  const total = steps.reduce((sum, step) => sum + step.weight, 0);
+  let progress = Math.max(0, Math.min(0.999999, value - index)) * total;
+  for (const step of steps) {
+    if (progress < step.weight) {
+      return step.leg
+        ? {
+            leg: step.leg,
+            progress:
+              step.start! +
+              (progress / step.weight) * (step.end! - step.start!),
+            unknown: true,
+            schematic: true,
+          }
+        : { place: step.place, unknown: true, schematic: true };
+    }
+    progress -= step.weight;
+  }
+  return { place: day.overnight, unknown: true, schematic: true };
+}
 export function clockAt(
   model: Itinerary,
   instant: number | undefined,
