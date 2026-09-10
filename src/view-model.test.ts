@@ -15,8 +15,6 @@ import {
   advancePlayback,
   zoomMap,
   wheelZoomFactor,
-  mapZoomMin,
-  mapZoomMax,
   momentAt,
   curvePoint,
   routeCurve,
@@ -494,7 +492,7 @@ test("wheel down zooms in, up zooms out, and wheel units normalize", () => {
   assert.equal(wheelZoomFactor(1, 1, 480), wheelZoomFactor(16, 0, 480));
   assert.equal(wheelZoomFactor(1, 2, 480), wheelZoomFactor(480, 0, 480));
 });
-test("pointer-anchored zoom keeps the same map coordinate under cursor, including at bounds", () => {
+test("pointer-anchored zoom keeps the same map coordinate under cursor, far beyond the former zoom bounds", () => {
   const view = { x: -120, y: 80, k: 2 };
   for (const anchor of [
     [0, 0],
@@ -503,7 +501,7 @@ test("pointer-anchored zoom keeps the same map coordinate under cursor, includin
   ] as [number, number][]) {
     for (const factor of [0.001, 0.8, 1.2, 100]) {
       const next = zoomMap(view, factor, anchor);
-      assert.ok(next.k >= mapZoomMin && next.k <= mapZoomMax);
+      assert.equal(next.k, view.k * factor);
       assert.ok(
         Math.abs(
           (anchor[0] - view.x) / view.k - (anchor[0] - next.x) / next.k,

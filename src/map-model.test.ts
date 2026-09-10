@@ -16,8 +16,6 @@ import {
   mapPointStyle,
   routeCurve,
   zoomMap,
-  mapZoomMin,
-  mapZoomMax,
 } from "./view-model.ts";
 
 test("vehicle connection spans transfer points and final hiking leg before filtering", () => {
@@ -329,7 +327,7 @@ test("day titles are optional validated purpose labels with a route fallback", (
 test("arrow tips clear each painted circle by 2.5 screen pixels at every zoom", () => {
   const curve = routeCurve([0, 0], [500, 300]);
   for (const frame of [0.4, 0.79, 1])
-    for (const k of [mapZoomMin, 1, mapZoomMax])
+    for (const k of [0.35, 1, 12])
       for (const transfer of [false, true])
         for (const active of [false, true])
           for (const traveler of [false, true]) {
@@ -349,8 +347,8 @@ test("arrow tips clear each painted circle by 2.5 screen pixels at every zoom", 
             assert.deepEqual(mapRoute(curve, true, scale, point).curve, curve);
           }
   assert.ok(zoomMap({ x: 0, y: 0, k: 1 }, 1 / 1.5).k < 1);
-  assert.equal(zoomMap({ x: 0, y: 0, k: 1 }, 0.001).k, mapZoomMin);
-  assert.equal(zoomMap({ x: 0, y: 0, k: 1 }, 100).k, mapZoomMax);
+  assert.equal(zoomMap({ x: 0, y: 0, k: 1 }, 0.001).k, 0.001);
+  assert.equal(zoomMap({ x: 0, y: 0, k: 1 }, 100).k, 100);
 });
 
 test("unsplit bus and boat estimates survive as total without invented component shares", () => {

@@ -1546,8 +1546,8 @@ select option {
 
 /* Country scope is independent of the selected day and playback position. */
 main {
-  --country-fill: #d8cfaf;
-  --country-border: #94855f;
+  --country-fill: #b89b70;
+  --country-border: #8b7048;
 }
 main[data-theme="dark"] {
   --country-fill: #55533b;

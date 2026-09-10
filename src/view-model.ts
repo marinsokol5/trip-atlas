@@ -396,19 +396,17 @@ export function mapDisplayDuration(
     )[0];
   return longest ? mapConnectionDuration(longest) : "";
 }
-export const mapZoomMin = 0.35;
-export const mapZoomMax = 12;
 export function zoomMap(
   view: { x: number; y: number; k: number },
   factor: number,
   anchor: Point = [450, 240],
 ) {
-  const k = Math.max(mapZoomMin, Math.min(mapZoomMax, view.k * factor));
-  return {
-    k,
-    x: anchor[0] - ((anchor[0] - view.x) * k) / view.k,
-    y: anchor[1] - ((anchor[1] - view.y) * k) / view.k,
-  };
+  const k = view.k * factor;
+  const x = anchor[0] - (anchor[0] - view.x) * factor;
+  const y = anchor[1] - (anchor[1] - view.y) * factor;
+  // Reject only invalid numeric transforms, not zoom levels chosen by the user.
+  if (k <= 0 || ![k, x, y].every(Number.isFinite)) return view;
+  return { k, x, y };
 }
 /** Positive wheel delta deliberately zooms in; normalize line/page wheel units. */
 export function wheelZoomFactor(

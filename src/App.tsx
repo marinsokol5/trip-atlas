@@ -70,8 +70,6 @@ import {
   directedCurvePoint,
   zoomMap,
   wheelZoomFactor,
-  mapZoomMin,
-  mapZoomMax,
   scopedCalendarSlots,
   calendarCountries,
   routeCurve,
@@ -545,10 +543,6 @@ function TripMap({
           260 - ((minY + maxY) / 2) * scale,
         ]);
     } else projection.scale(135).translate([450, 260]);
-    projection.clipExtent([
-      [-5000, -5000],
-      [5000, 5000],
-    ]);
     const points = Object.fromEntries(
       locations.map((p) => [p.id, projection(p.coordinates)!]),
     );
@@ -742,14 +736,12 @@ function TripMap({
           >
             <button
               aria-label="Zoom in"
-              disabled={view.k >= mapZoomMax}
               onClick={() => zoom(1.5)}
             >
               <Icon kind="plus" />
             </button>
             <button
               aria-label="Zoom out"
-              disabled={view.k <= mapZoomMin}
               onClick={() => zoom(1 / 1.5)}
             >
               <Icon kind="minus" />
