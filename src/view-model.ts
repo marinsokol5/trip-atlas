@@ -175,6 +175,13 @@ export function mapAreas(model: Itinerary) {
   ].map((country) => ({ country, name: names.of(country) ?? country }));
 }
 
+/** Highlight visited countries from the itinerary, never unused place definitions or the playhead. */
+export function mapHighlightedCountries(model: Itinerary, country = "") {
+  return new Set(
+    country ? [country] : mapAreas(model).map((area) => area.country),
+  );
+}
+
 export function mapArea(model: Itinerary, country = "") {
   const occurrences = mapPlaceOccurrences(model).filter(
     (id) => !country || model.trip.places[id].country === country,

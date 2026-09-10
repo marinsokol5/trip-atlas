@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useRef,
@@ -47,6 +48,7 @@ import {
   momentAt,
   mapMomentAt,
   mapAreas,
+  mapHighlightedCountries,
   areaDays,
   scopedPosition,
   tripPosition,
@@ -78,6 +80,8 @@ import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
 import { ThemedSelect } from "./ThemedSelect";
+import { MapLabelsMenu } from "./MapLabelsMenu";
+import { useMapLabelPreference } from "./use-map-label-preference";
 
 type Entry = { path: string; label: string };
 // Only animation consumers subscribe to frame updates. App receives semantic changes.
@@ -348,6 +352,44 @@ function Traveler({
     </>
   );
 }
+function MapPlaceTooltip({
+  text,
+  x,
+  y,
+  width,
+  height,
+}: {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  const node = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const bounds = node.current?.getBoundingClientRect();
+    if (bounds) setSize({ width: bounds.width, height: bounds.height });
+  }, [text, width]);
+  return (
+    <div
+      ref={node}
+      className="map-place-tooltip"
+      role="tooltip"
+      style={{
+        left: Math.max(8, Math.min(x - size.width / 2, width - size.width - 8)),
+        top: Math.max(
+          8,
+          Math.min(y - size.height - 14, height - size.height - 8),
+        ),
+        maxWidth: width - 16,
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
 function TripMap({
   model,
   value,
@@ -374,6 +416,19 @@ function TripMap({
   changePlaybackSpeed: (speed: number) => void;
 }) {
   const moment = mapMomentAt(model, value);
+  const highlightedCountries = useMemo(
+    () => mapHighlightedCountries(model, country),
+    [model, country],
+  );
+  const [showEndpoints, setShowEndpoints] = useMapLabelPreference(
+    "start-finish",
+    true,
+  );
+  const [showGroupNames, setShowGroupNames] = useMapLabelPreference(
+    "group-names",
+    false,
+  );
+  const [tooltipPlace, setTooltipPlace] = useState<string | null>(null);
 
   const area = useMemo(() => mapArea(model, country), [model, country]);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
@@ -382,16 +437,18 @@ function TripMap({
     setViewCountry(country);
     setView({ x: 0, y: 0, k: 1 });
   }
-  const [durationFilter, setDurationFilter] = useState<MapDurationFilter>(() => {
-    try {
-      const saved = window.localStorage.getItem("trip-atlas-duration-filter");
-      if (saved && ["all", "30", "60", "120", "240", "none"].includes(saved))
-        return saved as MapDurationFilter;
-    } catch {
-      // Defaults remain usable when browser storage is unavailable.
-    }
-    return "60";
-  });
+  const [durationFilter, setDurationFilter] = useState<MapDurationFilter>(
+    () => {
+      try {
+        const saved = window.localStorage.getItem("trip-atlas-duration-filter");
+        if (saved && ["all", "30", "60", "120", "240", "none"].includes(saved))
+          return saved as MapDurationFilter;
+      } catch {
+        // Defaults remain usable when browser storage is unavailable.
+      }
+      return "60";
+    },
+  );
   const frame = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
   const frameScale = Math.min(frameSize.width / 900, frameSize.height / 480);
@@ -413,6 +470,7 @@ function TripMap({
     if (!node) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
+      setTooltipPlace(null);
       const rect = node.getBoundingClientRect();
       const scale = Math.min(rect.width / 900, rect.height / 480);
       if (!scale) return;
@@ -432,7 +490,8 @@ function TripMap({
     return () => node.removeEventListener("wheel", onWheel);
   }, []);
   const pixelScale = frameScale * view.k;
-  const numbered = frameScale < 0.9;
+  const numbered = !showGroupNames;
+  const dragged = useRef(false);
   const drag = useRef<
     { x: number; y: number; vx: number; vy: number } | undefined
   >(undefined);
@@ -511,6 +570,7 @@ function TripMap({
       id: i,
       path: path(feature as unknown as GeoPermissibleObjects),
       name: feature.properties.name,
+      country: feature.properties.iso2,
     }));
     // Prefer an overnight base over an area's transfer waypoint for its numbered label.
     const labels = groups.flatMap((group) => {
@@ -551,7 +611,7 @@ function TripMap({
       width: radius * 2,
       height: radius * 2,
     });
-    if (id === first || id === last) {
+    if (showEndpoints && (id === first || id === last)) {
       const width = first === last ? 72 : 38;
       occupied.push({ x: x - width / 2, y: y + 9, width, height: 14 });
     }
@@ -658,7 +718,10 @@ function TripMap({
       ? name(model, moment.place)
       : status;
   const selected = new Set(activeLegs(model, day).map((l) => l.id));
-  const zoom = (factor: number) => setView((view) => zoomMap(view, factor));
+  const zoom = (factor: number) => {
+    setTooltipPlace(null);
+    setView((view) => zoomMap(view, factor));
+  };
   return (
     <>
       <div className="map-canvas" data-testid="map-canvas">
@@ -694,7 +757,10 @@ function TripMap({
             <button
               aria-label="Fit selected area"
               title="Fit selected area"
-              onClick={() => setView({ x: 0, y: 0, k: 1 })}
+              onClick={() => {
+                setTooltipPlace(null);
+                setView({ x: 0, y: 0, k: 1 });
+              }}
             >
               <Icon kind="reset" />
             </button>
@@ -702,67 +768,78 @@ function TripMap({
           <div
             className="map-secondary-controls"
             role="group"
-            aria-label="Playback and duration labels"
+            aria-label="Playback and map labels"
           >
-            <button
-              onClick={togglePlayback}
-              className="playback-toggle"
-              aria-label={
-                playing
-                  ? "Pause itinerary"
-                  : atEnd
-                    ? "Replay itinerary"
-                    : "Play itinerary"
-              }
-              aria-pressed={playing}
-            >
-              <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
-              {playing ? "Pause" : atEnd ? "Replay" : "Play"}
-            </button>
-            <div className="map-duration-filter">
-              Speed
-              <ThemedSelect
-                label="Playback speed"
-                value={String(playbackSpeed)}
-                title="1× advances one itinerary day every three seconds"
-                options={playbackSpeeds.map((speed) => ({
-                  value: String(speed),
-                  label: `${speed}×`,
-                }))}
-                onChange={(speed) => changePlaybackSpeed(Number(speed))}
-              />
-            </div>
-            <div className="map-duration-filter">
-              Durations
-              <ThemedSelect
-                label="Map duration labels"
-                value={durationFilter}
-                options={[
-                  { value: "all", label: "All" },
-                  { value: "30", label: ">30m" },
-                  { value: "60", label: ">1h" },
-                  { value: "120", label: ">2h" },
-                  { value: "240", label: ">4h" },
-                  { value: "none", label: "None" },
-                ]}
-                onChange={(filter) => {
-                  setDurationFilter(filter as MapDurationFilter);
-                  try {
-                    window.localStorage.setItem("trip-atlas-duration-filter", filter);
-                  } catch {
-                    // The selection still applies for this session.
+            <div className="map-playback-cluster">
+              <button
+                onClick={togglePlayback}
+                className="playback-toggle"
+                aria-label={
+                  playing
+                    ? "Pause itinerary"
+                    : atEnd
+                      ? "Replay itinerary"
+                      : "Play itinerary"
+                }
+                aria-pressed={playing}
+              >
+                <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
+                {playing ? "Pause" : atEnd ? "Replay" : "Play"}
+              </button>
+              <label className="map-speed-slider">
+                <span>
+                  Speed <output>{playbackSpeed}×</output>
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max={playbackSpeeds.length - 1}
+                  step="1"
+                  value={playbackSpeeds.indexOf(playbackSpeed)}
+                  aria-label="Playback speed"
+                  aria-valuetext={`${playbackSpeed}×`}
+                  title="1× advances one itinerary day every three seconds"
+                  onChange={(event) =>
+                    changePlaybackSpeed(
+                      playbackSpeeds[Number(event.target.value)],
+                    )
                   }
-                }}
-              />
+                />
+                <span className="speed-endpoints" aria-hidden="true">
+                  <span>0.5×</span>
+                  <span>8×</span>
+                </span>
+              </label>
             </div>
+            <MapLabelsMenu
+              showEndpoints={showEndpoints}
+              setShowEndpoints={setShowEndpoints}
+              showGroupNames={showGroupNames}
+              setShowGroupNames={setShowGroupNames}
+              durationFilter={durationFilter}
+              setDurationFilter={(filter) => {
+                setDurationFilter(filter);
+                try {
+                  window.localStorage.setItem(
+                    "trip-atlas-duration-filter",
+                    filter,
+                  );
+                } catch {
+                  // The selection still applies for this session.
+                }
+              }}
+            />
           </div>
         </div>
         <div className="map-geometry" ref={frame}>
           <svg
             viewBox="0 0 900 480"
-            role="img"
+            role="group"
             aria-label={`Trip map. ${markerLabel}${moment.schematic ? ". Illustrative position" : ""}`}
             onPointerDown={(e) => {
+              dragged.current = false;
+              if (!(e.target as Element).closest("[data-place-hit]"))
+                setTooltipPlace(null);
               e.currentTarget.setPointerCapture(e.pointerId);
               drag.current = {
                 x: e.clientX,
@@ -774,6 +851,10 @@ function TripMap({
             onPointerMove={(e) => {
               const start = drag.current;
               if (start) {
+                if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 4) {
+                  dragged.current = true;
+                  setTooltipPlace(null);
+                }
                 // React may apply this update after pointerup clears the drag ref.
                 const x = start.vx + (e.clientX - start.x) / frameScale;
                 const y = start.vy + (e.clientY - start.y) / frameScale;
@@ -811,9 +892,18 @@ function TripMap({
               transform={`translate(${view.x} ${view.y}) scale(${view.k})`}
               data-testid="map-transform"
             >
-              <g className="geography">
+              <g className="geography" aria-hidden="true">
                 {geometry.shapes.map((s) => (
-                  <path key={s.id} d={s.path ?? ""}>
+                  <path
+                    key={s.id}
+                    d={s.path ?? ""}
+                    data-country={s.country || undefined}
+                    className={
+                      highlightedCountries.has(s.country)
+                        ? "highlighted-country"
+                        : undefined
+                    }
+                  >
                     <title>{s.name}</title>
                   </path>
                 ))}
@@ -887,6 +977,7 @@ function TripMap({
                     data-return-connection={connection.inbound?.id}
                   >
                     <line
+                      pointerEvents="none"
                       x1={anchor[0]}
                       y1={anchor[1]}
                       x2={position[0] + width / 2 / pixelScale}
@@ -944,7 +1035,48 @@ function TripMap({
                       stroke="var(--paper)"
                       strokeWidth={point.stroke / pixelScale}
                     />
-                    {(id === first || id === last) && (
+                    <circle
+                      data-place-hit={id}
+                      className="place-hit-target"
+                      cx={p[0]}
+                      cy={p[1]}
+                      r={12 / pixelScale}
+                      fill="transparent"
+                      tabIndex={0}
+                      role="button"
+                      aria-label={name(model, id)}
+                      onPointerDown={(event) => {
+                        if (event.pointerType === "touch") setTooltipPlace(id);
+                      }}
+                      onPointerEnter={(event) => {
+                        if (event.pointerType !== "touch" && !dragged.current)
+                          setTooltipPlace(id);
+                      }}
+                      onPointerLeave={(event) => {
+                        if (event.pointerType !== "touch")
+                          setTooltipPlace(null);
+                        if (!drag.current) dragged.current = false;
+                      }}
+                      onFocus={(event) => {
+                        if (
+                          !dragged.current ||
+                          event.currentTarget.matches(":focus-visible")
+                        )
+                          setTooltipPlace(id);
+                      }}
+                      onBlur={() => setTooltipPlace(null)}
+                      onClick={() => {
+                        if (!dragged.current) setTooltipPlace(id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") setTooltipPlace(null);
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setTooltipPlace(id);
+                        }
+                      }}
+                    />
+                    {showEndpoints && (id === first || id === last) && (
                       <text
                         className="endpoint-label"
                         style={{ strokeWidth: 3 / pixelScale }}
@@ -972,6 +1104,7 @@ function TripMap({
                     pixelScale >
                     32 && (
                     <line
+                      pointerEvents="none"
                       x1={geometry.points[l.id][0]}
                       y1={geometry.points[l.id][1]}
                       x2={l.position[0] + 5 / pixelScale}
@@ -1006,6 +1139,29 @@ function TripMap({
             frameScale={frameScale}
             status={status}
           />
+          {tooltipPlace &&
+            geometry.points[tooltipPlace] &&
+            (() => {
+              const [x, y] = screen(geometry.points[tooltipPlace]);
+              const offsetX = (frameSize.width - 900 * frameScale) / 2;
+              const offsetY = (frameSize.height - 480 * frameScale) / 2;
+              if (
+                x + offsetX < 0 ||
+                x + offsetX > frameSize.width ||
+                y + offsetY < 0 ||
+                y + offsetY > frameSize.height
+              )
+                return null;
+              return (
+                <MapPlaceTooltip
+                  text={name(model, tooltipPlace)}
+                  x={x + offsetX}
+                  y={y + offsetY}
+                  width={frameSize.width}
+                  height={frameSize.height}
+                />
+              );
+            })()}
         </div>
         <div className="map-source">
           {durationLabelCandidates > connectionLabels.length && (
@@ -1031,7 +1187,7 @@ function TripMap({
             }
           >
             <i style={{ background: g.color }} />
-            {numbered && <b>{i + 1}.</b>}
+            <b>{i + 1}.</b>
             {g.name}
           </span>
         ))}
@@ -1479,7 +1635,9 @@ function App() {
         if (active) {
           let savedCountry = "";
           try {
-            const saved = window.localStorage.getItem(`trip-atlas-area:${selected}`);
+            const saved = window.localStorage.getItem(
+              `trip-atlas-area:${selected}`,
+            );
             if (saved && mapAreas(model).some((area) => area.country === saved))
               savedCountry = saved;
           } catch {

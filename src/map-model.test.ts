@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeTrip } from "./itinerary.ts";
 import {
+  mapHighlightedCountries,
   mapConnections,
   mapDisplayConnections,
   mapDisplayDuration,
@@ -506,4 +508,59 @@ test("a partially allocated whole estimate is counted once in summaries", () => 
     100 * 60000,
   );
   assert.equal(model.legs[0].block.components![0].estimatedDurationMinutes, 20);
+});
+
+test("country highlighting uses complete visited scope including home, excluding unused definitions", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "home",
+    places: {
+      home: { country: "NL" },
+      tokyo: { country: "JP" },
+      unknown: {},
+      unused: { country: "FR" },
+    },
+    days: [
+      { blocks: [{ type: "travel", to: "tokyo", mode: "flight" }] },
+      { blocks: [{ type: "travel", to: "unknown", mode: "train" }] },
+      { blocks: [{ type: "travel", to: "home", mode: "flight" }] },
+    ],
+  });
+  assert.deepEqual([...mapHighlightedCountries(model)], ["NL", "JP"]);
+  assert.deepEqual([...mapHighlightedCountries(model, "JP")], ["JP"]);
+  assert.deepEqual([...mapHighlightedCountries(model, "ZZ")], ["ZZ"]);
+});
+
+test("bundled country IDs cover worldwide names and Natural Earth ISO exceptions", () => {
+  const world = JSON.parse(
+    readFileSync(new URL("./assets/world.json", import.meta.url), "utf8"),
+  );
+  const countries = new Map<string, string>(
+    world.features.map(
+      (feature: { properties: { name: string; iso2: string } }) => [
+        feature.properties.name,
+        feature.properties.iso2,
+      ],
+    ),
+  );
+  for (const [name, code] of [
+    ["Japan", "JP"],
+    ["Vietnam", "VN"],
+    ["Thailand", "TH"],
+    ["Taiwan", "TW"],
+    ["Netherlands", "NL"],
+    ["France", "FR"],
+    ["Norway", "NO"],
+    ["Brazil", "BR"],
+    ["Australia", "AU"],
+  ]) {
+    assert.equal(countries.get(name), code, name);
+  }
+  assert.equal(countries.get("N. Cyprus"), "");
+  assert.ok(
+    [...countries.values()].every(
+      (code) => code === "" || /^[A-Z]{2}$/.test(code),
+    ),
+  );
+  assert.ok(![...countries.values()].includes("ZZ"));
 });
