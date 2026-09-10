@@ -6,8 +6,8 @@ main {
   --line: #d8e0e6;
   --blue: #1a59b8;
   --wash: #e9f0fb;
-  --water: #e7eff4;
-  --land: #fbfbf4;
+  --water: #d6e7ef;
+  --land: #c8d8bd;
   --coast: #c4cec6;
   --transit: #697783;
   background: var(--bg);
