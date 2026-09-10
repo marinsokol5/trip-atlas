@@ -382,7 +382,16 @@ function TripMap({
     setViewCountry(country);
     setView({ x: 0, y: 0, k: 1 });
   }
-  const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
+  const [durationFilter, setDurationFilter] = useState<MapDurationFilter>(() => {
+    try {
+      const saved = window.localStorage.getItem("trip-atlas-duration-filter");
+      if (saved && ["all", "30", "60", "120", "240", "none"].includes(saved))
+        return saved as MapDurationFilter;
+    } catch {
+      // Defaults remain usable when browser storage is unavailable.
+    }
+    return "60";
+  });
   const frame = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
   const frameScale = Math.min(frameSize.width / 900, frameSize.height / 480);
@@ -736,9 +745,14 @@ function TripMap({
                   { value: "240", label: ">4h" },
                   { value: "none", label: "None" },
                 ]}
-                onChange={(filter) =>
-                  setDurationFilter(filter as MapDurationFilter)
-                }
+                onChange={(filter) => {
+                  setDurationFilter(filter as MapDurationFilter);
+                  try {
+                    window.localStorage.setItem("trip-atlas-duration-filter", filter);
+                  } catch {
+                    // The selection still applies for this session.
+                  }
+                }}
               />
             </div>
           </div>
@@ -1384,6 +1398,11 @@ function App() {
     const eligible = areaDays(itinerary, next);
     setPlaying(false);
     setCountry(next);
+    try {
+      window.localStorage.setItem(`trip-atlas-area:${selected}`, next);
+    } catch {
+      // The selection still applies for this session.
+    }
     if (!eligible.some((day) => day.index === Math.floor(playhead.current))) {
       selectPosition(eligible[0].index);
     }
@@ -1458,12 +1477,21 @@ function App() {
       .then((data) => {
         const model = normalizeTrip(data);
         if (active) {
+          let savedCountry = "";
+          try {
+            const saved = window.localStorage.getItem(`trip-atlas-area:${selected}`);
+            if (saved && mapAreas(model).some((area) => area.country === saved))
+              savedCountry = saved;
+          } catch {
+            // Open the whole trip when browser storage is unavailable.
+          }
+          const initialPosition = areaDays(model, savedCountry)[0]?.index ?? 0;
           setItinerary(model);
-          setCountry("");
-          playhead.current = 0;
-          clock.set(0);
+          setCountry(savedCountry);
+          playhead.current = initialPosition;
+          clock.set(initialPosition);
           semanticKey.current = "";
-          setSemanticValue(0);
+          setSemanticValue(initialPosition);
           setPlaying(false);
         }
       })
