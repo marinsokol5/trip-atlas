@@ -4,6 +4,9 @@ import { normalizeTrip } from "./itinerary.ts";
 import type { Trip, TravelBlock } from "./itinerary.ts";
 import {
   overview,
+  countryColor,
+  headlineTimeLabel,
+  nightShare,
   moneyLabel,
   timeLabel,
   travelTimes,
@@ -317,4 +320,71 @@ test("legacy mixed metro, subway and unknown transport aliases are never allocat
     assert.equal(timeLabel(result.other), "?");
   }
   assert.equal(timeLabel(times({ mode: "flight" }).flights), "?");
+});
+
+test("Overview budget presence counts explicit zero and only scoped prices", () => {
+  const trip = fixture();
+  delete trip.budget;
+  const transportOnly = overview(normalizeTrip(trip));
+  assert.equal(transportOnly.hasBudget, true);
+  assert.equal(transportOnly.hasStayCosts, false);
+  for (const day of trip.days)
+    for (const block of day.blocks ?? [])
+      if (block.type === "travel") delete block.estimatedCost;
+  trip.budget = { countries: { US: { livingPerDay: 999 } } };
+  assert.equal(overview(normalizeTrip(trip)).hasBudget, false);
+  trip.budget.countries.JP = { livingPerDay: 0 };
+  const free = overview(normalizeTrip(trip));
+  assert.equal(free.hasBudget, true);
+  assert.equal(free.hasStayCosts, true);
+  assert.equal(free.costs.total.value, 0);
+  assert.equal(moneyLabel(free.costs.total, "EUR"), "~€0+");
+  assert.equal(overview(normalizeTrip(trip), "VN").hasBudget, false);
+});
+test("country colors survive place reorder, unused places and explicit groups", () => {
+  const trip = fixture();
+  const before = overview(normalizeTrip(trip)).stays.find(
+    (r) => r.key === "JP",
+  )!.color;
+  trip.groups = { japan: { name: "Japan", color: "#ffffff" } };
+  trip.places.tokyo.group = "japan";
+  trip.places = {
+    unused: { name: "Unused", country: "NL" },
+    ...Object.fromEntries(Object.entries(trip.places).reverse()),
+  };
+  assert.equal(
+    overview(normalizeTrip(trip)).stays.find((r) => r.key === "JP")!.color,
+    before,
+  );
+  assert.equal(
+    new Set(["JP", "VN", "TH", "TW", "NL"].map(countryColor)).size,
+    5,
+  );
+  assert.equal(countryColor("zz"), countryColor("ZZ"));
+});
+test("night shares include transit and unknown nights in the scope denominator", () => {
+  const data = overview(normalizeTrip(fixture()));
+  assert.equal(
+    nightShare(data.stays.find((r) => r.key === "JP")!.nights, data.nights),
+    50,
+  );
+  assert.equal(nightShare(23, 48), 47.91666666666667);
+  assert.equal(nightShare(0, 0), 0);
+  assert.equal(nightShare(1, 1), 100);
+  const unknown = overview(
+    normalizeTrip({ version: 1, places: {}, days: [{}, {}] }),
+  );
+  assert.equal(nightShare(unknown.stays[0].nights, unknown.nights), 100);
+});
+test("estimated headlines round hours while exact and short durations retain detail", () => {
+  const a = { value: 2800, known: 1, missing: 0, estimated: true };
+  assert.equal(headlineTimeLabel(a), "~47h");
+  assert.equal(timeLabel(a), "~46h 40m");
+  assert.equal(headlineTimeLabel({ ...a, value: 5331, missing: 1 }), "~89h+");
+  assert.equal(headlineTimeLabel({ ...a, value: 25 }), "~25m");
+  assert.equal(headlineTimeLabel({ ...a, estimated: false }), "46h 40m");
+  assert.equal(
+    headlineTimeLabel({ ...a, value: 0, known: 0, missing: 1 }),
+    "?",
+  );
 });

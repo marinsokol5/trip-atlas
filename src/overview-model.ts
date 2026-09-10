@@ -52,6 +52,47 @@ export function timeLabel(value: Amount): string {
   if (!value.known && value.missing) return "?";
   return `${value.estimated ? "~" : ""}${duration(value.value * 60000)}${value.missing ? "+" : ""}`;
 }
+/** Estimated headline totals use hours; detailed and map labels retain minutes. */
+export function headlineTimeLabel(value: Amount): string {
+  if (!value.estimated || value.value < 60 || !value.known)
+    return timeLabel(value);
+  return `~${Math.round(value.value / 60)}h${value.missing ? "+" : ""}`;
+}
+export function nightShare(nights: number, total: number): number {
+  return total > 0 ? (nights / total) * 100 : 0;
+}
+const countryPalette: Record<string, string> = {
+  JP: "#bd5963",
+  VN: "#498879",
+  TH: "#b58938",
+  TW: "#8070aa",
+  NL: "#5485ad",
+  CN: "#a65b45",
+  KR: "#6a83b3",
+  SG: "#a26891",
+  MY: "#628946",
+  ID: "#b56f45",
+  PH: "#4a92a0",
+  LA: "#858447",
+  KH: "#a77c98",
+  GB: "#5b7595",
+  FR: "#8375aa",
+  DE: "#9a7d52",
+  IT: "#548979",
+  ES: "#be8350",
+  US: "#657da6",
+  AU: "#8b8b50",
+};
+/** ISO codes alone determine Overview country colors, independent of place order. */
+export function countryColor(code: string): string {
+  const normalized = code.toUpperCase();
+  if (countryPalette[normalized]) return countryPalette[normalized];
+  const hash = [...normalized].reduce(
+    (sum, char) => sum * 31 + char.charCodeAt(0),
+    0,
+  );
+  return `hsl(${hash % 360} 35% 48%)`;
+}
 type Kind = "flights" | "other" | "walk";
 function kinds(mode?: string): Kind[] {
   const text = (mode ?? "").toLowerCase();
@@ -172,9 +213,13 @@ export function overview(
                 ? (areas.find((a) => a.country === code)?.name ?? code!)
                 : (groups.find((g) => g.key === key)?.name ?? "Unknown"),
         color:
-          special || key === "unknown"
+          key === "transit"
             ? "var(--transit)"
-            : placeColor(model, place),
+            : key === "unknown"
+              ? "#96929a"
+              : breakdown === "countries"
+                ? countryColor(code!)
+                : placeColor(model, place),
         days: 0,
         nights: 0,
         cost: amount(),
@@ -284,6 +329,8 @@ export function overview(
     nights: stays.reduce((sum, r) => sum + r.nights, 0),
     stays,
     times: travelTimes(legs),
+    hasBudget: combine(living, accommodation, transport).known > 0,
+    hasStayCosts: combine(living, accommodation).known > 0,
     costs: {
       living,
       accommodation,

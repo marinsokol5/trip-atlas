@@ -53,7 +53,15 @@ async function readEntry(entry) {
   const allowed = documentPaths(source);
   let virtualName = "trip.json";
   while (allowed.has(virtualName)) virtualName = "_" + virtualName;
-  return { content, allowed, virtualName };
+  return {
+    content,
+    allowed,
+    virtualName,
+    title:
+      typeof source?.title === "string" && source.title.trim()
+        ? source.title
+        : undefined,
+  };
 }
 
 /** Explicit selected files each get an isolated virtual root and document allowlist. */
@@ -114,12 +122,17 @@ export function selectedTrips(files) {
         entries.map(async (entry) => {
           // One broken or removed alternative must not prevent opening the others.
           let virtualName = "trip.json";
+          let title;
           try {
-            virtualName = (await readEntry(entry)).virtualName;
+            ({ virtualName, title } = await readEntry(entry));
           } catch {
             /* Its own route reports the read error. */
           }
-          return { path: `${entry.folder}/${virtualName}`, label: entry.label };
+          return {
+            path: `${entry.folder}/${virtualName}`,
+            label: entry.label,
+            ...(title ? { title } : {}),
+          };
         }),
       );
       sendJson(req, res, Buffer.from(JSON.stringify({ trips })));

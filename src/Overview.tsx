@@ -1,6 +1,12 @@
 import { useState } from "react";
 import type { Itinerary } from "./itinerary";
-import { moneyLabel, overview, timeLabel } from "./overview-model";
+import {
+  headlineTimeLabel,
+  moneyLabel,
+  nightShare,
+  overview,
+  timeLabel,
+} from "./overview-model";
 
 export function Overview({
   model,
@@ -14,18 +20,13 @@ export function Overview({
   );
   const data = overview(model, country, breakdown);
   const currency = model.trip.currency;
-  const maxNights = Math.max(1, ...data.stays.map((row) => row.nights));
-  const scopeName = country
-    ? (new Intl.DisplayNames(["en"], { type: "region" }).of(country) ?? country)
-    : "Whole trip";
   const unallocatedTime = data.times.unallocated.known > 0;
   const unallocatedCost = data.costs.unallocated.known > 0;
   return (
     <section className="overview-view" aria-label="Overview view">
-      <div className="overview-intro">
-        <h2>{scopeName}</h2>
-      </div>
-      <div className="overview-headlines">
+      <div
+        className={`overview-headlines ${data.hasBudget ? "has-budget" : ""}`}
+      >
         <section className="overview-metric">
           <h3>Duration</h3>
           <p className="overview-number">
@@ -39,41 +40,61 @@ export function Overview({
           <h3>Travel time</h3>
           <div className="overview-travel">
             <div>
-              <strong>{timeLabel(data.times.flights)}</strong>
+              <strong title={timeLabel(data.times.flights)} tabIndex={0}>
+                {headlineTimeLabel(data.times.flights)}
+              </strong>
               <span>Flights</span>
             </div>
             <div>
-              <strong>{timeLabel(data.times.other)}</strong>
+              <strong title={timeLabel(data.times.other)} tabIndex={0}>
+                {headlineTimeLabel(data.times.other)}
+              </strong>
               <span>Other transport</span>
             </div>
           </div>
         </section>
-        <section className="overview-metric overview-budget">
-          <h3>Estimated cost{currency ? ` · ${currency}` : ""}</h3>
-          <p className="overview-number">
-            {moneyLabel(data.costs.total, currency)}
-          </p>
-          <p>Per person</p>
-        </section>
+        {data.hasBudget && (
+          <section className="overview-metric overview-budget">
+            <h3>Estimated cost{currency ? ` · ${currency}` : ""}</h3>
+            <p className="overview-number">
+              {moneyLabel(data.costs.total, currency)}
+            </p>
+            <p>Per person</p>
+          </section>
+        )}
       </div>
-      <div className="overview-costs" aria-label="Cost breakdown">
-        {(
-          [
-            ["Living", data.costs.living],
-            ["Accommodation", data.costs.accommodation],
-            ["Flights", data.costs.flights],
-            ["Other transport", data.costs.other],
-          ] as const
-        ).map(([label, cost]) => (
-          <div key={label}>
-            <span>{label}</span>
-            <strong>{moneyLabel(cost, currency)}</strong>
-          </div>
-        ))}
-      </div>
+      {!data.hasBudget && (
+        <p className="overview-budget-empty">Budget not provided</p>
+      )}
+      {data.hasBudget && (
+        <div className="overview-costs" aria-label="Cost breakdown">
+          {(
+            [
+              ["Living", data.costs.living],
+              ["Accommodation", data.costs.accommodation],
+              ["Flights", data.costs.flights],
+              ["Other transport", data.costs.other],
+              ...(unallocatedCost
+                ? [["Mixed transport", data.costs.unallocated] as const]
+                : []),
+            ] as const
+          ).map(([label, cost]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{moneyLabel(cost, currency)}</strong>
+            </div>
+          ))}
+        </div>
+      )}
       <section className="overview-stays" aria-labelledby="stays-heading">
         <div className="overview-stay-heading">
-          <h2 id="stays-heading">Where you’ll stay</h2>
+          <div>
+            <h2 id="stays-heading">Where you’ll stay</h2>
+            <p className="overview-stay-caption">
+              Share of {data.nights} {data.nights === 1 ? "night" : "nights"} in
+              this area
+            </p>
+          </div>
           <div className="overview-toggle" aria-label="Stay breakdown">
             {(["countries", "places"] as const).map((option) => (
               <button
@@ -94,34 +115,52 @@ export function Overview({
                   {breakdown === "countries" ? "Country" : "Place / area"}
                 </th>
                 <th>Nights</th>
-                <th>Days</th>
-                <th>Living + stay</th>
+                {data.hasStayCosts && <th>Living + stay</th>}
               </tr>
             </thead>
             <tbody>
               {data.stays.map((row) => (
-                <tr key={row.key}>
+                <tr
+                  key={row.key}
+                  className={
+                    row.nights === 0 ? "overview-day-visit" : undefined
+                  }
+                >
                   <th scope="row">
                     <span className="overview-place">
                       <i style={{ backgroundColor: row.color }} />
                       {row.name}
                     </span>
-                    <span className="overview-bar">
-                      <span
-                        style={{
-                          width: `${(row.nights / maxNights) * 100}%`,
-                          backgroundColor: row.color,
-                        }}
-                      />
-                    </span>
                   </th>
-                  <td>{row.nights}</td>
-                  <td>{row.days || "—"}</td>
                   <td>
-                    {row.key === "transit"
-                      ? "—"
-                      : moneyLabel(row.cost, currency)}
+                    <div className="overview-night-measure">
+                      <span
+                        className="overview-bar"
+                        role="img"
+                        aria-label={`${row.nights} of ${data.nights} nights, ${Math.round(nightShare(row.nights, data.nights))}%`}
+                      >
+                        <span
+                          style={{
+                            width: `${nightShare(row.nights, data.nights)}%`,
+                            backgroundColor: row.color,
+                          }}
+                        />
+                      </span>
+                      <span className="overview-night-count">
+                        <strong>{row.nights}</strong>
+                        <span>
+                          {Math.round(nightShare(row.nights, data.nights))}%
+                        </span>
+                      </span>
+                    </div>
                   </td>
+                  {data.hasStayCosts && (
+                    <td>
+                      {row.key === "transit"
+                        ? "—"
+                        : moneyLabel(row.cost, currency)}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -129,16 +168,37 @@ export function Overview({
         </div>
       </section>
       <details className="overview-notes">
-        <summary>How these estimates work</summary>
+        <summary>Details &amp; how estimates work</summary>
+        <p>
+          Travel totals before headline rounding: flights{" "}
+          {timeLabel(data.times.flights)}; other transport{" "}
+          {timeLabel(data.times.other)}.
+        </p>
+        <p>
+          Days touched count every listed day spent in a country or place,
+          including crossing days. They can overlap and should not be added
+          together.
+        </p>
+        <dl className="overview-days-touched">
+          {data.stays.map((row) => (
+            <div key={row.key}>
+              <dt>{row.name}</dt>
+              <dd>
+                {row.days} {row.days === 1 ? "day" : "days"} touched
+                {row.nights === 0 ? " · no overnight stay" : ""}
+              </dd>
+            </div>
+          ))}
+        </dl>
         <p>
           Walking is excluded from travel time. Nights end before the final day.
           Crossing days can appear in more than one country.
         </p>
         <p>
           All costs are per person. ~ means estimated; + means some values are
-          missing; ? means unknown.
-          No daily budget or travel prices are assumed. Living costs use one
-          country per day; accommodation excludes nights in transit.
+          missing; ? means unknown. No daily budget or travel prices are
+          assumed. Living costs use one country per day; accommodation excludes
+          nights in transit.
         </p>
         <p>
           Country travel includes journeys arriving or departing there, so

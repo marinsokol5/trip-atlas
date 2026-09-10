@@ -187,6 +187,10 @@ test("multiple paths isolate document roots, distinguish names, and retain stabl
     entries.map((entry) => entry.label),
     ["itinerary.json · Plan A", "itinerary.json · Plan B"],
   );
+  assert.deepEqual(
+    entries.map((entry) => entry.title),
+    ["Plan A", "Plan B"],
+  );
   assert.notEqual(entries[0].path, entries[1].path);
   for (const [i, entry] of entries.entries()) {
     const folder = entry.path.slice(0, entry.path.lastIndexOf("/"));
@@ -213,6 +217,28 @@ test("multiple paths isolate document roots, distinguish names, and retain stabl
   const reverse = (await (await fetch(reverseUrl + "/trips/index.json")).json())
     .trips;
   assert.deepEqual(reverse, [...entries].reverse());
+  const changed = JSON.parse(
+    await (await fetch(url + "/trips/" + entries[0].path)).text(),
+  );
+  changed.title = "Plan B";
+  await writeFile(
+    join(root, "Plan A", "itinerary.json"),
+    JSON.stringify(changed),
+  );
+  const refreshed = (await (await fetch(url + "/trips/index.json")).json())
+    .trips;
+  assert.equal(refreshed[0].title, "Plan B");
+  assert.equal(refreshed[0].path, entries[0].path);
+  assert.notEqual(refreshed[0].label, refreshed[1].label);
+  delete changed.title;
+  await writeFile(
+    join(root, "Plan A", "itinerary.json"),
+    JSON.stringify(changed),
+  );
+  assert.equal(
+    (await (await fetch(url + "/trips/index.json")).json()).trips[0].title,
+    undefined,
+  );
   await writeFile(join(root, "Plan A", "itinerary.json"), "{bad json");
   assert.equal(
     await (await fetch(url + "/trips/" + entries[0].path)).text(),

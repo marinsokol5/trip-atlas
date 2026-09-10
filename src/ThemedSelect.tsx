@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; description?: string };
 /** A native top-layer popover keeps options themed and clear of clipped map panes. */
 export function ThemedSelect({
   label,
@@ -131,7 +131,12 @@ export function ThemedSelect({
         type="button"
         className="select-trigger"
         role="combobox"
-        title={title}
+        title={
+          title ??
+          [options[selected]?.label, options[selected]?.description]
+            .filter(Boolean)
+            .join(" · ")
+        }
         aria-label={label}
         aria-expanded={open}
         aria-controls={id}
@@ -167,7 +172,12 @@ export function ThemedSelect({
             onPointerMove={() => setActive(index)}
             onClick={() => choose(index)}
           >
-            {option.label}
+            <span className="select-option-copy">
+              {option.label}
+              {option.description && option.description !== option.label && (
+                <small>{option.description}</small>
+              )}
+            </span>
             <span aria-hidden="true">{option.value === value ? "✓" : ""}</span>
           </div>
         ))}

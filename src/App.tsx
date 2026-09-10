@@ -81,7 +81,7 @@ import { ThemedSelect } from "./ThemedSelect";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { useMapLabelPreference } from "./use-map-label-preference";
 
-type Entry = { path: string; label: string };
+type Entry = { path: string; label: string; title?: string };
 // Only animation consumers subscribe to frame updates. App receives semantic changes.
 function createPlayhead() {
   let value = 0;
@@ -1689,37 +1689,47 @@ function App() {
         <div className="heading">
           <div>
             <p className="kicker">ATLAS / YOUR JOURNEY</p>
-            <h1>{itinerary?.trip.title ?? "Trip Atlas"}</h1>
+            <h1 title={itinerary?.trip.title}>
+              {itinerary?.trip.title ?? "Trip Atlas"}
+            </h1>
             <p className="meta">
               {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"} · ${itinerary.days.length} days · ${visualGroups(itinerary).length} destinations`
+                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"}${tab === "overview" ? "" : ` · ${itinerary.days.length} days · ${visualGroups(itinerary).length} destinations`}`
                 : "A little perspective, before you go."}
             </p>
           </div>
           <div className="header-tools">
-            <div className="picker">
-              Journey
-              <ThemedSelect
-                label="Journey"
-                value={selected}
-                disabled={!entries.length}
-                options={entries.map((entry) => ({
-                  value: entry.path,
-                  label: entry.label,
-                }))}
-                onChange={(path) => {
-                  carriedCountry.current = country;
-                  setPlaying(false);
-                  setLoading(true);
-                  setError("");
-                  setItinerary(undefined);
-                  setSelected(path);
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("trip", path);
-                  window.history.replaceState(null, "", url);
-                }}
-              />
-            </div>
+            {entries.length > 1 && (
+              <div className="picker">
+                Journey
+                <ThemedSelect
+                  label="Journey"
+                  value={selected}
+                  disabled={!entries.length}
+                  options={entries.map((entry) => ({
+                    value: entry.path,
+                    label:
+                      entry.title ||
+                      (entry.path === selected
+                        ? itinerary?.trip.title
+                        : undefined) ||
+                      entry.label,
+                    description: entry.label,
+                  }))}
+                  onChange={(path) => {
+                    carriedCountry.current = country;
+                    setPlaying(false);
+                    setLoading(true);
+                    setError("");
+                    setItinerary(undefined);
+                    setSelected(path);
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("trip", path);
+                    window.history.replaceState(null, "", url);
+                  }}
+                />
+              </div>
+            )}
             <button
               className="theme-button"
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
