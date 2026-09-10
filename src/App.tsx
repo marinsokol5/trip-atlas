@@ -21,7 +21,15 @@ import {
   Pause,
   RotateCcw,
 } from "lucide-react";
-import { useEffect, useMemo, useState, useRef, Fragment } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  Fragment,
+  useSyncExternalStore,
+  useCallback,
+} from "react";
 import type { CSSProperties } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { GeoPermissibleObjects } from "d3-geo";
@@ -44,6 +52,10 @@ import {
   momentAt,
   mapMomentAt,
   mapAreas,
+  areaDays,
+  scopedPosition,
+  tripPosition,
+  advancePlayback,
   mapArea,
   componentLegs,
   placeColor,
@@ -60,16 +72,92 @@ import {
   mapDisplayDuration,
   directedCurvePoint,
   zoomMap,
+  wheelZoomFactor,
   mapZoomMin,
   mapZoomMax,
   calendarSlots,
+  calendarCountries,
   routeCurve,
 } from "./view-model";
 import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
+import { ThemedSelect } from "./ThemedSelect";
 
 type Entry = { path: string; label: string };
+// Only animation consumers subscribe to frame updates. App receives semantic changes.
+function createPlayhead() {
+  let value = 0;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => value,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    set: (next: number) => {
+      value = next;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+type Playhead = ReturnType<typeof createPlayhead>;
+function positionReadout(model: Itinerary, value: number) {
+  const moment = momentAt(model, value);
+  const day = model.days[Math.min(model.days.length - 1, Math.floor(value))];
+  const status = moment.leg
+    ? `${name(model, moment.leg.from)} → ${name(model, moment.leg.to)}`
+    : moment.place
+      ? `In ${name(model, moment.place)}`
+      : "Route";
+  const time = moment.leg
+    ? `${clockAt(model, moment.at, moment.leg.from)} → ${clockAt(model, moment.at, moment.leg.to)}`
+    : clockAt(model, moment.at, moment.place);
+  return { readout: `${dayLabel(day)} · ${time ?? "Planned day"}`, status };
+}
+function TimelineOutput({
+  model,
+  clock,
+}: {
+  model: Itinerary;
+  clock: Playhead;
+}) {
+  const value = useSyncExternalStore(clock.subscribe, clock.get);
+  return (
+    <output htmlFor="trip-time">{positionReadout(model, value).readout}</output>
+  );
+}
+function TimelineInput({
+  model,
+  clock,
+  days,
+  selectPosition,
+}: {
+  model: Itinerary;
+  clock: Playhead;
+  days: NormalizedDay[];
+  selectPosition: (value: number) => void;
+}) {
+  const value = useSyncExternalStore(clock.subscribe, clock.get);
+  const { readout, status } = positionReadout(model, value);
+  return (
+    <input
+      id="trip-time"
+      aria-label="Trip timeline"
+      aria-valuetext={`${readout}. ${status}`}
+      type="range"
+      min="0"
+      max={days.length - 0.01}
+      step="0.01"
+      value={scopedPosition(days, value)}
+      onChange={(event) =>
+        selectPosition(tripPosition(days, Number(event.target.value)))
+      }
+    />
+  );
+}
 const playbackSpeeds = [0.5, 1, 2, 4, 8];
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
@@ -165,9 +253,101 @@ function useCompactScreen() {
   }, []);
   return compact;
 }
+function Traveler({
+  model,
+  clock,
+  geometry,
+  view,
+  frameSize,
+  frameScale,
+  status,
+}: {
+  model: Itinerary;
+  clock: Playhead;
+  geometry: {
+    points: Record<string, Point>;
+    routes: {
+      leg: Leg;
+      reverseLeg?: Leg;
+      curve: ReturnType<typeof routeCurve>;
+    }[];
+  };
+  view: { x: number; y: number; k: number };
+  frameSize: { width: number; height: number };
+  frameScale: number;
+  status: string;
+}) {
+  const value = useSyncExternalStore(clock.subscribe, clock.get);
+  const moment = mapMomentAt(model, value);
+  const screen = (point: Point): Point => [
+    (view.x + point[0] * view.k) * frameScale,
+    (view.y + point[1] * view.k) * frameScale,
+  ];
+  const active = geometry.routes.find(
+    (r) => r.leg.id === moment.leg?.id || r.reverseLeg?.id === moment.leg?.id,
+  );
+  const marker =
+    moment.leg && active && moment.progress !== undefined
+      ? directedCurvePoint(
+          active.curve,
+          moment.progress,
+          active.reverseLeg?.id === moment.leg.id,
+        )
+      : moment.place
+        ? geometry.points[moment.place]
+        : undefined;
+  let heading = 0;
+  if (active && moment.leg && moment.progress !== undefined) {
+    const reverse = active.reverseLeg?.id === moment.leg.id;
+    const t = reverse ? 1 - moment.progress : moment.progress;
+    const { a, b, c } = active.curve;
+    const direction = reverse ? -1 : 1;
+    const dx = direction * ((1 - t) * (c[0] - a[0]) + t * (b[0] - c[0]));
+    const dy = direction * ((1 - t) * (c[1] - a[1]) + t * (b[1] - c[1]));
+    heading = (Math.atan2(dy, dx) * 180) / Math.PI + 45;
+  }
+  const markerPosition = marker
+    ? {
+        left: (frameSize.width - 900 * frameScale) / 2 + screen(marker)[0],
+        top: (frameSize.height - 480 * frameScale) / 2 + screen(marker)[1],
+      }
+    : undefined;
+  const markerLabel = moment.leg
+    ? `${name(model, moment.leg.from)} → ${name(model, moment.leg.to)}`
+    : moment.place
+      ? name(model, moment.place)
+      : status;
+  return (
+    <>
+      {marker && markerPosition && (
+        <div
+          className="map-airplane"
+          data-testid="traveler"
+          data-place={moment.place ?? ""}
+          data-leg={moment.leg?.id ?? ""}
+          data-schematic={moment.schematic}
+          data-map-x={marker[0]}
+          data-map-y={marker[1]}
+          style={markerPosition}
+          role="img"
+          aria-label={`${markerLabel} · ${moment.schematic ? "illustrative" : "selected"} position`}
+        >
+          <Plane
+            style={{ transform: `rotate(${heading}deg)` }}
+            strokeWidth={1.7}
+            aria-hidden="true"
+          />
+        </div>
+      )}
+    </>
+  );
+}
 function TripMap({
   model,
   value,
+  clock,
+  country,
+  changeArea,
   status,
   day,
   playing,
@@ -178,6 +358,9 @@ function TripMap({
 }: {
   model: Itinerary;
   value: number;
+  clock: Playhead;
+  country: string;
+  changeArea: (country: string) => void;
   status: string;
   day: NormalizedDay;
   playing: boolean;
@@ -187,10 +370,15 @@ function TripMap({
   changePlaybackSpeed: (speed: number) => void;
 }) {
   const moment = mapMomentAt(model, value);
-  const [country, setCountry] = useState("");
+
   const areas = useMemo(() => mapAreas(model), [model]);
   const area = useMemo(() => mapArea(model, country), [model, country]);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [viewCountry, setViewCountry] = useState(country);
+  if (viewCountry !== country) {
+    setViewCountry(country);
+    setView({ x: 0, y: 0, k: 1 });
+  }
   const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
   const frame = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
@@ -208,6 +396,29 @@ function TripMap({
     });
     observer.observe(node);
     return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = node.getBoundingClientRect();
+      const scale = Math.min(rect.width / 900, rect.height / 480);
+      if (!scale) return;
+      const anchor: Point = [
+        (event.clientX - rect.left - (rect.width - 900 * scale) / 2) / scale,
+        (event.clientY - rect.top - (rect.height - 480 * scale) / 2) / scale,
+      ];
+      setView((view) =>
+        zoomMap(
+          view,
+          wheelZoomFactor(event.deltaY, event.deltaMode, rect.height),
+          anchor,
+        ),
+      );
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
   }, []);
   const pixelScale = frameScale * view.k;
   const numbered = frameScale < 0.9;
@@ -415,35 +626,6 @@ function TripMap({
     ]);
     return position ? [{ connection, anchor, position, width, text }] : [];
   });
-  const active = geometry.routes.find(
-    (r) => r.leg.id === moment.leg?.id || r.reverseLeg?.id === moment.leg?.id,
-  );
-  const marker =
-    moment.leg && active && moment.progress !== undefined
-      ? directedCurvePoint(
-          active.curve,
-          moment.progress,
-          active.reverseLeg?.id === moment.leg.id,
-        )
-      : moment.place
-        ? geometry.points[moment.place]
-        : undefined;
-  let heading = 0;
-  if (active && moment.leg && moment.progress !== undefined) {
-    const reverse = active.reverseLeg?.id === moment.leg.id;
-    const t = reverse ? 1 - moment.progress : moment.progress;
-    const { a, b, c } = active.curve;
-    const direction = reverse ? -1 : 1;
-    const dx = direction * ((1 - t) * (c[0] - a[0]) + t * (b[0] - c[0]));
-    const dy = direction * ((1 - t) * (c[1] - a[1]) + t * (b[1] - c[1]));
-    heading = (Math.atan2(dy, dx) * 180) / Math.PI + 45;
-  }
-  const markerPosition = marker
-    ? {
-        left: (frameSize.width - 900 * frameScale) / 2 + screen(marker)[0],
-        top: (frameSize.height - 480 * frameScale) / 2 + screen(marker)[1],
-      }
-    : undefined;
   const markerLabel = moment.leg
     ? `${name(model, moment.leg.from)} → ${name(model, moment.leg.to)}`
     : moment.place
@@ -464,91 +646,101 @@ function TripMap({
           </div>
         </div>
         <div className="map-controls">
-          <button
-            onClick={togglePlayback}
-            className="playback-toggle"
-            aria-label={
-              playing
-                ? "Pause itinerary"
-                : atEnd
-                  ? "Replay itinerary"
-                  : "Play itinerary"
-            }
-            aria-pressed={playing}
+          <div
+            className="map-primary-controls"
+            role="group"
+            aria-label="Map area and zoom"
           >
-            <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
-            {playing ? "Pause" : atEnd ? "Replay" : "Play"}
-          </button>
-          <label className="map-duration-filter">
-            Speed
-            <select
-              aria-label="Playback speed"
-              title="1× advances one itinerary day every three seconds"
-              value={playbackSpeed}
-              onChange={(e) => changePlaybackSpeed(Number(e.target.value))}
+            <div className="map-duration-filter">
+              Area
+              <ThemedSelect
+                label="Map area"
+                value={country}
+                options={[
+                  { value: "", label: "Whole trip" },
+                  ...areas.map((area) => ({
+                    value: area.country,
+                    label: area.name,
+                  })),
+                ]}
+                onChange={(country) => {
+                  changeArea(country);
+                  drag.current = undefined;
+                }}
+              />
+            </div>
+            <button
+              aria-label="Zoom in"
+              disabled={view.k >= mapZoomMax}
+              onClick={() => zoom(1.5)}
             >
-              {playbackSpeeds.map((speed) => (
-                <option key={speed} value={speed}>
-                  {speed}×
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="map-duration-filter">
-            Durations
-            <select
-              aria-label="Map duration labels"
-              value={durationFilter}
-              onChange={(e) =>
-                setDurationFilter(e.target.value as MapDurationFilter)
+              <Icon kind="plus" />
+            </button>
+            <button
+              aria-label="Zoom out"
+              disabled={view.k <= mapZoomMin}
+              onClick={() => zoom(1 / 1.5)}
+            >
+              <Icon kind="minus" />
+            </button>
+            <button
+              aria-label="Fit selected area"
+              title="Fit selected area"
+              onClick={() => setView({ x: 0, y: 0, k: 1 })}
+            >
+              <Icon kind="reset" />
+            </button>
+          </div>
+          <div
+            className="map-secondary-controls"
+            role="group"
+            aria-label="Playback and duration labels"
+          >
+            <button
+              onClick={togglePlayback}
+              className="playback-toggle"
+              aria-label={
+                playing
+                  ? "Pause itinerary"
+                  : atEnd
+                    ? "Replay itinerary"
+                    : "Play itinerary"
               }
+              aria-pressed={playing}
             >
-              <option value="all">All</option>
-              <option value="60">&gt;1h</option>
-              <option value="120">&gt;2h</option>
-              <option value="none">None</option>
-            </select>
-          </label>
-          <button
-            aria-label="Zoom in"
-            disabled={view.k >= mapZoomMax}
-            onClick={() => zoom(1.5)}
-          >
-            <Icon kind="plus" />
-          </button>
-          <button
-            aria-label="Zoom out"
-            disabled={view.k <= mapZoomMin}
-            onClick={() => zoom(1 / 1.5)}
-          >
-            <Icon kind="minus" />
-          </button>
-          <label className="map-duration-filter">
-            Area
-            <select
-              aria-label="Map area"
-              value={country}
-              onChange={(e) => {
-                setCountry(e.target.value);
-                setView({ x: 0, y: 0, k: 1 });
-                drag.current = undefined;
-              }}
-            >
-              <option value="">Whole trip</option>
-              {areas.map((area) => (
-                <option key={area.country} value={area.country}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            aria-label="Fit selected area"
-            title="Fit selected area"
-            onClick={() => setView({ x: 0, y: 0, k: 1 })}
-          >
-            <Icon kind="reset" />
-          </button>
+              <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
+              {playing ? "Pause" : atEnd ? "Replay" : "Play"}
+            </button>
+            <div className="map-duration-filter">
+              Speed
+              <ThemedSelect
+                label="Playback speed"
+                value={String(playbackSpeed)}
+                title="1× advances one itinerary day every three seconds"
+                options={playbackSpeeds.map((speed) => ({
+                  value: String(speed),
+                  label: `${speed}×`,
+                }))}
+                onChange={(speed) => changePlaybackSpeed(Number(speed))}
+              />
+            </div>
+            <div className="map-duration-filter">
+              Durations
+              <ThemedSelect
+                label="Map duration labels"
+                value={durationFilter}
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "60", label: ">1h" },
+                  { value: "120", label: ">2h" },
+                  { value: "none", label: "None" },
+                ]}
+                onChange={(filter) =>
+                  setDurationFilter(filter as MapDurationFilter)
+                }
+              />
+            </div>
+          </div>
         </div>
         <div className="map-geometry" ref={frame}>
           <svg
@@ -790,30 +982,19 @@ function TripMap({
               ))}
             </g>
           </svg>
-          {marker && markerPosition && (
-            <div
-              className="map-airplane"
-              data-testid="traveler"
-              data-place={moment.place ?? ""}
-              data-leg={moment.leg?.id ?? ""}
-              data-schematic={moment.schematic}
-              data-map-x={marker[0]}
-              data-map-y={marker[1]}
-              style={markerPosition}
-              role="img"
-              aria-label={`${markerLabel} · ${moment.schematic ? "illustrative" : "selected"} position`}
-            >
-              <Plane
-                style={{ transform: `rotate(${heading}deg)` }}
-                strokeWidth={1.7}
-                aria-hidden="true"
-              />
-            </div>
-          )}
+          <Traveler
+            model={model}
+            clock={clock}
+            geometry={geometry}
+            view={view}
+            frameSize={frameSize}
+            frameScale={frameScale}
+            status={status}
+          />
         </div>
         <div className="map-source">
           {Object.keys(geometry.points).length
-            ? "Drag to pan · schematic connections · Natural Earth"
+            ? "Drag to pan · scroll down to zoom in · schematic connections · Natural Earth"
             : `No coordinates for visited places${country ? ` in ${areas.find((area) => area.country === country)?.name ?? country}` : ""} · Natural Earth`}
         </div>
       </div>
@@ -876,17 +1057,24 @@ function Calendar({
                 data-day={day.index + 1}
                 aria-pressed={day.index === selectedDay}
                 onClick={() => selectDay(day.index)}
-                aria-label={`${dayLabel(day)}. ${dayTitle(model, day)}. ${dayGroups(
+                aria-label={`${dayLabel(day)}. ${calendarCountries(model, day)}. ${dayTitle(model, day)}. ${dayGroups(
                   model,
                   day,
                 )
                   .map((group) => group.name + ". ")
                   .join("")}Night: ${name(model, day.overnight)}`}
               >
-                <span className="day-date">
-                  {day.date
-                    ? dateLabel(day.date, { day: "numeric", month: "short" })
-                    : `Day ${day.index + 1}`}
+                <span className="calendar-date-context">
+                  <span className="day-date">
+                    {day.date
+                      ? dateLabel(day.date, { day: "numeric", month: "short" })
+                      : `Day ${day.index + 1}`}
+                  </span>
+                  {calendarCountries(model, day) && (
+                    <span className="calendar-country">
+                      {calendarCountries(model, day)}
+                    </span>
+                  )}
                 </span>
                 {day.source.title && (
                   <span className="day-title">{day.source.title}</span>
@@ -1038,9 +1226,14 @@ function App() {
     [itinerary, setItinerary] = useState<Itinerary>(),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
-    [value, setValue] = useState(0),
+    [value, setSemanticValue] = useState(0),
     [tab, setTab] = useState<"map" | "calendar">("map");
   const [playing, setPlaying] = useState(false);
+  const [country, setCountry] = useState("");
+  const days = useMemo(
+    () => (itinerary ? areaDays(itinerary, country) : []),
+    [itinerary, country],
+  );
   const [playbackSpeed, setPlaybackSpeed] = useState(() => {
     try {
       const saved = Number(
@@ -1061,25 +1254,47 @@ function App() {
       // The speed change applies to this session even without storage.
     }
   }
-  const playhead = useRef(value);
-  useEffect(() => {
-    playhead.current = value;
-  }, [value]);
+  const clock = useMemo(() => createPlayhead(), []);
+  const playhead = useRef(0);
+  const semanticKey = useRef("");
+  const setValue = useCallback(
+    (next: number) => {
+      clock.set(next);
+      const moments = itinerary
+        ? [momentAt(itinerary, next), mapMomentAt(itinerary, next)]
+        : [];
+      const key = JSON.stringify([
+        Math.floor(next),
+        next >= (itinerary?.days.length ?? 0) - 0.01,
+        ...moments.map((moment) => [
+          moment.place,
+          moment.leg?.id,
+          "schematic" in moment ? moment.schematic : false,
+        ]),
+      ]);
+      if (key !== semanticKey.current) {
+        semanticKey.current = key;
+        setSemanticValue(next);
+      }
+    },
+    [clock, itinerary],
+  );
   useEffect(() => {
     if (!playing || !itinerary) return;
     let frame = 0;
     let previous = performance.now();
-    const end = itinerary.days.length - 0.01;
+
     const tick = (now: number) => {
-      const next = Math.min(
-        end,
-        playhead.current +
-          (Math.min(now - previous, 250) * playbackSpeed) / 3000,
+      const next = advancePlayback(
+        days,
+        playhead.current,
+        now - previous,
+        playbackSpeed,
       );
       previous = now;
-      playhead.current = next;
-      setValue(next);
-      if (next >= end) setPlaying(false);
+      playhead.current = next.value;
+      setValue(next.value);
+      if (next.atEnd) setPlaying(false);
       else frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -1091,7 +1306,7 @@ function App() {
       cancelAnimationFrame(frame);
       document.removeEventListener("visibilitychange", pauseWhenHidden);
     };
-  }, [playing, itinerary, playbackSpeed]);
+  }, [playing, itinerary, days, playbackSpeed, setValue]);
   function selectPosition(next: number) {
     setPlaying(false);
     playhead.current = next;
@@ -1099,11 +1314,20 @@ function App() {
   }
   function togglePlayback() {
     if (!itinerary) return;
-    if (value >= itinerary.days.length - 0.01) {
-      playhead.current = 0;
-      setValue(0);
+    if (scopedPosition(days, playhead.current) >= days.length - 0.01) {
+      playhead.current = days[0].index;
+      setValue(playhead.current);
     }
     setPlaying((current) => !current);
+  }
+  function changeArea(next: string) {
+    if (!itinerary) return;
+    const eligible = areaDays(itinerary, next);
+    setPlaying(false);
+    setCountry(next);
+    if (!eligible.some((day) => day.index === Math.floor(playhead.current))) {
+      selectPosition(eligible[0].index);
+    }
   }
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
@@ -1116,6 +1340,9 @@ function App() {
       ? "dark"
       : "light";
   });
+  useEffect(() => {
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
   function toggleTheme() {
     const next = theme === "light" ? "dark" : "light";
     setTheme(next);
@@ -1173,8 +1400,11 @@ function App() {
         const model = normalizeTrip(data);
         if (active) {
           setItinerary(model);
+          setCountry("");
           playhead.current = 0;
-          setValue(0);
+          clock.set(0);
+          semanticKey.current = "";
+          setSemanticValue(0);
           setPlaying(false);
         }
       })
@@ -1187,10 +1417,11 @@ function App() {
     return () => {
       active = false;
     };
-  }, [selected]);
+  }, [selected, clock]);
   const dayIndex = itinerary
     ? Math.min(itinerary.days.length - 1, Math.floor(value))
     : 0;
+  const scopeIndex = days.findIndex((day) => day.index === dayIndex);
   const day = itinerary?.days[dayIndex],
     moment = itinerary ? momentAt(itinerary, value) : undefined;
   const status =
@@ -1203,13 +1434,6 @@ function App() {
             ? `${name(itinerary, day.startPlace)} → ${name(itinerary, day.overnight ?? activeLegs(itinerary, day).at(-1)?.to)}`
             : "Route"
       : "";
-  const time =
-    itinerary && moment
-      ? moment.leg
-        ? `${clockAt(itinerary, moment.at, moment.leg.from)} → ${clockAt(itinerary, moment.at, moment.leg.to)}`
-        : clockAt(itinerary, moment.at, moment.place)
-      : undefined;
-  const readout = day ? `${dayLabel(day)} · ${time ?? "Planned day"}` : "";
   return (
     <main
       className="app-shell"
@@ -1228,30 +1452,28 @@ function App() {
             </p>
           </div>
           <div className="header-tools">
-            <label className="picker">
+            <div className="picker">
               Journey
-              <select
-                aria-label="Journey"
+              <ThemedSelect
+                label="Journey"
                 value={selected}
                 disabled={!entries.length}
-                onChange={(e) => {
+                options={entries.map((entry) => ({
+                  value: entry.path,
+                  label: entry.label,
+                }))}
+                onChange={(path) => {
                   setPlaying(false);
                   setLoading(true);
                   setError("");
                   setItinerary(undefined);
-                  setSelected(e.target.value);
+                  setSelected(path);
                   const url = new URL(window.location.href);
-                  url.searchParams.set("trip", e.target.value);
+                  url.searchParams.set("trip", path);
                   window.history.replaceState(null, "", url);
                 }}
-              >
-                {entries.map((e) => (
-                  <option key={e.path} value={e.path}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             <button
               className="theme-button"
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
@@ -1298,10 +1520,15 @@ function App() {
                   key={selected}
                   model={itinerary}
                   value={value}
+                  clock={clock}
+                  country={country}
+                  changeArea={changeArea}
                   status={status}
                   day={day}
                   playing={playing}
-                  atEnd={value >= itinerary.days.length - 0.01}
+                  atEnd={
+                    scopedPosition(days, clock.get()) >= days.length - 0.01
+                  }
                   togglePlayback={togglePlayback}
                   playbackSpeed={playbackSpeed}
                   changePlaybackSpeed={changePlaybackSpeed}
@@ -1312,7 +1539,10 @@ function App() {
                   model={itinerary}
                   selectedDay={dayIndex}
                   folder={selected.slice(0, selected.lastIndexOf("/"))}
-                  selectDay={(n) => selectPosition(n + (value % 1))}
+                  selectDay={(n) => {
+                    if (!days.some((day) => day.index === n)) setCountry("");
+                    selectPosition(n + (clock.get() % 1));
+                  }}
                 />
               )}
             </section>
@@ -1339,37 +1569,38 @@ function App() {
           </div>
           <footer className="scrubber">
             <div className="time-head">
-              <label htmlFor="trip-time">Move through the trip</label>
-              <output htmlFor="trip-time">{readout}</output>
+              <label htmlFor="trip-time">
+                {country
+                  ? `Move through ${new Intl.DisplayNames(["en"], { type: "region" }).of(country) ?? country}`
+                  : "Move through the trip"}
+              </label>
+              <TimelineOutput model={itinerary} clock={clock} />
             </div>
             <div className="timeline-scroll">
               <div className="whole-trip">
                 <div className="whole-bands">
-                  {itinerary.days.map((d) => (
+                  {days.map((d) => (
                     <Bands key={d.index} model={itinerary} day={d} />
                   ))}
                 </div>
-                <input
-                  id="trip-time"
-                  aria-label="Trip timeline"
-                  aria-valuetext={`${readout}. ${status}`}
-                  type="range"
-                  min="0"
-                  max={itinerary.days.length - 0.01}
-                  step="0.01"
-                  value={value}
-                  onChange={(e) => selectPosition(Number(e.target.value))}
+                <TimelineInput
+                  model={itinerary}
+                  clock={clock}
+                  days={days}
+                  selectPosition={selectPosition}
                 />
               </div>
               <div className="range-ticks">
-                {itinerary.days.map((d, i) => (
+                {days.map((d, i) => (
                   <button
                     key={i}
                     aria-label={`Select ${dayLabel(d)}`}
-                    aria-pressed={i === dayIndex}
-                    onClick={() => selectPosition(i + 0.5)}
+                    aria-pressed={d.index === dayIndex}
+                    onClick={() => selectPosition(d.index + 0.5)}
                   >
-                    <span>{d.date ? Number(d.date.slice(8)) : i + 1}</span>
+                    <span>
+                      {d.date ? Number(d.date.slice(8)) : d.index + 1}
+                    </span>
                     {(i === 0 || d.date?.slice(8) === "01") && (
                       <small>
                         {d.date ? dateLabel(d.date, { month: "short" }) : "Day"}
@@ -1382,16 +1613,16 @@ function App() {
             <div className="day-step">
               <button
                 aria-label="Previous day"
-                disabled={dayIndex === 0}
-                onClick={() => selectPosition(dayIndex - 0.5)}
+                disabled={scopeIndex <= 0}
+                onClick={() => selectPosition(days[scopeIndex - 1].index + 0.5)}
               >
                 <Icon kind="prev" />
               </button>
               <strong>{dayLabel(day)}</strong>
               <button
                 aria-label="Next day"
-                disabled={dayIndex === itinerary.days.length - 1}
-                onClick={() => selectPosition(dayIndex + 1.5)}
+                disabled={scopeIndex === days.length - 1}
+                onClick={() => selectPosition(days[scopeIndex + 1].index + 0.5)}
               >
                 <Icon kind="next" />
               </button>

@@ -84,6 +84,83 @@ export function mapPlaceOccurrences(model: Itinerary) {
   return occurrences;
 }
 
+/** All itinerary presence and active journey endpoints count, including crossing days. */
+export function dayCountries(model: Itinerary, day: NormalizedDay) {
+  const places = [
+    day.startPlace,
+    ...(day.source.blocks?.flatMap((block) =>
+      block.type === "place" ? [block.place] : [],
+    ) ?? []),
+    ...activeLegs(model, day).flatMap((leg) => [leg.from, leg.to]),
+    ...day.segments.map((segment) => segment.place),
+    day.overnight,
+  ];
+  return [
+    ...new Set(
+      places.flatMap((id) => {
+        const country = id ? model.trip.places[id]?.country : undefined;
+        return country ? [country] : [];
+      }),
+    ),
+  ];
+}
+/** Calendar context follows actual block order; excursions retain their return country. */
+export function calendarCountries(model: Itinerary, day: NormalizedDay) {
+  const countries: string[] = [];
+  const add = (id?: string) => {
+    const country = id ? model.trip.places[id]?.country : undefined;
+    if (country && countries.at(-1) !== country) countries.push(country);
+  };
+  const carried = activeLegs(model, day).filter((leg) => leg.day < day.index + 1);
+  // On arrival days startPlace may already be the destination: start with the carried journey.
+  if (!carried.length) add(day.startPlace);
+  for (const leg of carried) {
+    add(leg.from);
+    add(leg.to);
+  }
+  for (const [index, block] of (day.source.blocks ?? []).entries()) {
+    if (block.type === "place") add(block.place);
+    else {
+      const leg = day.legs.find(
+        (leg) => leg.id === `${day.index + 1}-${index + 1}`,
+      );
+      add(leg?.from);
+      add(block.to);
+    }
+  }
+  add(day.overnight);
+  const names = new Intl.DisplayNames(["en"], { type: "region" });
+  return countries.map((country) => names.of(country) ?? country).join(" → ");
+}
+export function areaDays(model: Itinerary, country = "") {
+  return model.days.filter(
+    (day) => !country || dayCountries(model, day).includes(country),
+  );
+}
+/** Compact timeline coordinates preserve the original day's fraction across gaps. */
+export function scopedPosition(days: NormalizedDay[], value: number) {
+  const index = days.findIndex((day) => day.index === Math.floor(value));
+  return index < 0 ? 0 : index + (value % 1);
+}
+export function tripPosition(days: NormalizedDay[], position: number) {
+  const bounded = Math.max(0, Math.min(days.length - 0.01, position));
+  return days[Math.floor(bounded)].index + (bounded % 1);
+}
+export function advancePlayback(
+  days: NormalizedDay[],
+  value: number,
+  elapsedMs: number,
+  speed: number,
+) {
+  const end = days.length - 0.01;
+  const next = Math.min(
+    end,
+    scopedPosition(days, value) +
+      (Math.min(Math.max(0, elapsedMs), 250) * speed) / 3000,
+  );
+  return { value: tripPosition(days, next), atEnd: next >= end };
+}
+
 export function mapAreas(model: Itinerary) {
   const names = new Intl.DisplayNames(["en"], { type: "region" });
   return [
@@ -308,13 +385,23 @@ export const mapZoomMax = 12;
 export function zoomMap(
   view: { x: number; y: number; k: number },
   factor: number,
+  anchor: Point = [450, 240],
 ) {
   const k = Math.max(mapZoomMin, Math.min(mapZoomMax, view.k * factor));
   return {
     k,
-    x: 450 - ((450 - view.x) * k) / view.k,
-    y: 240 - ((240 - view.y) * k) / view.k,
+    x: anchor[0] - ((anchor[0] - view.x) * k) / view.k,
+    y: anchor[1] - ((anchor[1] - view.y) * k) / view.k,
   };
+}
+/** Positive wheel delta deliberately zooms in; normalize line/page wheel units. */
+export function wheelZoomFactor(
+  deltaY: number,
+  deltaMode: number,
+  height: number,
+) {
+  const pixels = deltaY * (deltaMode === 1 ? 16 : deltaMode === 2 ? height : 1);
+  return Math.exp(Math.max(-100, Math.min(100, pixels)) * 0.002);
 }
 export function mapPointStyle(
   transfer: boolean,

@@ -6,6 +6,16 @@ import {
   mapDisplayDuration,
   mapArea,
   mapAreas,
+  areaDays,
+  dayCountries,
+  calendarCountries,
+  scopedPosition,
+  tripPosition,
+  advancePlayback,
+  zoomMap,
+  wheelZoomFactor,
+  mapZoomMin,
+  mapZoomMax,
   momentAt,
   curvePoint,
   routeCurve,
@@ -398,4 +408,166 @@ test("country connection totals exclude border crossings and preserve domestic t
   assert.equal(connections[0].outbound.legs.length, 2);
   assert.equal(mapDisplayDuration(model, connections[0], "60"), "~1h30");
   assert.deepEqual(mapDisplayConnections(model, "NL"), []);
+});
+
+const scopeTrip = () =>
+  normalizeTrip({
+    version: 1,
+    initialPlace: "a",
+    places: { a: { country: "JP" }, b: { country: "VN" }, c: {} },
+    days: [
+      {},
+      { blocks: [{ type: "travel", to: "b" }] },
+      {},
+      {},
+      { blocks: [{ type: "travel", to: "a" }] },
+      {},
+      {
+        blocks: [
+          { type: "place", place: "c" },
+          { type: "place", place: "b" },
+        ],
+      },
+      {},
+    ],
+  });
+test("country days include both crossing endpoints, repeated visits and explicit presence", () => {
+  const model = scopeTrip();
+  assert.deepEqual(
+    areaDays(model, "JP").map((day) => day.index),
+    [0, 1, 4, 5, 6],
+  );
+  assert.deepEqual(
+    areaDays(model, "VN").map((day) => day.index),
+    [1, 2, 3, 4, 6, 7],
+  );
+  assert.equal(areaDays(model).length, model.days.length);
+  assert.deepEqual(dayCountries(model, model.days[6]), ["JP", "VN"]);
+});
+test("compact timeline round-trips real trip dates and skips absent days", () => {
+  const days = areaDays(scopeTrip(), "JP");
+  for (const day of days)
+    for (const fraction of [0, 0.25, 0.99]) {
+      const value = day.index + fraction;
+      assert.ok(
+        Math.abs(tripPosition(days, scopedPosition(days, value)) - value) <
+          1e-10,
+      );
+    }
+  assert.equal(tripPosition(days, 2.5), 4.5);
+  assert.equal(scopedPosition(days, 3.5), 0);
+  assert.equal(tripPosition(days, -1), 0);
+  assert.equal(tripPosition(days, 100), 6.99);
+});
+test("playback crosses scope gaps, starts outside at first scope, caps stalls and stops at its end", () => {
+  const days = areaDays(scopeTrip(), "JP");
+  assert.equal(advancePlayback(days, 1.99, 60, 1).value, 4.01);
+  assert.equal(advancePlayback(days, 3.5, 0, 1).value, 0);
+  assert.deepEqual(advancePlayback(days, 6.98, 250, 8), {
+    value: 6.99,
+    atEnd: true,
+  });
+  assert.equal(advancePlayback(days, 0, 99999, 1).value, 250 / 3000);
+});
+test("overnight crossing endpoints belong to every active day", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "a",
+    places: { a: { country: "JP" }, b: { country: "VN" } },
+    days: [{ blocks: [{ type: "travel", to: "b", endDay: 3 }] }, {}, {}, {}],
+  });
+  assert.deepEqual(
+    areaDays(model, "JP").map((day) => day.index),
+    [0, 1, 2],
+  );
+  assert.deepEqual(
+    areaDays(model, "VN").map((day) => day.index),
+    [0, 1, 2, 3],
+  );
+});
+
+test("wheel down zooms in, up zooms out, and wheel units normalize", () => {
+  assert.ok(wheelZoomFactor(20, 0, 480) > 1);
+  assert.ok(wheelZoomFactor(-20, 0, 480) < 1);
+  assert.equal(wheelZoomFactor(0, 0, 480), 1);
+  assert.equal(wheelZoomFactor(1, 1, 480), wheelZoomFactor(16, 0, 480));
+  assert.equal(wheelZoomFactor(1, 2, 480), wheelZoomFactor(480, 0, 480));
+});
+test("pointer-anchored zoom keeps the same map coordinate under cursor, including at bounds", () => {
+  const view = { x: -120, y: 80, k: 2 };
+  for (const anchor of [
+    [0, 0],
+    [173, 392],
+    [900, 480],
+  ] as [number, number][]) {
+    for (const factor of [0.001, 0.8, 1.2, 100]) {
+      const next = zoomMap(view, factor, anchor);
+      assert.ok(next.k >= mapZoomMin && next.k <= mapZoomMax);
+      assert.ok(
+        Math.abs(
+          (anchor[0] - view.x) / view.k - (anchor[0] - next.x) / next.k,
+        ) < 1e-9,
+      );
+      assert.ok(
+        Math.abs(
+          (anchor[1] - view.y) / view.k - (anchor[1] - next.y) / next.k,
+        ) < 1e-9,
+      );
+    }
+  }
+  assert.deepEqual(zoomMap(view, 1.5), zoomMap(view, 1.5, [450, 240]));
+});
+
+test("calendar countries retain chronological crossings, excursions and mixed place resets", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "a",
+    places: {
+      a: { country: "JP" },
+      b: { country: "VN" },
+      c: { country: "TH" },
+      local: { country: "TH" },
+    },
+    days: [
+      {},
+      {
+        blocks: [
+          { type: "travel", to: "b" },
+          { type: "travel", to: "a" },
+        ],
+      },
+      {
+        blocks: [
+          { type: "travel", to: "b" },
+          { type: "place", place: "c" },
+          { type: "travel", to: "local" },
+        ],
+      },
+      {},
+    ],
+  });
+  assert.equal(calendarCountries(model, model.days[0]), "Japan");
+  assert.equal(
+    calendarCountries(model, model.days[1]),
+    "Japan → Vietnam → Japan",
+  );
+  assert.equal(
+    calendarCountries(model, model.days[2]),
+    "Japan → Vietnam → Thailand",
+  );
+  assert.equal(calendarCountries(model, model.days[3]), "Thailand");
+});
+test("calendar country context survives overnight arrivals and absent metadata", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "a",
+    places: { a: { country: "JP" }, b: { country: "VN" } },
+    days: [{ blocks: [{ type: "travel", to: "b", endDay: 3 }] }, {}, {}, {}],
+  });
+  assert.deepEqual(
+    model.days.map((day) => calendarCountries(model, day)),
+    ["Japan → Vietnam", "Japan → Vietnam", "Japan → Vietnam", "Vietnam"],
+  );
+  const sparse = normalizeTrip({ version: 1, places: { a: {} }, days: [{}] });
+  assert.equal(calendarCountries(sparse, sparse.days[0]), "");
 });
