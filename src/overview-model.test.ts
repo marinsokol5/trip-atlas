@@ -4,6 +4,8 @@ import { normalizeTrip } from "./itinerary.ts";
 import type { Trip, TravelBlock } from "./itinerary.ts";
 import {
   overview,
+  averageLabel,
+  combine,
   countryColor,
   headlineTimeLabel,
   nightShare,
@@ -76,8 +78,9 @@ test("per-person budgets preserve day and night allocation across repeat visits"
   assert.equal(moneyLabel(whole.costs.total, "EUR"), "~€840");
   assert.equal(jp.costs.living.value, 280);
   assert.equal(vn.costs.living.value, 30);
-  assert.equal(jp.costs.flights.value, 200);
-  assert.equal(vn.costs.flights.value, 200);
+  assert.equal(jp.costs.flights.value, 0);
+  assert.equal(jp.betweenCountries.value, 200);
+  assert.equal(vn.costs.flights.value, 0);
   assert.equal(whole.costs.flights.value, 200);
   assert.equal(
     whole.stays.reduce((s, r) => s + r.cost.value, 0),
@@ -387,4 +390,137 @@ test("estimated headlines round hours while exact and short durations retain det
     headlineTimeLabel({ ...a, value: 0, known: 0, missing: 1 }),
     "?",
   );
+});
+
+function reconcile(trip: Trip) {
+  const model = normalizeTrip(trip),
+    whole = overview(model);
+  const buckets = [...whole.countries.entries()].filter(
+    ([key]) => key !== "unknown",
+  );
+  assert.deepEqual(
+    combine(
+      ...buckets.map(([, bucket]) => bucket.total),
+      whole.betweenCountries,
+      whole.unassigned,
+    ),
+    whole.costs.total,
+  );
+  assert.equal(
+    [...whole.countries.values()].reduce((sum, b) => sum + b.budgetDays, 0),
+    model.days.length,
+  );
+  for (const [code, bucket] of buckets) {
+    const selected = overview(model, code);
+    assert.deepEqual(selected.costs.total, bucket.total);
+    assert.equal(selected.budgetDays, bucket.budgetDays);
+  }
+  return whole;
+}
+test("country totals reconcile every amount and missing unit, counting international overnight legs once", () => {
+  const trip = fixture();
+  const whole = reconcile(trip);
+  assert.equal(whole.betweenCountries.value, 200);
+  assert.equal(whole.betweenCountries.known, 2);
+  assert.equal(whole.countries.get("JP")!.total.value, 560);
+  assert.equal(whole.countries.get("JP")!.budgetDays, 4);
+  assert.equal(whole.stays.find((r) => r.key === "JP")!.days, 5);
+  assert.equal(
+    averageLabel(whole.countries.get("JP")!.total, 4, "EUR"),
+    "~€140",
+  );
+  assert.equal(whole.countries.get("VN")!.budgetDays, 1);
+  delete trip.budget!.countries.VN;
+  delete (trip.days[3].blocks![0] as TravelBlock).estimatedCost;
+  const partial = reconcile(trip);
+  assert.equal(partial.betweenCountries.missing, 1);
+  assert.equal(averageLabel(partial.countries.get("VN")!.total, 1, "EUR"), "?");
+});
+test("domestic flight, sea and paid walking costs remain local; missing pure walks need no price", () => {
+  const trip = fixture();
+  trip.days = [
+    {
+      blocks: [
+        { type: "travel", to: "kyoto", mode: "flight", estimatedCost: 11.125 },
+        { type: "travel", to: "tokyo", mode: "ferry", estimatedCost: 0 },
+        { type: "travel", to: "kyoto", mode: "walk" },
+        { type: "travel", to: "tokyo", mode: "hike", estimatedCost: 7 },
+        { type: "travel", to: "kyoto", mode: "bus" },
+      ],
+    },
+  ];
+  const data = reconcile(trip),
+    jp = data.countries.get("JP")!;
+  assert.equal(jp.total.value, 88.125);
+  assert.equal(jp.total.missing, 1);
+  assert.equal(jp.total.known, 4);
+  assert.equal(jp.budgetDays, 1);
+  assert.equal(data.costs.accommodation.known, 0);
+  assert.equal(data.betweenCountries.known, 0);
+  assert.equal(averageLabel(jp.total, jp.budgetDays, "EUR"), "~€88+");
+});
+test("unknown endpoints and unknown living/stays stay unassigned without borrowing countries", () => {
+  const trip = fixture();
+  trip.places.u = {};
+  trip.initialPlace = "u";
+  trip.days = [
+    {},
+    {
+      blocks: [
+        { type: "travel", to: "tokyo", mode: "bus", estimatedCost: 9 },
+        { type: "travel", to: "u", mode: "flight" },
+      ],
+    },
+    {},
+  ];
+  const data = reconcile(trip);
+  assert.equal(data.unassigned.value, 9);
+  assert.equal(data.unassigned.missing, 6); // three living days, two nights, one fare
+  assert.equal(data.countries.get("JP")!.budgetDays, 0);
+  assert.equal(data.countries.get("JP")!.total.value, 0);
+  delete trip.initialPlace;
+  trip.days = [{ blocks: [{ type: "travel", to: "tokyo", estimatedCost: 8 }] }];
+  assert.equal(reconcile(trip).unassigned.value, 8);
+});
+test("zero-day country retains domestic total and transit fallback owns budget days", () => {
+  const trip = fixture();
+  trip.days = [
+    {
+      blocks: [
+        { type: "travel", to: "kyoto", mode: "train", estimatedCost: 13 },
+        { type: "travel", to: "hanoi", mode: "flight", estimatedCost: 0 },
+      ],
+    },
+  ];
+  let data = reconcile(trip),
+    jp = data.countries.get("JP")!;
+  assert.equal(jp.total.value, 13);
+  assert.equal(jp.budgetDays, 0);
+  assert.equal(averageLabel(jp.total, jp.budgetDays, "EUR"), "—");
+  trip.days = [
+    {
+      blocks: [
+        { type: "place", place: "hanoi" },
+        {
+          type: "travel",
+          to: "tokyo",
+          mode: "flight",
+          endDay: 3,
+          estimatedCost: 0,
+        },
+      ],
+    },
+    {},
+    {},
+  ];
+  data = reconcile(trip);
+  assert.equal(data.countries.get("VN")!.budgetDays, 2);
+  assert.equal(data.countries.get("JP")!.budgetDays, 1);
+  assert.equal(data.costs.accommodation.known, 0);
+  assert.equal(data.betweenCountries.known, 1);
+  trip.budget = {
+    countries: { JP: { livingPerDay: 0 }, VN: { livingPerDay: 0 } },
+  };
+  data = reconcile(trip);
+  assert.equal(averageLabel(data.countries.get("VN")!.total, 2, "EUR"), "~€0");
 });

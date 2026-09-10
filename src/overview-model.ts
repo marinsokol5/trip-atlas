@@ -48,6 +48,15 @@ export function moneyLabel(value: Amount, currency?: string): string {
   if (!currency) return "?";
   return `~${new Intl.NumberFormat("en-IE", { style: "currency", currency, maximumFractionDigits: 0 }).format(value.value)}${value.missing ? "+" : ""}`;
 }
+export function averageLabel(
+  total: Amount,
+  budgetDays: number,
+  currency?: string,
+): string {
+  return budgetDays
+    ? moneyLabel({ ...total, value: total.value / budgetDays }, currency)
+    : "—";
+}
 export function timeLabel(value: Amount): string {
   if (!value.known && value.missing) return "?";
   return `${value.estimated ? "~" : ""}${duration(value.value * 60000)}${value.missing ? "+" : ""}`;
@@ -191,11 +200,22 @@ export function overview(
 ) {
   const countryOf = (id?: string) =>
     id ? model.trip.places[id]?.country : undefined;
+  // Populate cost buckets alongside the existing daily allocation, never from days touched.
+  const countries = new Map<string, { total: Amount; budgetDays: number }>();
+  const countryBucket = (code?: string) => {
+    const key = code ?? "unknown";
+    if (!countries.has(key))
+      countries.set(key, { total: amount(), budgetDays: 0 });
+    return countries.get(key)!;
+  };
+  const betweenCountries = amount(),
+    unassignedTravel = amount();
   const rows = new Map<string, StayRow & { daySet: Set<number> }>();
   const areas = mapAreas(model);
   const groups = visualGroups(model);
   const row = (place?: string, special?: "transit" | "unknown") => {
     const code = countryOf(place);
+    if (code) countryBucket(code);
     const key =
       special ??
       (breakdown === "countries"
@@ -267,6 +287,9 @@ export function overview(
     const rate = livingCountry
       ? model.trip.budget?.countries[livingCountry]
       : undefined;
+    const budgetBucket = countryBucket(livingCountry);
+    budgetBucket.budgetDays++;
+    add(budgetBucket.total, rate?.livingPerDay);
     if (!country || livingCountry === country) {
       add(living, rate?.livingPerDay);
       // During transit, country rows can still show the departing country's daily living cost.
@@ -283,13 +306,15 @@ export function overview(
         r.nights++;
         r.daySet.add(day.index);
       }
-    } else if (!country || countryOf(day.overnight) === country) {
+    } else {
+      const nightCountry = countryOf(day.overnight);
+      const nightRate = nightCountry
+        ? model.trip.budget?.countries[nightCountry]?.accommodationPerNight
+        : undefined;
+      add(countryBucket(nightCountry).total, nightRate);
+      if (country && nightCountry !== country) continue;
       const r = row(day.overnight);
       r.nights++;
-      const nightRate = countryOf(day.overnight)
-        ? model.trip.budget?.countries[countryOf(day.overnight)!]
-            ?.accommodationPerNight
-        : undefined;
       add(accommodation, nightRate);
       add(r.cost, nightRate);
     }
@@ -299,7 +324,7 @@ export function overview(
     other = amount(),
     unallocated = amount(),
     transport = amount();
-  for (const leg of legs) {
+  for (const leg of model.legs) {
     const cs = legKinds(leg);
     if (
       cs.length === 1 &&
@@ -307,6 +332,17 @@ export function overview(
       leg.block.estimatedCost === undefined
     )
       continue;
+    const from = countryOf(leg.from),
+      to = countryOf(leg.to);
+    if (!from || !to) {
+      if (!country || from === country || to === country)
+        add(unassignedTravel, leg.block.estimatedCost);
+    } else if (from !== to) {
+      if (!country || from === country || to === country)
+        add(betweenCountries, leg.block.estimatedCost);
+    } else add(countryBucket(from).total, leg.block.estimatedCost);
+    // Country cost categories have the same domestic scope as the country total.
+    if (country && (from !== country || to !== country)) continue;
     add(transport, leg.block.estimatedCost);
     const costKinds = [
       ...new Set(cs.map((kind) => (kind === "flights" ? "flights" : "other"))),
@@ -328,6 +364,15 @@ export function overview(
     days: areaDays(model, country).length,
     nights: stays.reduce((sum, r) => sum + r.nights, 0),
     stays,
+    countries,
+    budgetDays: country
+      ? (countries.get(country)?.budgetDays ?? 0)
+      : model.days.length,
+    betweenCountries,
+    unassigned: combine(
+      ...(!country ? [countries.get("unknown")?.total ?? amount()] : []),
+      unassignedTravel,
+    ),
     times: travelTimes(legs),
     hasBudget: combine(living, accommodation, transport).known > 0,
     hasStayCosts: combine(living, accommodation).known > 0,
