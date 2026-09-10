@@ -67,7 +67,7 @@ import world from "./assets/world.json";
 import "./App.css";
 
 type Entry = { path: string; label: string };
-const playbackSpeeds = [0.5, 1, 2, 4];
+const playbackSpeeds = [0.5, 1, 2, 4, 8];
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
 const color = placeColor;
