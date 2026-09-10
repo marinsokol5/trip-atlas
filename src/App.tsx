@@ -43,6 +43,8 @@ import {
   duration,
   momentAt,
   mapMomentAt,
+  mapAreas,
+  mapArea,
   componentLegs,
   placeColor,
   visualGroups,
@@ -185,6 +187,9 @@ function TripMap({
   changePlaybackSpeed: (speed: number) => void;
 }) {
   const moment = mapMomentAt(model, value);
+  const [country, setCountry] = useState("");
+  const areas = useMemo(() => mapAreas(model), [model]);
+  const area = useMemo(() => mapArea(model, country), [model, country]);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
   const frame = useRef<HTMLDivElement>(null);
@@ -209,12 +214,15 @@ function TripMap({
   const drag = useRef<
     { x: number; y: number; vx: number; vy: number } | undefined
   >(undefined);
-  const groups = useMemo(() => visualGroups(model), [model]);
+  const { groups, first, last } = area;
   const transfers = useMemo(() => transferPlaces(model), [model]);
-  const connections = useMemo(() => mapDisplayConnections(model), [model]);
+  const connections = useMemo(
+    () => mapDisplayConnections(model, country),
+    [model, country],
+  );
   const geometry = useMemo(() => {
     const locations = Object.entries(model.trip.places)
-      .filter(([, p]) => p.coordinates)
+      .filter(([id, p]) => area.placeIds.has(id) && p.coordinates)
       .map(([id, p]) => ({
         id,
         coordinates: [p.coordinates!.lon, p.coordinates!.lat] as Point,
@@ -298,7 +306,7 @@ function TripMap({
         : [];
     });
     return { points, routes, shapes, labels };
-  }, [model, groups, transfers, connections]);
+  }, [model, area, groups, transfers, connections]);
   // Lay out text in physical pixels again after zooming, so labels never scale or collide.
   const screen = (point: Point): Point => [
     (view.x + point[0] * view.k) * frameScale,
@@ -312,8 +320,6 @@ function TripMap({
     [];
   const visible = ([x, y]: Point) =>
     x >= 4 && x <= 900 * frameScale - 4 && y >= 4 && y <= 480 * frameScale - 4;
-  const first = model.legs[0]?.from ?? model.days[0].startPlace;
-  const last = model.days.at(-1)?.overnight ?? model.legs.at(-1)?.to;
   for (const [id, point] of Object.entries(geometry.points)) {
     const [x, y] = screen(point),
       radius = transfers.has(id) ? 4 : 8;
@@ -517,9 +523,31 @@ function TripMap({
           >
             <Icon kind="minus" />
           </button>
-          <button onClick={() => setView({ x: 0, y: 0, k: 1 })}>
+          <label className="map-duration-filter">
+            Area
+            <select
+              aria-label="Map area"
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value);
+                setView({ x: 0, y: 0, k: 1 });
+                drag.current = undefined;
+              }}
+            >
+              <option value="">Whole trip</option>
+              {areas.map((area) => (
+                <option key={area.country} value={area.country}>
+                  {area.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            aria-label="Fit selected area"
+            title="Fit selected area"
+            onClick={() => setView({ x: 0, y: 0, k: 1 })}
+          >
             <Icon kind="reset" />
-            Show whole trip
           </button>
         </div>
         <div className="map-geometry" ref={frame}>
@@ -784,7 +812,9 @@ function TripMap({
           )}
         </div>
         <div className="map-source">
-          Drag to pan · schematic connections · Natural Earth
+          {Object.keys(geometry.points).length
+            ? "Drag to pan · schematic connections · Natural Earth"
+            : `No coordinates for visited places${country ? ` in ${areas.find((area) => area.country === country)?.name ?? country}` : ""} · Natural Earth`}
         </div>
       </div>
       <div className="legend">

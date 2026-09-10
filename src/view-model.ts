@@ -60,6 +60,55 @@ export function dayGroups(model: Itinerary, day: NormalizedDay) {
   });
 }
 
+/** Preserve occurrence order, including explicit location resets and repeated visits. */
+export function mapPlaceOccurrences(model: Itinerary) {
+  const occurrences: string[] = [];
+  const add = (id?: string) => {
+    if (id && model.trip.places[id]) occurrences.push(id);
+  };
+  add(model.trip.initialPlace);
+  for (const day of model.days) {
+    add(day.startPlace);
+    for (const [index, block] of (day.source.blocks ?? []).entries()) {
+      if (block.type === "place") add(block.place);
+      else {
+        const leg = day.legs.find(
+          (leg) => leg.id === `${day.index + 1}-${index + 1}`,
+        );
+        add(leg?.from);
+        add(block.to);
+      }
+    }
+    add(day.overnight);
+  }
+  return occurrences;
+}
+
+export function mapAreas(model: Itinerary) {
+  const names = new Intl.DisplayNames(["en"], { type: "region" });
+  return [
+    ...new Set(
+      mapPlaceOccurrences(model).flatMap((id) =>
+        model.trip.places[id].country ? [model.trip.places[id].country!] : [],
+      ),
+    ),
+  ].map((country) => ({ country, name: names.of(country) ?? country }));
+}
+
+export function mapArea(model: Itinerary, country = "") {
+  const occurrences = mapPlaceOccurrences(model).filter(
+    (id) => !country || model.trip.places[id].country === country,
+  );
+  const placeIds = new Set(
+    country ? occurrences : Object.keys(model.trip.places),
+  );
+  const groups = visualGroups(model).flatMap((group) => {
+    const members = group.members.filter((id) => placeIds.has(id));
+    return members.length ? [{ ...group, members }] : [];
+  });
+  return { placeIds, groups, first: occurrences[0], last: occurrences.at(-1) };
+}
+
 /** Overnight bases and the journey endpoints remain major stops, even in a group. */
 export function majorStops(model: Itinerary) {
   return new Set(
@@ -130,7 +179,10 @@ function vehicleDuration(leg: Leg): { minutes?: number; approximate: boolean } {
     approximate: leg.durationMs === undefined,
   };
 }
-export function mapConnections(model: Itinerary): MapConnection[] {
+export function mapConnections(
+  model: Itinerary,
+  country = "",
+): MapConnection[] {
   const stops = majorStops(model),
     result: MapConnection[] = [];
   let pending: Leg[] = [];
@@ -150,6 +202,16 @@ export function mapConnections(model: Itinerary): MapConnection[] {
     pending = [];
   };
   for (const leg of model.legs) {
+    // A border crossing must never be included in a country's vehicle total.
+    if (
+      country &&
+      (!leg.from ||
+        model.trip.places[leg.from].country !== country ||
+        model.trip.places[leg.to].country !== country)
+    ) {
+      flush();
+      continue;
+    }
     const previous = pending.at(-1);
     // Never absorb another day's excursion or bridge an explicit location reset.
     if (previous && (previous.day !== leg.day || previous.to !== leg.from))
@@ -184,8 +246,9 @@ export interface MapDisplayConnection {
 }
 export function mapDisplayConnections(
   model: Itinerary,
+  country = "",
 ): MapDisplayConnection[] {
-  const connections = mapConnections(model);
+  const connections = mapConnections(model, country);
   const pairs = new Map<string, MapConnection[]>();
   for (const connection of connections) {
     if (

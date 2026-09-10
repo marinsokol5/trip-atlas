@@ -1,7 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { normalizeTrip } from "./itinerary.ts";
-import { momentAt, curvePoint, routeCurve } from "./view-model.ts";
+import {
+  mapDisplayConnections,
+  mapDisplayDuration,
+  mapArea,
+  mapAreas,
+  momentAt,
+  curvePoint,
+  routeCurve,
+} from "./view-model.ts";
 
 test("undated stays retain location; unknown travel has no invented movement", () => {
   const model = normalizeTrip({
@@ -256,4 +264,138 @@ test("legacy mixed transport aliases stay unallocated instead of inflating walki
     );
     assert.equal(modeKind(model.legs[0]), "other");
   }
+});
+
+test("map areas follow visits and scope chronological endpoints and cross-country groups", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "home",
+    groups: { shared: { name: "Shared group", color: "#123456" } },
+    places: {
+      home: { country: "NL" },
+      tokyo: {
+        country: "JP",
+        group: "shared",
+        coordinates: { lat: 35, lon: 139 },
+      },
+      kyoto: { country: "JP" },
+      hanoi: { country: "VN", group: "shared" },
+      unknown: {},
+      unused: { country: "TH" },
+    },
+    days: [
+      { blocks: [{ type: "travel", from: "unknown", to: "tokyo" }] },
+      {
+        blocks: [
+          { type: "place", place: "kyoto" },
+          { type: "travel", to: "hanoi" },
+        ],
+      },
+      {
+        blocks: [
+          { type: "travel", to: "tokyo" },
+          { type: "travel", to: "home" },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(mapAreas(model), [
+    { country: "NL", name: "Netherlands" },
+    { country: "JP", name: "Japan" },
+    { country: "VN", name: "Vietnam" },
+  ]);
+  const japan = mapArea(model, "JP");
+  assert.deepEqual([...japan.placeIds], ["tokyo", "kyoto"]);
+  assert.equal(japan.first, "tokyo");
+  assert.equal(japan.last, "tokyo");
+  assert.deepEqual(
+    japan.groups.find((group) => group.key === "group:shared"),
+    {
+      key: "group:shared",
+      name: "Shared group",
+      color: "#123456",
+      members: ["tokyo"],
+    },
+  );
+  assert.equal(mapArea(model).first, "home");
+  assert.equal(mapArea(model).last, "home");
+  assert.ok(mapArea(model).placeIds.has("unknown"));
+  assert.equal(mapArea(model, "VN").first, "hanoi");
+  assert.equal(mapArea(model, "VN").last, "hanoi");
+  assert.equal(mapArea(model, "TH").placeIds.size, 0);
+});
+
+test("country endpoints retain unmapped place resets, even without travel legs", () => {
+  const model = normalizeTrip({
+    version: 1,
+    places: {
+      a: { country: "JP" },
+      b: { country: "JP", coordinates: { lat: 35, lon: 139 } },
+      c: { country: "JP" },
+    },
+    days: [
+      {
+        blocks: [
+          { type: "place", place: "a" },
+          { type: "place", place: "b" },
+          { type: "place", place: "c" },
+        ],
+      },
+    ],
+  });
+  assert.equal(mapArea(model, "JP").first, "a");
+  assert.equal(mapArea(model, "JP").last, "c");
+  assert.deepEqual([...mapArea(model, "JP").placeIds], ["a", "b", "c"]);
+});
+
+test("country connection totals exclude border crossings and preserve domestic transfers", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "home",
+    places: {
+      home: { country: "NL" },
+      airport: { country: "JP" },
+      transfer: { country: "JP" },
+      city: { country: "JP" },
+      abroad: { country: "VN" },
+    },
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "airport",
+            mode: "flight",
+            estimatedDurationMinutes: 600,
+          },
+          {
+            type: "travel",
+            to: "transfer",
+            mode: "train",
+            estimatedDurationMinutes: 40,
+          },
+          {
+            type: "travel",
+            to: "city",
+            mode: "bus",
+            estimatedDurationMinutes: 50,
+          },
+          {
+            type: "travel",
+            to: "abroad",
+            mode: "flight",
+            estimatedDurationMinutes: 200,
+          },
+        ],
+      },
+    ],
+  });
+  const connections = mapDisplayConnections(model, "JP");
+  assert.equal(connections.length, 1);
+  assert.equal(connections[0].outbound.from, "airport");
+  assert.equal(connections[0].outbound.to, "city");
+  assert.equal(connections[0].outbound.minutes, 90);
+  assert.equal(connections[0].outbound.legs.length, 2);
+  assert.equal(mapDisplayDuration(model, connections[0], "60"), "~1h30");
+  assert.deepEqual(mapDisplayConnections(model, "NL"), []);
 });
