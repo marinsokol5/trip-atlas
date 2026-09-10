@@ -300,6 +300,33 @@ nav {
   font-size: 12px;
   font-weight: 500;
 }
+.day-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.day-groups:empty {
+  display: none;
+}
+.day-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.day-group i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+.details > .day-groups {
+  margin: 6px 0 10px;
+}
 .mobile-weekday {
   display: none;
 }

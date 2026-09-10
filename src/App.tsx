@@ -17,12 +17,20 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Play,
+  Pause,
+  RotateCcw,
 } from "lucide-react";
 import { useEffect, useMemo, useState, useRef, Fragment } from "react";
 import type { CSSProperties } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { GeoPermissibleObjects } from "d3-geo";
-import { documentUrl, normalizeTrip, safeRelativePath } from "./itinerary";
+import {
+  dateAt,
+  documentUrl,
+  normalizeTrip,
+  safeRelativePath,
+} from "./itinerary";
 import type { Itinerary, NormalizedDay, DocumentLink, Leg } from "./itinerary";
 import {
   activeLegs,
@@ -31,6 +39,7 @@ import {
   dateLabel,
   dayLabel,
   dayTitle,
+  dayGroups,
   duration,
   momentAt,
   componentLegs,
@@ -93,6 +102,9 @@ function Icon({ kind }: { kind: string }) {
         prev: ChevronLeft,
         next: ChevronRight,
         link: ExternalLink,
+        play: Play,
+        pause: Pause,
+        replay: RotateCcw,
       } as Record<string, typeof MapIcon>
     )[kind] ?? ArrowRight;
   return <Component className="icon" aria-hidden="true" strokeWidth={1.6} />;
@@ -154,11 +166,17 @@ function TripMap({
   moment,
   status,
   day,
+  playing,
+  atEnd,
+  togglePlayback,
 }: {
   model: Itinerary;
   moment: Moment;
   status: string;
   day: NormalizedDay;
+  playing: boolean;
+  atEnd: boolean;
+  togglePlayback: () => void;
 }) {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
@@ -234,12 +252,19 @@ function TripMap({
     const points = Object.fromEntries(
       locations.map((p) => [p.id, projection(p.coordinates)!]),
     );
-    const routes = connections.flatMap(({ outbound, inbound }) => outbound.legs
-      .flatMap((leg, index) => leg.from && points[leg.from] && points[leg.to] ? [{
-        leg,
-        reverseLeg: inbound?.legs[inbound.legs.length - 1 - index],
-        curve: routeCurve(points[leg.from], points[leg.to]),
-      }] : []));
+    const routes = connections.flatMap(({ outbound, inbound }) =>
+      outbound.legs.flatMap((leg, index) =>
+        leg.from && points[leg.from] && points[leg.to]
+          ? [
+              {
+                leg,
+                reverseLeg: inbound?.legs[inbound.legs.length - 1 - index],
+                curve: routeCurve(points[leg.from], points[leg.to]),
+              },
+            ]
+          : [],
+      ),
+    );
     const path = geoPath(projection);
     const shapes = world.features.map((feature, i) => ({
       id: i,
@@ -339,43 +364,50 @@ function TripMap({
     return position ? [{ ...label, position }] : [];
   });
   const connectionLabels = connections.flatMap((connection) => {
-      const text = mapDisplayDuration(model, connection, durationFilter);
-      if (!text) return [];
-      const routes = geometry.routes.filter((route) =>
-        connection.outbound.legs.some((leg) => leg.id === route.leg.id),
-      );
-      const route = routes.sort(
-        (a, b) =>
-          Math.hypot(b.curve.b[0] - b.curve.a[0], b.curve.b[1] - b.curve.a[1]) -
-          Math.hypot(a.curve.b[0] - a.curve.a[0], a.curve.b[1] - a.curve.a[1]),
-      )[0];
-      const selected = [...connection.outbound.legs, ...(connection.inbound?.legs ?? [])].some(
-        (leg) => leg.day <= day.index + 1 && leg.endDay >= day.index + 1,
-      );
-      if (!route || (compact && !selected)) return [];
-      const anchor = curvePoint(route.curve, 0.5);
-      const width = text.length * 7 + 12;
-      const position = placeLabel(anchor, width, 22, [
-        [8, -26],
-        [8, 8],
-        [-width - 8, -26],
-        [-width - 8, 8],
-        [8, -54],
-        [8, 36],
-        [-width - 8, -54],
-        [-width - 8, 36],
-        [35, -26],
-        [-width - 35, 8],
-        ...[-80, 64, -108, 92].flatMap((dy) =>
-          [-width - 60, -width / 2, 60].map((dx) => [dx, dy] as Point),
-        ),
-      ]);
-      return position ? [{ connection, anchor, position, width, text }] : [];
-    });
-  const active = geometry.routes.find((r) => r.leg.id === moment.leg?.id || r.reverseLeg?.id === moment.leg?.id);
+    const text = mapDisplayDuration(model, connection, durationFilter);
+    if (!text) return [];
+    const routes = geometry.routes.filter((route) =>
+      connection.outbound.legs.some((leg) => leg.id === route.leg.id),
+    );
+    const route = routes.sort(
+      (a, b) =>
+        Math.hypot(b.curve.b[0] - b.curve.a[0], b.curve.b[1] - b.curve.a[1]) -
+        Math.hypot(a.curve.b[0] - a.curve.a[0], a.curve.b[1] - a.curve.a[1]),
+    )[0];
+    const selected = [
+      ...connection.outbound.legs,
+      ...(connection.inbound?.legs ?? []),
+    ].some((leg) => leg.day <= day.index + 1 && leg.endDay >= day.index + 1);
+    if (!route || (compact && !selected)) return [];
+    const anchor = curvePoint(route.curve, 0.5);
+    const width = text.length * 7 + 12;
+    const position = placeLabel(anchor, width, 22, [
+      [8, -26],
+      [8, 8],
+      [-width - 8, -26],
+      [-width - 8, 8],
+      [8, -54],
+      [8, 36],
+      [-width - 8, -54],
+      [-width - 8, 36],
+      [35, -26],
+      [-width - 35, 8],
+      ...[-80, 64, -108, 92].flatMap((dy) =>
+        [-width - 60, -width / 2, 60].map((dx) => [dx, dy] as Point),
+      ),
+    ]);
+    return position ? [{ connection, anchor, position, width, text }] : [];
+  });
+  const active = geometry.routes.find(
+    (r) => r.leg.id === moment.leg?.id || r.reverseLeg?.id === moment.leg?.id,
+  );
   const marker =
     moment.leg && active && moment.progress !== undefined
-      ? directedCurvePoint(active.curve, moment.progress, active.reverseLeg?.id === moment.leg.id)
+      ? directedCurvePoint(
+          active.curve,
+          moment.progress,
+          active.reverseLeg?.id === moment.leg.id,
+        )
       : moment.place
         ? geometry.points[moment.place]
         : undefined;
@@ -391,6 +423,20 @@ function TripMap({
           </div>
         </div>
         <div className="map-controls">
+          <button
+            onClick={togglePlayback}
+            aria-label={
+              playing
+                ? "Pause itinerary"
+                : atEnd
+                  ? "Replay itinerary"
+                  : "Play itinerary"
+            }
+            aria-pressed={playing}
+          >
+            <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
+            {playing ? "Pause" : atEnd ? "Replay" : "Play"}
+          </button>
           <label className="map-duration-filter">
             Durations
             <select
@@ -491,8 +537,14 @@ function TripMap({
               {geometry.routes.map(({ leg, reverseLeg, curve }) => {
                 const internal =
                     groupKey(model, leg.from) === groupKey(model, leg.to),
-                  isActive = selected.has(leg.id) || (!!reverseLeg && selected.has(reverseLeg.id));
-                const { curve: c, arrow, arrowStart } = mapRoute(
+                  isActive =
+                    selected.has(leg.id) ||
+                    (!!reverseLeg && selected.has(reverseLeg.id));
+                const {
+                  curve: c,
+                  arrow,
+                  arrowStart,
+                } = mapRoute(
                   curve,
                   internal,
                   pixelScale,
@@ -505,7 +557,9 @@ function TripMap({
                   ),
                   mapPointStyle(
                     transfers.has(leg.from!),
-                    activeLegs(model, day).some(l => l.from === leg.from || l.to === leg.from),
+                    activeLegs(model, day).some(
+                      (l) => l.from === leg.from || l.to === leg.from,
+                    ),
                     moment.place === leg.from,
                   ),
                   !!reverseLeg,
@@ -521,7 +575,11 @@ function TripMap({
                         strokeWidth: (isActive ? 1.9 : 1.15) / pixelScale,
                       }}
                       d={`M${c.a}Q${c.c} ${c.b}`}
-                      markerStart={arrowStart ? `url(#${reverseLeg && selected.has(reverseLeg.id) ? "active" : "route"}-arrow)` : undefined}
+                      markerStart={
+                        arrowStart
+                          ? `url(#${reverseLeg && selected.has(reverseLeg.id) ? "active" : "route"}-arrow)`
+                          : undefined
+                      }
                       markerEnd={
                         arrow
                           ? `url(#${selected.has(leg.id) ? "active" : "route"}-arrow)`
@@ -529,7 +587,8 @@ function TripMap({
                       }
                     >
                       <title>
-                        {name(model, leg.from)} {reverseLeg ? "↔" : "→"} {name(model, leg.to)}
+                        {name(model, leg.from)} {reverseLeg ? "↔" : "→"}{" "}
+                        {name(model, leg.to)}
                       </title>
                     </path>
                   </g>
@@ -537,7 +596,11 @@ function TripMap({
               })}
               {connectionLabels.map(
                 ({ connection, anchor, position, width, text }) => (
-                  <g key={connection.outbound.id} data-connection={connection.outbound.id} data-return-connection={connection.inbound?.id}>
+                  <g
+                    key={connection.outbound.id}
+                    data-connection={connection.outbound.id}
+                    data-return-connection={connection.inbound?.id}
+                  >
                     <line
                       x1={anchor[0]}
                       y1={anchor[1]}
@@ -701,6 +764,9 @@ function Calendar({
   folder: string;
 }) {
   const compact = useCompactScreen();
+  const slots = model.trip.startDate ? calendarSlots(model) : model.days;
+  const offset = slots.findIndex((day) => day !== undefined);
+  const selectedSlot = selectedDay + offset;
   return (
     <div className="calendar">
       <div className="month-heading">
@@ -717,16 +783,21 @@ function Calendar({
         ))}
       </div>
       <div className="calendar-grid">
-        {(compact ? model.days : calendarSlots(model)).map((day, i) =>
-          day ? (
-            <Fragment key={i}>
+        {slots.map((day, i) => (
+          <Fragment key={i}>
+            {day ? (
               <button
                 key={i}
                 className="calendar-day"
                 data-day={day.index + 1}
                 aria-pressed={day.index === selectedDay}
                 onClick={() => selectDay(day.index)}
-                aria-label={`${dayLabel(day)}. ${dayTitle(model, day)}. Night: ${name(model, day.overnight)}`}
+                aria-label={`${dayLabel(day)}. ${dayTitle(model, day)}. ${dayGroups(
+                  model,
+                  day,
+                )
+                  .map((group) => group.name + ". ")
+                  .join("")}Night: ${name(model, day.overnight)}`}
               >
                 <span className="day-date">
                   {day.date
@@ -736,6 +807,7 @@ function Calendar({
                 {day.source.title && (
                   <span className="day-title">{day.source.title}</span>
                 )}
+                <GroupLabels model={model} day={day} />
                 <span className="cell-chips">
                   {activeLegs(model, day).map((l) => (
                     <LegChip key={l.id} leg={l} />
@@ -747,24 +819,46 @@ function Calendar({
                 </span>
                 <Bands model={model} day={day} />
               </button>
-              {compact &&
-                (i % 2 === 1 || i === model.days.length - 1) &&
-                Math.floor(selectedDay / 2) === Math.floor(i / 2) && (
-                  <div className="inline-day-details">
-                    <DayDetails
-                      model={model}
-                      day={model.days[selectedDay]}
-                      folder={folder}
-                    />
-                  </div>
-                )}
-            </Fragment>
-          ) : (
-            <div key={i} className="empty-day" />
-          ),
-        )}
+            ) : (
+              <div
+                className="empty-day"
+                aria-label={`${dateLabel(dateAt(model.trip.startDate!, i - offset), { day: "numeric", month: "long", weekday: "long" })}, outside itinerary`}
+              >
+                <span className="day-date">
+                  {dateLabel(dateAt(model.trip.startDate!, i - offset), {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+              </div>
+            )}
+            {compact &&
+              (i % 2 === 1 || i === slots.length - 1) &&
+              Math.floor(selectedSlot / 2) === Math.floor(i / 2) && (
+                <div className="inline-day-details">
+                  <DayDetails
+                    model={model}
+                    day={model.days[selectedDay]}
+                    folder={folder}
+                  />
+                </div>
+              )}
+          </Fragment>
+        ))}
       </div>
     </div>
+  );
+}
+function GroupLabels({ model, day }: { model: Itinerary; day: NormalizedDay }) {
+  return (
+    <span className="day-groups">
+      {dayGroups(model, day).map((group) => (
+        <span className="day-group" key={group.id}>
+          <i style={{ background: group.color }} />
+          {group.name}
+        </span>
+      ))}
+    </span>
   );
 }
 function Documents({
@@ -805,6 +899,7 @@ function DayDetails({
         {dayLabel(day)} · Day {day.index + 1} of {model.days.length}
       </p>
       <h2>{dayTitle(model, day)}</h2>
+      <GroupLabels model={model} day={day} />
       <div className="day-chips">
         {legs.map((l) => (
           <LegChip key={l.id} leg={l} />
@@ -859,8 +954,52 @@ function App() {
     [itinerary, setItinerary] = useState<Itinerary>(),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
-    [value, setValue] = useState(0.5),
+    [value, setValue] = useState(0),
     [tab, setTab] = useState<"map" | "calendar">("map");
+  const [playing, setPlaying] = useState(false);
+  const playhead = useRef(value);
+  useEffect(() => {
+    playhead.current = value;
+  }, [value]);
+  useEffect(() => {
+    if (!playing || !itinerary) return;
+    let frame = 0;
+    let previous = performance.now();
+    const end = itinerary.days.length - 0.01;
+    const tick = (now: number) => {
+      const next = Math.min(
+        end,
+        playhead.current + Math.min(now - previous, 250) / 3000,
+      );
+      previous = now;
+      playhead.current = next;
+      setValue(next);
+      if (next >= end) setPlaying(false);
+      else frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    const pauseWhenHidden = () => {
+      if (document.hidden) setPlaying(false);
+    };
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", pauseWhenHidden);
+    };
+  }, [playing, itinerary]);
+  function selectPosition(next: number) {
+    setPlaying(false);
+    playhead.current = next;
+    setValue(next);
+  }
+  function togglePlayback() {
+    if (!itinerary) return;
+    if (value >= itinerary.days.length - 0.01) {
+      playhead.current = 0;
+      setValue(0);
+    }
+    setPlaying((current) => !current);
+  }
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const saved = window.localStorage.getItem("trip-atlas-theme");
@@ -929,7 +1068,9 @@ function App() {
         const model = normalizeTrip(data);
         if (active) {
           setItinerary(model);
-          setValue(0.5);
+          playhead.current = 0;
+          setValue(0);
+          setPlaying(false);
         }
       })
       .catch((e) => {
@@ -985,6 +1126,7 @@ function App() {
                 value={selected}
                 disabled={!entries.length}
                 onChange={(e) => {
+                  setPlaying(false);
                   setLoading(true);
                   setError("");
                   setItinerary(undefined);
@@ -1016,7 +1158,10 @@ function App() {
               key={t}
               aria-pressed={tab === t}
               className={tab === t ? "tab active" : "tab"}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setPlaying(false);
+                setTab(t);
+              }}
             >
               <Icon kind={t} />
               {t === "map" ? "Map" : "Calendar"}
@@ -1046,6 +1191,9 @@ function App() {
                   moment={moment}
                   status={status}
                   day={day}
+                  playing={playing}
+                  atEnd={value >= itinerary.days.length - 0.01}
+                  togglePlayback={togglePlayback}
                 />
               </div>
               {tab === "calendar" && (
@@ -1053,7 +1201,7 @@ function App() {
                   model={itinerary}
                   selectedDay={dayIndex}
                   folder={selected.slice(0, selected.lastIndexOf("/"))}
-                  selectDay={(n) => setValue(n + (value % 1))}
+                  selectDay={(n) => selectPosition(n + (value % 1))}
                 />
               )}
             </section>
@@ -1099,7 +1247,7 @@ function App() {
                   max={itinerary.days.length - 0.01}
                   step="0.01"
                   value={value}
-                  onChange={(e) => setValue(Number(e.target.value))}
+                  onChange={(e) => selectPosition(Number(e.target.value))}
                 />
               </div>
               <div className="range-ticks">
@@ -1108,7 +1256,7 @@ function App() {
                     key={i}
                     aria-label={`Select ${dayLabel(d)}`}
                     aria-pressed={i === dayIndex}
-                    onClick={() => setValue(i + 0.5)}
+                    onClick={() => selectPosition(i + 0.5)}
                   >
                     <span>{d.date ? Number(d.date.slice(8)) : i + 1}</span>
                     {(i === 0 || d.date?.slice(8) === "01") && (
@@ -1124,7 +1272,7 @@ function App() {
               <button
                 aria-label="Previous day"
                 disabled={dayIndex === 0}
-                onClick={() => setValue(dayIndex - 0.5)}
+                onClick={() => selectPosition(dayIndex - 0.5)}
               >
                 <Icon kind="prev" />
               </button>
@@ -1132,7 +1280,7 @@ function App() {
               <button
                 aria-label="Next day"
                 disabled={dayIndex === itinerary.days.length - 1}
-                onClick={() => setValue(dayIndex + 1.5)}
+                onClick={() => selectPosition(dayIndex + 1.5)}
               >
                 <Icon kind="next" />
               </button>
