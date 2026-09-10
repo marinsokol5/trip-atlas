@@ -962,15 +962,6 @@ nav {
 .calendar-day > .night {
   overflow-wrap: anywhere;
 }
-.totals {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding: 10px 24px;
-  font-size: 11px;
-  color: var(--muted);
-  border-top: 1px solid var(--line);
-}
 .range-ticks {
   display: grid;
   grid-auto-flow: column;
@@ -1249,7 +1240,7 @@ nav {
   .app-shell {
     height: 100dvh;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto clamp(170px, 22dvh, 240px);
+    grid-template-rows: auto minmax(0, 1fr) clamp(170px, 22dvh, 240px);
     overflow: hidden;
   }
   .app-shell .top {
@@ -1298,7 +1289,7 @@ nav {
   }
   .app-shell .map-canvas {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     min-height: 0;
     height: 100%;
     aspect-ratio: auto;
@@ -1356,10 +1347,6 @@ nav {
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
-  }
-  .app-shell .totals {
-    padding: 6px 20px;
-    gap: 6px 18px;
   }
   .app-shell .scrubber {
     position: static;
@@ -1562,36 +1549,34 @@ main[data-theme="dark"] {
   gap: 8px;
 }
 .map-playback-cluster {
-  display: grid;
-  gap: 3px;
-  width: 102px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 7px 2px 2px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 3px 7px 5px;
 }
 .map-controls .map-playback-cluster .playback-toggle {
+  min-width: 62px;
   justify-content: center;
-  width: 100%;
   border: 0;
-  padding: 2px 4px;
+  padding: 4px;
 }
 .map-speed-slider {
-  display: grid;
-  gap: 1px;
-  font-size: 9px;
-  color: var(--muted);
-}
-.map-speed-slider > span {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
 }
 .map-speed-slider output {
+  min-width: 25px;
+  text-align: right;
   font-weight: 600;
   color: var(--ink);
 }
 .map-speed-slider input {
-  width: 100%;
+  width: 56px;
   min-width: 0;
   margin: 0;
   height: 14px;
@@ -1665,7 +1650,7 @@ main[data-theme="dark"] {
   outline-offset: 2px;
 }
 .place-hit-target {
-  cursor: help;
+  cursor: inherit;
 }
 .place-hit-target:focus-visible {
   outline: none;
@@ -1700,12 +1685,86 @@ main[data-theme="dark"] {
   .map-secondary-controls {
     gap: 3px;
   }
-  .map-playback-cluster {
-    width: 82px;
-    padding-inline: 4px;
-  }
   .map-label-menu > button {
     font-size: 10px;
     padding-inline: 5px;
+  }
+}
+
+/* Keep the caption and every map control in one compact, wrapping header. */
+.map-canvas,
+.app-shell .map-canvas {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.map-canvas .map-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  min-width: 0;
+}
+.map-header .map-caption {
+  position: static;
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  background: none;
+}
+.map-header .map-caption strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.map-header .map-controls {
+  position: static;
+  margin-left: auto;
+  padding: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 100%;
+}
+.map-header .map-secondary-controls {
+  align-items: center;
+}
+.map-canvas .map-geometry {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  overflow: hidden;
+}
+.map-canvas .map-source {
+  position: static;
+  padding: 4px 16px;
+  text-align: right;
+}
+.map-source a {
+  color: inherit;
+}
+.map-about {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.map-about summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.map-about p {
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+@media (max-width: 899px), (max-height: 639px) {
+  .map-canvas,
+  .app-shell .map-canvas {
+    height: auto;
+    grid-template-rows: auto clamp(280px, 45vh, 450px) auto;
   }
 }

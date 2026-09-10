@@ -34,14 +34,33 @@ export function MapLabelsMenu({
       node.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - bounds.height - 8))}px`;
     };
     position();
+    const observer = new ResizeObserver(position);
+    observer.observe(node);
     node.querySelector<HTMLInputElement>("input")?.focus();
     const outside = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen(false);
     };
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Tab") {
+        // Wait for native Tab navigation. An interior pointer click can blur
+        // to the document, so keyboard dismissal must work there too.
+        requestAnimationFrame(() => {
+          if (!root.current?.contains(document.activeElement)) setOpen(false);
+        });
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", keyboard);
     window.addEventListener("resize", position);
     window.addEventListener("scroll", position, true);
     document.addEventListener("pointerdown", outside);
     return () => {
+      observer.disconnect();
+      document.removeEventListener("keydown", keyboard);
       node.hidePopover();
       window.removeEventListener("resize", position);
       window.removeEventListener("scroll", position, true);
@@ -49,21 +68,7 @@ export function MapLabelsMenu({
     };
   }, [open]);
   return (
-    <div
-      className="map-label-menu"
-      ref={root}
-      onBlur={(event) => {
-        if (!root.current?.contains(event.relatedTarget as Node | null))
-          setOpen(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          setOpen(false);
-          trigger.current?.focus();
-        }
-      }}
-    >
+    <div className="map-label-menu" ref={root}>
       <button
         ref={trigger}
         type="button"
@@ -122,6 +127,14 @@ export function MapLabelsMenu({
             </label>
           ))}
         </fieldset>
+        <details className="map-about">
+          <summary>About this map</summary>
+          <p>
+            Routes connect your stops; they do not trace roads. When times are
+            missing, movement and bar widths illustrate the plan, not an exact
+            schedule. ~ marks estimates from your itinerary.
+          </p>
+        </details>
       </div>
     </div>
   );

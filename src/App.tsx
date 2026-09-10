@@ -44,7 +44,6 @@ import {
   dayLabel,
   dayTitle,
   dayGroups,
-  duration,
   momentAt,
   mapMomentAt,
   mapAreas,
@@ -60,7 +59,6 @@ import {
   groupKey,
   modeKind,
   legDuration,
-  durationTotals,
   dayBands,
   mapRoute,
   mapPointStyle,
@@ -721,106 +719,91 @@ function TripMap({
       <div className="map-canvas" data-testid="map-canvas">
         <div className="map-header">
           <div className="map-caption">
-            <span>
-              {dayLabel(day)} ·{" "}
-              {moment.schematic ? "Illustrative progress" : "Selected position"}
-            </span>
+            <span>{dayLabel(day)}</span>
             <strong>{markerLabel}</strong>
           </div>
-        </div>
-        <div className="map-controls">
-          <div
-            className="map-primary-controls"
-            role="group"
-            aria-label="Map zoom"
-          >
-            <button
-              aria-label="Zoom in"
-              onClick={() => zoom(1.5)}
+          <div className="map-controls">
+            <div
+              className="map-primary-controls"
+              role="group"
+              aria-label="Map zoom"
             >
-              <Icon kind="plus" />
-            </button>
-            <button
-              aria-label="Zoom out"
-              onClick={() => zoom(1 / 1.5)}
-            >
-              <Icon kind="minus" />
-            </button>
-            <button
-              aria-label="Fit selected area"
-              title="Fit selected area"
-              onClick={() => {
-                setTooltipPlace(null);
-                setView({ x: 0, y: 0, k: 1 });
-              }}
-            >
-              <Icon kind="reset" />
-            </button>
-          </div>
-          <div
-            className="map-secondary-controls"
-            role="group"
-            aria-label="Playback and map labels"
-          >
-            <div className="map-playback-cluster">
-              <button
-                onClick={togglePlayback}
-                className="playback-toggle"
-                aria-label={
-                  playing
-                    ? "Pause itinerary"
-                    : atEnd
-                      ? "Replay itinerary"
-                      : "Play itinerary"
-                }
-                aria-pressed={playing}
-              >
-                <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
-                {playing ? "Pause" : atEnd ? "Replay" : "Play"}
+              <button aria-label="Zoom in" onClick={() => zoom(1.5)}>
+                <Icon kind="plus" />
               </button>
-              <label className="map-speed-slider">
-                <span>
-                  Speed <output>{playbackSpeed}×</output>
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max={playbackSpeeds.length - 1}
-                  step="1"
-                  value={playbackSpeeds.indexOf(playbackSpeed)}
-                  aria-label="Playback speed"
-                  aria-valuetext={`${playbackSpeed}×`}
-                  title="1× advances one itinerary day every three seconds"
-                  onChange={(event) =>
-                    changePlaybackSpeed(
-                      playbackSpeeds[Number(event.target.value)],
-                    )
-                  }
-                />
-                <span className="speed-endpoints" aria-hidden="true">
-                  <span>0.5×</span>
-                  <span>8×</span>
-                </span>
-              </label>
+              <button aria-label="Zoom out" onClick={() => zoom(1 / 1.5)}>
+                <Icon kind="minus" />
+              </button>
+              <button
+                aria-label="Fit selected area"
+                title="Fit selected area"
+                onClick={() => {
+                  setTooltipPlace(null);
+                  setView({ x: 0, y: 0, k: 1 });
+                }}
+              >
+                <Icon kind="reset" />
+              </button>
             </div>
-            <MapLabelsMenu
-              showEndpoints={showEndpoints}
-              setShowEndpoints={setShowEndpoints}
-              showGroupNames={showGroupNames}
-              setShowGroupNames={setShowGroupNames}
-              durationFilter={durationFilter}
-              setDurationFilter={(filter) => {
-                setDurationFilter(filter);
-                try {
-                  window.localStorage.setItem(
-                    "trip-atlas-duration-filter",
-                    filter,
-                  );
-                } catch {
-                  // The selection still applies for this session.
-                }
-              }}
-            />
+            <div
+              className="map-secondary-controls"
+              role="group"
+              aria-label="Playback and map labels"
+            >
+              <div className="map-playback-cluster">
+                <button
+                  onClick={togglePlayback}
+                  className="playback-toggle"
+                  aria-label={
+                    playing
+                      ? "Pause itinerary"
+                      : atEnd
+                        ? "Replay itinerary"
+                        : "Play itinerary"
+                  }
+                  aria-pressed={playing}
+                >
+                  <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
+                  {playing ? "Pause" : atEnd ? "Replay" : "Play"}
+                </button>
+                <label className="map-speed-slider">
+                  <output>{playbackSpeed}×</output>
+                  <input
+                    type="range"
+                    min="0"
+                    max={playbackSpeeds.length - 1}
+                    step="1"
+                    value={playbackSpeeds.indexOf(playbackSpeed)}
+                    aria-label="Playback speed"
+                    aria-valuetext={`${playbackSpeed}×`}
+                    title="1× advances one itinerary day every three seconds"
+                    onChange={(event) =>
+                      changePlaybackSpeed(
+                        playbackSpeeds[Number(event.target.value)],
+                      )
+                    }
+                  />
+                </label>
+              </div>
+              <MapLabelsMenu
+                showEndpoints={showEndpoints}
+                setShowEndpoints={setShowEndpoints}
+                showGroupNames={showGroupNames}
+                setShowGroupNames={setShowGroupNames}
+                durationFilter={durationFilter}
+                setDurationFilter={(filter) => {
+                  setDurationFilter(filter);
+                  try {
+                    window.localStorage.setItem(
+                      "trip-atlas-duration-filter",
+                      filter,
+                    );
+                  } catch {
+                    // The selection still applies for this session.
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
         <div className="map-geometry" ref={frame}>
@@ -1163,9 +1146,22 @@ function TripMap({
             </span>
           )}
 
-          {Object.keys(geometry.points).length
-            ? "Drag to pan · scroll down to zoom in · schematic connections · Natural Earth"
-            : `No coordinates for visited places${country ? ` in ${mapAreas(model).find((area) => area.country === country)?.name ?? country}` : ""} · Natural Earth`}
+          {!Object.keys(geometry.points).length && (
+            <span>
+              No coordinates for visited places
+              {country
+                ? ` in ${mapAreas(model).find((area) => area.country === country)?.name ?? country}`
+                : ""}
+              {" · "}
+            </span>
+          )}
+          <a
+            href="https://www.naturalearthdata.com/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Map data: Natural Earth
+          </a>
         </div>
       </div>
       <div className="legend">
@@ -1251,7 +1247,6 @@ function Calendar({
             ? `${slots.find((slot) => slot.inScope)?.date ? dateLabel(slots.find((slot) => slot.inScope)!.date!) : ""} – ${slots.findLast((slot) => slot.inScope)?.date ? dateLabel(slots.findLast((slot) => slot.inScope)!.date!) : ""}`
             : "Days ahead"}
         </h2>
-        <span>~ approximate duration · bands show route sequence</span>
       </div>
       <div className="week">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
@@ -1405,11 +1400,6 @@ function DayDetails({
           : `Night: ${name(model, day.overnight)}`}
       </span>
       <Bands model={model} day={day} />
-      <small className="timing-note">
-        {day.hasUnknownTiming
-          ? "Schematic sequence · widths estimated, not clock times"
-          : "Bands follow entered times"}
-      </small>
       <details key={day.index}>
         <summary>Day details · notes & documents</summary>
         {legs.map((l) => (
@@ -1807,21 +1797,6 @@ function App() {
               folder={selected.slice(0, selected.lastIndexOf("/"))}
             />
           </div>
-          <div className="totals">
-            {durationTotals(itinerary)
-              .filter((t) => t.count)
-              .map((t) => (
-                <span key={t.category}>
-                  {t.category === "mixed" ? "mixed / unallocated" : t.category}:{" "}
-                  {t.knownMs ? `${duration(t.knownMs)} entered` : ""}
-                  {t.knownMs && t.estimatedMs ? " + " : ""}
-                  {t.estimatedMs
-                    ? `~${duration(t.estimatedMs)} estimated`
-                    : ""}{" "}
-                  · {t.covered}/{t.count} sections with duration
-                </span>
-              ))}
-          </div>
           <footer className="scrubber">
             <div className="time-head">
               <label htmlFor="trip-time">
@@ -1886,11 +1861,6 @@ function App() {
               <span>
                 {moment.leg ? "In transit · " : ""}
                 {status}
-              </span>
-              <span>
-                {day.inTransit
-                  ? "Night in transit"
-                  : `Night: ${name(itinerary, day.overnight)}`}
               </span>
             </div>
           </footer>
