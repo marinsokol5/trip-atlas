@@ -762,6 +762,8 @@ nav {
 }
 .map-geometry svg {
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   cursor: grab;
 }
 .map-geometry svg:active {
@@ -798,6 +800,59 @@ nav {
 .route-label .icon {
   width: 13px;
   height: 13px;
+}
+.connection-duration {
+  display: inline-block;
+  box-sizing: border-box;
+  white-space: nowrap;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 14px;
+}
+.transfer-point {
+  opacity: 0.65;
+}
+.transfer-label {
+  fill: var(--muted);
+}
+.transfer-legend {
+  opacity: 0.7;
+}
+.transfer-legend i {
+  width: 5px;
+  height: 5px;
+}
+.day-title {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.map-duration-filter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0 6px;
+}
+.map-duration-filter select {
+  width: auto;
+  padding: 4px 3px;
+  font-size: 11px;
+  border: 0;
+  background: var(--paper);
+}
+.map-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .day-chips,
 .cell-chips {

@@ -32,6 +32,161 @@ export function activeLegs(model: Itinerary, day: NormalizedDay) {
     (leg) => leg.day <= day.index + 1 && leg.endDay >= day.index + 1,
   );
 }
+export function dayTitle(model: Itinerary, day: NormalizedDay) {
+  const name = (id?: string) =>
+    id ? (model.trip.places[id].name ?? id) : "Location open";
+  const legs = activeLegs(model, day);
+  return (
+    day.source.title ??
+    (legs.length
+      ? `${name(legs[0].from)} → ${name(legs.at(-1)!.to)}`
+      : name(day.overnight))
+  );
+}
+
+/** Overnight bases and the journey endpoints remain major stops, even in a group. */
+export function majorStops(model: Itinerary) {
+  return new Set(
+    [
+      model.legs[0]?.from ?? model.days[0].startPlace,
+      ...model.days.map((day) => day.overnight),
+      model.days.at(-1)?.overnight ?? model.legs.at(-1)?.to,
+    ].filter((id): id is string => !!id),
+  );
+}
+export function transferPlaces(model: Itinerary) {
+  const stops = majorStops(model);
+  return new Set(
+    model.legs
+      .flatMap((leg) => [leg.from, leg.to])
+      .filter((id): id is string => !!id && !stops.has(id)),
+  );
+}
+
+export interface MapConnection {
+  id: string;
+  from?: string;
+  to: string;
+  legs: Leg[];
+  minutes?: number;
+  approximate: boolean;
+}
+function vehicleDuration(leg: Leg): { minutes?: number; approximate: boolean } {
+  const kinds = modeCategories(leg);
+  const vehicle = kinds.length > 0 && !kinds.includes("walk");
+  const parts = leg.block.components;
+  if (parts) {
+    const components = componentLegs(leg);
+    const allVehicle = components.every((part) => {
+      const kinds = modeCategories(part);
+      return kinds.length > 0 && !kinds.includes("walk");
+    });
+    // A whole-leg duration is usable only when all components are vehicles.
+    if (
+      allVehicle &&
+      (leg.durationMs !== undefined ||
+        leg.block.estimatedDurationMinutes !== undefined)
+    )
+      return {
+        minutes:
+          leg.durationMs !== undefined
+            ? leg.durationMs / 60000
+            : leg.block.estimatedDurationMinutes,
+        approximate: leg.durationMs === undefined,
+      };
+    const durations = components.map(vehicleDuration);
+    return {
+      minutes: durations.every((part) => part.minutes !== undefined)
+        ? durations.reduce((sum, part) => sum + part.minutes!, 0)
+        : undefined,
+      approximate: durations.some((part) => part.approximate),
+    };
+  }
+  if (kinds.length === 1 && kinds[0] === "walk")
+    return { minutes: 0, approximate: false };
+  // Unknown modes and unsplit walk+vehicle durations cannot be allocated to vehicles.
+  if (!vehicle) return { approximate: false };
+  return {
+    minutes:
+      leg.durationMs !== undefined
+        ? leg.durationMs / 60000
+        : leg.block.estimatedDurationMinutes,
+    approximate: leg.durationMs === undefined,
+  };
+}
+export function mapConnections(model: Itinerary): MapConnection[] {
+  const stops = majorStops(model),
+    result: MapConnection[] = [];
+  let pending: Leg[] = [];
+  const flush = () => {
+    if (!pending.length) return;
+    const durations = pending.map(vehicleDuration);
+    result.push({
+      id: pending[0].id,
+      from: pending[0].from,
+      to: pending.at(-1)!.to,
+      legs: pending,
+      minutes: durations.every((part) => part.minutes !== undefined)
+        ? durations.reduce((sum, part) => sum + part.minutes!, 0)
+        : undefined,
+      approximate: durations.some((part) => part.approximate),
+    });
+    pending = [];
+  };
+  for (const leg of model.legs) {
+    const previous = pending.at(-1);
+    // Never absorb another day's excursion or bridge an explicit location reset.
+    if (previous && (previous.day !== leg.day || previous.to !== leg.from))
+      flush();
+    pending.push(leg);
+    if (stops.has(leg.to)) flush();
+  }
+  flush();
+  return result;
+}
+export type MapDurationFilter = "all" | "60" | "120" | "none";
+export function mapConnectionVisible(
+  model: Itinerary,
+  connection: MapConnection,
+  filter: MapDurationFilter,
+) {
+  return (
+    filter !== "none" &&
+    groupKey(model, connection.from) !== groupKey(model, connection.to) &&
+    connection.minutes !== undefined &&
+    connection.minutes > (filter === "all" ? 0 : Number(filter))
+  );
+}
+export function mapConnectionDuration(connection: MapConnection) {
+  if (connection.minutes === undefined) return "";
+  const minutes = Math.round(connection.minutes);
+  return `${connection.approximate ? "~" : ""}${minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h${minutes % 60 || ""}`}`;
+}
+export const mapZoomMin = 0.35;
+export const mapZoomMax = 12;
+export function zoomMap(
+  view: { x: number; y: number; k: number },
+  factor: number,
+) {
+  const k = Math.max(mapZoomMin, Math.min(mapZoomMax, view.k * factor));
+  return {
+    k,
+    x: 450 - ((450 - view.x) * k) / view.k,
+    y: 240 - ((240 - view.y) * k) / view.k,
+  };
+}
+export function mapPointStyle(
+  transfer: boolean,
+  active: boolean,
+  traveler = false,
+) {
+  // The stationary traveler's solid core is larger than a transfer dot; its translucent halo is not an obstacle.
+  if (transfer && traveler) return { radius: 6, stroke: 2 };
+  return {
+    radius: transfer ? (active ? 3 : 2.5) : active ? 7 : 5,
+    stroke: transfer ? 1 : 2,
+  };
+}
 export interface Moment {
   place?: string;
   leg?: Leg;
@@ -295,7 +450,15 @@ export function calendarSlots(model: Itinerary): (NormalizedDay | undefined)[] {
   );
 }
 
-export function mapRoute(curve: Curve, internal: boolean, pixelScale: number) {
-  const trimmed = internal ? undefined : trimCurve(curve, 16 / pixelScale);
+export function mapRoute(
+  curve: Curve,
+  internal: boolean,
+  pixelScale: number,
+  point = mapPointStyle(false, false),
+) {
+  // refX=10 pins the marker tip to this endpoint: 2.5 physical pixels beyond the dot's painted edge.
+  const trimmed = internal
+    ? undefined
+    : trimCurve(curve, (point.radius + point.stroke / 2 + 2.5) / pixelScale);
   return { curve: trimmed ?? curve, arrow: !!trimmed };
 }

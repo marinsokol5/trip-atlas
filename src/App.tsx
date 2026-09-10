@@ -30,6 +30,7 @@ import {
   curvePoint,
   dateLabel,
   dayLabel,
+  dayTitle,
   duration,
   momentAt,
   componentLegs,
@@ -41,10 +42,18 @@ import {
   durationTotals,
   dayBands,
   mapRoute,
+  mapPointStyle,
+  transferPlaces,
+  mapConnections,
+  mapConnectionVisible,
+  mapConnectionDuration,
+  zoomMap,
+  mapZoomMin,
+  mapZoomMax,
   calendarSlots,
   routeCurve,
 } from "./view-model";
-import type { Moment, Point } from "./view-model";
+import type { Moment, Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
 
@@ -152,6 +161,7 @@ function TripMap({
   day: NormalizedDay;
 }) {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
   const frame = useRef<HTMLDivElement>(null);
   const [frameScale, setFrameScale] = useState(1);
   const compact = useCompactScreen();
@@ -171,6 +181,8 @@ function TripMap({
     { x: number; y: number; vx: number; vy: number } | undefined
   >(undefined);
   const groups = useMemo(() => visualGroups(model), [model]);
+  const transfers = useMemo(() => transferPlaces(model), [model]);
+  const connections = useMemo(() => mapConnections(model), [model]);
   const geometry = useMemo(() => {
     const locations = Object.entries(model.trip.places)
       .filter(([, p]) => p.coordinates)
@@ -234,114 +246,135 @@ function TripMap({
       path: path(feature as unknown as GeoPermissibleObjects),
       name: feature.properties.name,
     }));
-    // Labels use screen-space offsets and collision avoidance, independent of the selected day.
-    const placed: { x: number; y: number; width: number }[] = [];
-    const labels = groups.map((group) => {
-      const id = group.members.find((id) => points[id]);
-      if (!id) return undefined;
-      const [x, y] = points[id],
-        width = (numbered ? 30 : group.name.length * 7 + 12) / frameScale;
-      const offsets = [
-        [12, -20],
-        [12, 25],
-        [-width - 12, -20],
-        [-width - 12, 25],
-        [12, -45],
-        [12, 50],
-        [-width - 12, -45],
-      ];
-      const position = offsets
-        .map(([dx, dy]) => ({
-          x: Math.max(10, Math.min(870 - width, x + dx)),
-          y: Math.max(80, Math.min(440, y + dy)),
-          width,
-        }))
-        .find((p) =>
-          placed.every(
-            (q) =>
-              Math.abs(p.y - q.y) > 23 / frameScale ||
-              p.x + p.width < q.x ||
-              q.x + q.width < p.x,
-          ),
-        ) ?? { x: x + 12, y: y - 20, width };
-      placed.push(position);
-      return { id, name: group.name, ...position };
+    // Prefer an overnight base over an area's transfer waypoint for its numbered label.
+    const labels = groups.flatMap((group) => {
+      const id =
+        group.members.find((id) => points[id] && !transfers.has(id)) ??
+        group.members.find((id) => points[id]);
+      return id
+        ? [
+            {
+              id,
+              name: group.name,
+              transfer: group.members.every((id) => transfers.has(id)),
+            },
+          ]
+        : [];
     });
-    const routeLabels = new Map<string, Point>();
-    for (const { leg, curve } of routes) {
-      if (
-        groupKey(model, leg.from) === groupKey(model, leg.to) ||
-        !legDuration(leg)
-      )
-        continue;
-      const p = curvePoint(curve, 0.5),
-        width = 90 / frameScale;
-      const choices = [
-        [0, -8],
-        [0, 20],
-        [-90, -8],
-        [-90, 20],
-        [5, -35],
-        [-90, 45],
-        ...[-65, 65, -95, 95].flatMap((dy) =>
-          [-100, 0, 100].map((dx) => [dx / frameScale, dy / frameScale]),
-        ),
-      ];
-      const candidate = choices
-        .map(([dx, dy]) => ({
-          x: Math.max(8, Math.min(805, p[0] + dx)),
-          y: Math.max(70, Math.min(438, p[1] + dy)),
-          width,
-        }))
-        .find((p) =>
-          placed.every(
-            (q) =>
-              Math.abs(p.y - q.y) > 26 / frameScale ||
-              p.x + p.width < q.x ||
-              q.x + q.width < p.x,
-          ),
-        );
-      if (candidate) {
-        placed.push(candidate);
-        routeLabels.set(leg.id, [candidate.x, candidate.y]);
-      }
+    return { points, routes, shapes, labels };
+  }, [model, groups, transfers]);
+  // Lay out text in physical pixels again after zooming, so labels never scale or collide.
+  const screen = (point: Point): Point => [
+    (view.x + point[0] * view.k) * frameScale,
+    (view.y + point[1] * view.k) * frameScale,
+  ];
+  const unproject = (point: Point): Point => [
+    (point[0] / frameScale - view.x) / view.k,
+    (point[1] / frameScale - view.y) / view.k,
+  ];
+  const occupied: { x: number; y: number; width: number; height: number }[] =
+    [];
+  const visible = ([x, y]: Point) =>
+    x >= 4 && x <= 900 * frameScale - 4 && y >= 4 && y <= 480 * frameScale - 4;
+  const first = model.legs[0]?.from ?? model.days[0].startPlace;
+  const last = model.days.at(-1)?.overnight ?? model.legs.at(-1)?.to;
+  for (const [id, point] of Object.entries(geometry.points)) {
+    const [x, y] = screen(point),
+      radius = transfers.has(id) ? 4 : 8;
+    occupied.push({
+      x: x - radius,
+      y: y - radius,
+      width: radius * 2,
+      height: radius * 2,
+    });
+    if (id === first || id === last) {
+      const width = first === last ? 72 : 38;
+      occupied.push({ x: x - width / 2, y: y + 9, width, height: 14 });
     }
-    return {
-      points,
-      routes,
-      shapes,
-      labels: labels.filter((l) => l !== undefined),
-      routeLabels,
-    };
-  }, [model, groups, frameScale, numbered]);
-  const numberedPositions = new Map<string, Point>();
-  const occupied: Point[] = [];
-  for (const label of geometry.labels) {
-    const point = geometry.points[label.id];
-    const options = [
-      [10, -12],
-      [10, 18],
-      [-22, -12],
-      [-22, 18],
-      [12, -32],
-      [12, 38],
-      [-22, -32],
-      [-22, 38],
-    ];
-    const chosen =
-      options
-        .map(
-          ([x, y]) =>
-            [point[0] + x / pixelScale, point[1] + y / pixelScale] as Point,
-        )
-        .find((p) =>
-          occupied.every(
-            (q) => Math.hypot(p[0] - q[0], p[1] - q[1]) * pixelScale > 21,
-          ),
-        ) ?? point;
-    occupied.push(chosen);
-    numberedPositions.set(label.id, chosen);
   }
+  const placeLabel = (
+    anchor: Point,
+    width: number,
+    height: number,
+    offsets: Point[],
+  ) => {
+    const [x, y] = screen(anchor);
+    if (!visible([x, y])) return undefined;
+    const candidate = offsets
+      .map(([dx, dy]) => ({ x: x + dx, y: y + dy, width, height }))
+      .find(
+        (p) =>
+          p.x >= 5 &&
+          p.y >= 5 &&
+          p.x + width <= 900 * frameScale - 5 &&
+          p.y + height <= 480 * frameScale - 5 &&
+          occupied.every(
+            (q) =>
+              p.x + width + 4 < q.x ||
+              q.x + q.width + 4 < p.x ||
+              p.y + height + 4 < q.y ||
+              q.y + q.height + 4 < p.y,
+          ),
+      );
+    if (!candidate) return undefined;
+    occupied.push(candidate);
+    return unproject([candidate.x, candidate.y]);
+  };
+  const pointLabels = geometry.labels.flatMap((label) => {
+    const width = numbered ? 18 : label.name.length * 7;
+    const position = placeLabel(geometry.points[label.id], width, 15, [
+      [13, -25],
+      [13, 10],
+      [-width - 13, -25],
+      [-width - 13, 10],
+      [10, -40],
+      [10, 26],
+      [-width - 10, -40],
+      [-width - 10, 26],
+      [10, -60],
+      [10, 46],
+      [-width - 10, -60],
+      [-width - 10, 46],
+    ]);
+    return position ? [{ ...label, position }] : [];
+  });
+  const connectionLabels = connections
+    .filter((connection) =>
+      mapConnectionVisible(model, connection, durationFilter),
+    )
+    .flatMap((connection) => {
+      const routes = geometry.routes.filter((route) =>
+        connection.legs.some((leg) => leg.id === route.leg.id),
+      );
+      const route = routes.sort(
+        (a, b) =>
+          Math.hypot(b.curve.b[0] - b.curve.a[0], b.curve.b[1] - b.curve.a[1]) -
+          Math.hypot(a.curve.b[0] - a.curve.a[0], a.curve.b[1] - a.curve.a[1]),
+      )[0];
+      const selected = connection.legs.some(
+        (leg) => leg.day <= day.index + 1 && leg.endDay >= day.index + 1,
+      );
+      if (!route || (compact && !selected)) return [];
+      const anchor = curvePoint(route.curve, 0.5);
+      const text = mapConnectionDuration(connection),
+        width = text.length * 7 + 12;
+      const position = placeLabel(anchor, width, 22, [
+        [8, -26],
+        [8, 8],
+        [-width - 8, -26],
+        [-width - 8, 8],
+        [8, -54],
+        [8, 36],
+        [-width - 8, -54],
+        [-width - 8, 36],
+        [35, -26],
+        [-width - 35, 8],
+        ...[-80, 64, -108, 92].flatMap((dy) =>
+          [-width - 60, -width / 2, 60].map((dx) => [dx, dy] as Point),
+        ),
+      ]);
+      return position ? [{ connection, anchor, position, width, text }] : [];
+    });
   const active = geometry.routes.find((r) => r.leg.id === moment.leg?.id);
   const marker =
     moment.leg && active && moment.progress !== undefined
@@ -350,17 +383,7 @@ function TripMap({
         ? geometry.points[moment.place]
         : undefined;
   const selected = new Set(activeLegs(model, day).map((l) => l.id));
-  const first = model.legs[0]?.from ?? model.days[0].startPlace;
-  const last = model.days.at(-1)?.overnight ?? model.legs.at(-1)?.to;
-  const zoom = (factor: number) =>
-    setView((v) => {
-      const k = Math.max(1, Math.min(12, v.k * factor));
-      return {
-        k,
-        x: 450 - ((450 - v.x) * k) / v.k,
-        y: 240 - ((240 - v.y) * k) / v.k,
-      };
-    });
+  const zoom = (factor: number) => setView((view) => zoomMap(view, factor));
   return (
     <>
       <div className="map-canvas" data-testid="map-canvas">
@@ -369,34 +392,35 @@ function TripMap({
             <span>Along your route</span>
             <strong>{status}</strong>
           </div>
-          {compact && (
-            <div className="map-mobile-connections">
-              {activeLegs(model, day)
-                .filter(
-                  (l) => groupKey(model, l.from) !== groupKey(model, l.to),
-                )
-                .map((l) => (
-                  <span
-                    key={l.id}
-                    title={`${name(model, l.from)} → ${name(model, l.to)}`}
-                  >
-                    <span>
-                      {groups.findIndex((g) =>
-                        g.members.includes(l.from ?? ""),
-                      ) + 1}{" "}
-                      → {groups.findIndex((g) => g.members.includes(l.to)) + 1}
-                    </span>
-                    <LegChip leg={l} />
-                  </span>
-                ))}
-            </div>
-          )}
         </div>
         <div className="map-controls">
-          <button aria-label="Zoom in" onClick={() => zoom(1.5)}>
+          <label className="map-duration-filter">
+            Durations
+            <select
+              aria-label="Map duration labels"
+              value={durationFilter}
+              onChange={(e) =>
+                setDurationFilter(e.target.value as MapDurationFilter)
+              }
+            >
+              <option value="all">All</option>
+              <option value="60">&gt;1h</option>
+              <option value="120">&gt;2h</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+          <button
+            aria-label="Zoom in"
+            disabled={view.k >= mapZoomMax}
+            onClick={() => zoom(1.5)}
+          >
             <Icon kind="plus" />
           </button>
-          <button aria-label="Zoom out" onClick={() => zoom(1 / 1.5)}>
+          <button
+            aria-label="Zoom out"
+            disabled={view.k <= mapZoomMin}
+            onClick={() => zoom(1 / 1.5)}
+          >
             <Icon kind="minus" />
           </button>
           <button onClick={() => setView({ x: 0, y: 0, k: 1 })}>
@@ -444,8 +468,8 @@ function TripMap({
                   viewBox="0 0 10 10"
                   refX="10"
                   refY="5"
-                  markerWidth={7 / pixelScale}
-                  markerHeight={7 / pixelScale}
+                  markerWidth={5 / pixelScale}
+                  markerHeight={5 / pixelScale}
                   markerUnits="userSpaceOnUse"
                   orient="auto"
                 >
@@ -475,8 +499,14 @@ function TripMap({
                   curve,
                   internal,
                   pixelScale,
+                  mapPointStyle(
+                    transfers.has(leg.to),
+                    activeLegs(model, day).some(
+                      (l) => l.from === leg.to || l.to === leg.to,
+                    ),
+                    moment.place === leg.to,
+                  ),
                 );
-                const midpoint = geometry.routeLabels.get(leg.id);
                 return (
                   <g key={leg.id}>
                     <path
@@ -484,7 +514,7 @@ function TripMap({
                       className={`route${isActive ? " active" : ""}`}
                       style={{
                         stroke: internal ? color(model, leg.to) : undefined,
-                        strokeWidth: (isActive ? 3 : 1.6) / pixelScale,
+                        strokeWidth: (isActive ? 1.9 : 1.15) / pixelScale,
                       }}
                       d={`M${c.a}Q${c.c} ${c.b}`}
                       markerEnd={
@@ -497,114 +527,120 @@ function TripMap({
                         {name(model, leg.from)} → {name(model, leg.to)}
                       </title>
                     </path>
-                    {!internal && midpoint && (!compact || isActive) && (
-                      <>
-                        <line
-                          x1={curvePoint(curve, 0.5)[0]}
-                          y1={curvePoint(curve, 0.5)[1]}
-                          x2={
-                            curvePoint(curve, 0.5)[0] +
-                            (midpoint[0] -
-                              curvePoint(curve, 0.5)[0] +
-                              25 / frameScale) /
-                              view.k
-                          }
-                          y2={
-                            curvePoint(curve, 0.5)[1] +
-                            (midpoint[1] -
-                              curvePoint(curve, 0.5)[1] +
-                              8 / frameScale) /
-                              view.k
-                          }
-                          stroke="var(--transit)"
-                          strokeWidth={0.6 / pixelScale}
-                          opacity={0.5}
-                        />
-                        <foreignObject
-                          className="route-label"
-                          x={
-                            curvePoint(curve, 0.5)[0] +
-                            (midpoint[0] - curvePoint(curve, 0.5)[0]) / view.k
-                          }
-                          y={
-                            curvePoint(curve, 0.5)[1] +
-                            (midpoint[1] - curvePoint(curve, 0.5)[1]) / view.k
-                          }
-                          width={100 / pixelScale}
-                          height={26 / pixelScale}
-                          overflow="visible"
+                  </g>
+                );
+              })}
+              {connectionLabels.map(
+                ({ connection, anchor, position, width, text }) => (
+                  <g key={connection.id} data-connection={connection.id}>
+                    <line
+                      x1={anchor[0]}
+                      y1={anchor[1]}
+                      x2={position[0] + width / 2 / pixelScale}
+                      y2={position[1] + 11 / pixelScale}
+                      stroke="var(--transit)"
+                      strokeWidth={0.5 / pixelScale}
+                      opacity={0.5}
+                    />
+                    <foreignObject
+                      className="route-label"
+                      x={position[0]}
+                      y={position[1]}
+                      width={width / pixelScale}
+                      height={22 / pixelScale}
+                      overflow="visible"
+                    >
+                      <div
+                        style={{
+                          transform: `scale(${1 / pixelScale})`,
+                          transformOrigin: "top left",
+                          width,
+                        }}
+                      >
+                        <span
+                          className="connection-duration"
+                          title={`${name(model, connection.from)} → ${name(model, connection.to)} · vehicle time`}
                         >
-                          <div
-                            style={{
-                              transform: `scale(${1 / pixelScale})`,
-                              transformOrigin: "top left",
-                            }}
-                          >
-                            <LegChip leg={leg} />
-                          </div>
-                        </foreignObject>
-                      </>
+                          {text}
+                        </span>
+                      </div>
+                    </foreignObject>
+                  </g>
+                ),
+              )}
+              {Object.entries(geometry.points).map(([id, p]) => {
+                const point = mapPointStyle(
+                  transfers.has(id),
+                  activeLegs(model, day).some(
+                    (l) => l.from === id || l.to === id,
+                  ),
+                );
+                return (
+                  <g
+                    key={id}
+                    data-place-point={id}
+                    className={
+                      transfers.has(id) ? "transfer-point" : "overnight-point"
+                    }
+                  >
+                    <circle
+                      cx={p[0]}
+                      cy={p[1]}
+                      r={point.radius / pixelScale}
+                      fill={color(model, id)}
+                      stroke="var(--paper)"
+                      strokeWidth={point.stroke / pixelScale}
+                    />
+                    {(id === first || id === last) && (
+                      <text
+                        className="endpoint-label"
+                        style={{ strokeWidth: 3 / pixelScale }}
+                        x={p[0]}
+                        y={p[1] + 20 / pixelScale}
+                        fontSize={11 / pixelScale}
+                        textAnchor="middle"
+                      >
+                        {id === first && id === last
+                          ? "Start / Finish"
+                          : id === first
+                            ? "Start"
+                            : "Finish"}
+                      </text>
                     )}
                   </g>
                 );
               })}
-              {Object.entries(geometry.points).map(([id, p]) => (
-                <g key={id}>
-                  <circle
-                    cx={p[0]}
-                    cy={p[1]}
-                    r={
-                      (activeLegs(model, day).some(
-                        (l) => l.from === id || l.to === id,
-                      )
-                        ? 7
-                        : 5) / pixelScale
-                    }
-                    fill={color(model, id)}
-                    stroke="var(--paper)"
-                    strokeWidth={2 / pixelScale}
-                  />
-                  {(id === first || id === last) && (
-                    <text
-                      className="endpoint-label"
-                      style={{ strokeWidth: 3 / pixelScale }}
-                      x={p[0]}
-                      y={p[1] + 20 / pixelScale}
-                      fontSize={11 / pixelScale}
-                      textAnchor="middle"
-                    >
-                      {id === first && id === last
-                        ? "Start / Finish"
-                        : id === first
-                          ? "Start"
-                          : "Finish"}
-                    </text>
+              {pointLabels.map((l) => (
+                <g key={l.id}>
+                  {Math.hypot(
+                    l.position[0] - geometry.points[l.id][0],
+                    l.position[1] - geometry.points[l.id][1],
+                  ) *
+                    pixelScale >
+                    32 && (
+                    <line
+                      x1={geometry.points[l.id][0]}
+                      y1={geometry.points[l.id][1]}
+                      x2={l.position[0] + 5 / pixelScale}
+                      y2={l.position[1] + 7 / pixelScale}
+                      stroke="var(--transit)"
+                      strokeWidth={0.5 / pixelScale}
+                      opacity={0.4}
+                    />
                   )}
+                  <text
+                    className={`place-label${l.transfer ? " transfer-label" : ""}`}
+                    style={{ strokeWidth: 3 / pixelScale }}
+                    key={l.id}
+                    x={l.position[0]}
+                    y={l.position[1] + 12 / pixelScale}
+                    fontSize={12 / pixelScale}
+                  >
+                    {numbered
+                      ? groups.findIndex((g) => g.members.includes(l.id)) + 1
+                      : l.name}
+                  </text>
                 </g>
-              ))}
-              {geometry.labels.map((l) => (
-                <text
-                  className="place-label"
-                  style={{ strokeWidth: 3 / pixelScale }}
-                  key={l.id}
-                  x={
-                    numbered
-                      ? numberedPositions.get(l.id)![0]
-                      : geometry.points[l.id][0] +
-                        (l.x - geometry.points[l.id][0]) / view.k
-                  }
-                  y={
-                    numbered
-                      ? numberedPositions.get(l.id)![1]
-                      : geometry.points[l.id][1] +
-                        (l.y - geometry.points[l.id][1]) / view.k
-                  }
-                  fontSize={12 / pixelScale}
-                >
-                  {numbered
-                    ? groups.findIndex((g) => g.members.includes(l.id)) + 1
-                    : l.name}
-                </text>
               ))}
               {marker && (
                 <g
@@ -631,7 +667,14 @@ function TripMap({
       </div>
       <div className="legend">
         {groups.map((g, i) => (
-          <span key={g.key}>
+          <span
+            key={g.key}
+            className={
+              g.members.every((id) => transfers.has(id))
+                ? "transfer-legend"
+                : undefined
+            }
+          >
             <i style={{ background: g.color }} />
             {numbered && <b>{i + 1}.</b>}
             {g.name}
@@ -678,13 +721,16 @@ function Calendar({
                 data-day={day.index + 1}
                 aria-pressed={day.index === selectedDay}
                 onClick={() => selectDay(day.index)}
-                aria-label={`${dayLabel(day)}. Night: ${name(model, day.overnight)}`}
+                aria-label={`${dayLabel(day)}. ${dayTitle(model, day)}. Night: ${name(model, day.overnight)}`}
               >
                 <span className="day-date">
                   {day.date
                     ? dateLabel(day.date, { day: "numeric", month: "short" })
                     : `Day ${day.index + 1}`}
                 </span>
+                {day.source.title && (
+                  <span className="day-title">{day.source.title}</span>
+                )}
                 <span className="cell-chips">
                   {activeLegs(model, day).map((l) => (
                     <LegChip key={l.id} leg={l} />
@@ -753,11 +799,7 @@ function DayDetails({
       <p className="selected-date">
         {dayLabel(day)} · Day {day.index + 1} of {model.days.length}
       </p>
-      <h2>
-        {legs.length
-          ? `${name(model, legs[0].from)} → ${name(model, legs.at(-1)!.to)}`
-          : name(model, day.overnight)}
-      </h2>
+      <h2>{dayTitle(model, day)}</h2>
       <div className="day-chips">
         {legs.map((l) => (
           <LegChip key={l.id} leg={l} />

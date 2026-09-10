@@ -38,6 +38,7 @@ export interface PlaceBlock {
   place: string;
 }
 export interface TripDay {
+  title?: string;
   notes?: string;
   documents?: DocumentLink[];
   blocks?: (TravelBlock | PlaceBlock)[];
@@ -218,6 +219,7 @@ export function parseTrip(input: unknown): Trip {
   t.days.forEach((v, i) => {
     const path = `days[${i}]`,
       d = object(v, path);
+    if (d.title !== undefined) string(d.title, path + ".title");
     if (d.notes !== undefined) string(d.notes, path + ".notes");
     documents(d.documents, path + ".documents");
     if (d.blocks !== undefined) {

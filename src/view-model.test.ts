@@ -210,7 +210,7 @@ test("map arrows keep screen-pixel clearance while internal trails reach exact G
   const { mapRoute } = await import("./view-model.ts");
   const curve = routeCurve([0, 0], [150, 100]);
   for (const frameScale of [0.4, 0.79, 1])
-    for (const zoom of [1, 7.59375, 12]) {
+    for (const zoom of [0.35, 1, 7.59375, 12]) {
       const pixelScale = frameScale * zoom,
         major = mapRoute(curve, false, pixelScale),
         trail = mapRoute(curve, true, pixelScale);
@@ -219,7 +219,7 @@ test("map arrows keep screen-pixel clearance while internal trails reach exact G
         Math.abs(
           Math.hypot(major.curve.b[0] - 150, major.curve.b[1] - 100) *
             pixelScale -
-            16,
+            8.5,
         ) < 0.001,
       );
       assert.equal(trail.arrow, false);
