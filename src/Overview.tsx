@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Itinerary } from "./itinerary";
+import { mapAreas } from "./view-model";
 import {
   averageLabel,
   headlineTimeLabel,
@@ -16,9 +17,11 @@ export function Overview({
   model: Itinerary;
   country: string;
 }) {
-  const [breakdown, setBreakdown] = useState<"countries" | "places">(
-    country ? "places" : "countries",
+  const canCompareCountries = !country && mapAreas(model).length > 1;
+  const [preferredBreakdown, setBreakdown] = useState<"countries" | "places">(
+    "countries",
   );
+  const breakdown = canCompareCountries ? preferredBreakdown : "places";
   const data = overview(model, country, breakdown);
   const currency = model.trip.currency;
   const showCosts = data.hasBudget;
@@ -118,21 +121,23 @@ export function Overview({
           ))}
         </div>
       )}
-      {showSeparateCosts && (country || !countryCosts) && (
-        <div
-          className="overview-costs overview-cost-buckets"
-          aria-label="Separate travel costs"
-        >
-          {extraBuckets
-            .filter(([, cost]) => cost.known || cost.missing)
-            .map(([label, cost]) => (
-              <div key={label}>
-                <span>{label} · per person</span>
-                <strong>{moneyLabel(cost, currency)}</strong>
-              </div>
-            ))}
-        </div>
-      )}
+      {showSeparateCosts &&
+        (country || !countryCosts) &&
+        extraBuckets.some(([, cost]) => cost.known || cost.missing) && (
+          <div
+            className="overview-costs overview-cost-buckets"
+            aria-label="Separate travel costs"
+          >
+            {extraBuckets
+              .filter(([, cost]) => cost.known || cost.missing)
+              .map(([label, cost]) => (
+                <div key={label}>
+                  <span>{label} · per person</span>
+                  <strong>{moneyLabel(cost, currency)}</strong>
+                </div>
+              ))}
+          </div>
+        )}
       <section className="overview-stays" aria-labelledby="stays-heading">
         <div className="overview-stay-heading">
           <div>
@@ -151,17 +156,19 @@ export function Overview({
               </p>
             )}
           </div>
-          <div className="overview-toggle" aria-label="Stay breakdown">
-            {(["countries", "places"] as const).map((option) => (
-              <button
-                key={option}
-                aria-pressed={breakdown === option}
-                onClick={() => setBreakdown(option)}
-              >
-                {option === "countries" ? "Countries" : "Places"}
-              </button>
-            ))}
-          </div>
+          {canCompareCountries && (
+            <div className="overview-toggle" aria-label="Stay breakdown">
+              {(["countries", "places"] as const).map((option) => (
+                <button
+                  key={option}
+                  aria-pressed={breakdown === option}
+                  onClick={() => setBreakdown(option)}
+                >
+                  {option === "countries" ? "Countries" : "Places"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="overview-table-scroll">
           <table
