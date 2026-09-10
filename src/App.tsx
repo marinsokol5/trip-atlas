@@ -67,6 +67,7 @@ import world from "./assets/world.json";
 import "./App.css";
 
 type Entry = { path: string; label: string };
+const playbackSpeeds = [0.5, 1, 2, 4];
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
 const color = placeColor;
@@ -169,6 +170,8 @@ function TripMap({
   playing,
   atEnd,
   togglePlayback,
+  playbackSpeed,
+  changePlaybackSpeed,
 }: {
   model: Itinerary;
   moment: Moment;
@@ -177,6 +180,8 @@ function TripMap({
   playing: boolean;
   atEnd: boolean;
   togglePlayback: () => void;
+  playbackSpeed: number;
+  changePlaybackSpeed: (speed: number) => void;
 }) {
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [durationFilter, setDurationFilter] = useState<MapDurationFilter>("60");
@@ -437,6 +442,21 @@ function TripMap({
             <Icon kind={playing ? "pause" : atEnd ? "replay" : "play"} />
             {playing ? "Pause" : atEnd ? "Replay" : "Play"}
           </button>
+          <label className="map-duration-filter">
+            Speed
+            <select
+              aria-label="Playback speed"
+              title="1× advances one itinerary day every three seconds"
+              value={playbackSpeed}
+              onChange={(e) => changePlaybackSpeed(Number(e.target.value))}
+            >
+              {playbackSpeeds.map((speed) => (
+                <option key={speed} value={speed}>
+                  {speed}×
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="map-duration-filter">
             Durations
             <select
@@ -957,6 +977,26 @@ function App() {
     [value, setValue] = useState(0),
     [tab, setTab] = useState<"map" | "calendar">("map");
   const [playing, setPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(() => {
+    try {
+      const saved = Number(
+        window.localStorage.getItem("trip-atlas-playback-speed"),
+      );
+      if (playbackSpeeds.includes(saved)) return saved;
+    } catch {
+      // Playback still works when browser storage is unavailable.
+    }
+    return 1;
+  });
+  function changePlaybackSpeed(speed: number) {
+    if (!playbackSpeeds.includes(speed)) return;
+    setPlaybackSpeed(speed);
+    try {
+      window.localStorage.setItem("trip-atlas-playback-speed", String(speed));
+    } catch {
+      // The speed change applies to this session even without storage.
+    }
+  }
   const playhead = useRef(value);
   useEffect(() => {
     playhead.current = value;
@@ -969,7 +1009,8 @@ function App() {
     const tick = (now: number) => {
       const next = Math.min(
         end,
-        playhead.current + Math.min(now - previous, 250) / 3000,
+        playhead.current +
+          (Math.min(now - previous, 250) * playbackSpeed) / 3000,
       );
       previous = now;
       playhead.current = next;
@@ -986,7 +1027,7 @@ function App() {
       cancelAnimationFrame(frame);
       document.removeEventListener("visibilitychange", pauseWhenHidden);
     };
-  }, [playing, itinerary]);
+  }, [playing, itinerary, playbackSpeed]);
   function selectPosition(next: number) {
     setPlaying(false);
     playhead.current = next;
@@ -1194,6 +1235,8 @@ function App() {
                   playing={playing}
                   atEnd={value >= itinerary.days.length - 0.01}
                   togglePlayback={togglePlayback}
+                  playbackSpeed={playbackSpeed}
+                  changePlaybackSpeed={changePlaybackSpeed}
                 />
               </div>
               {tab === "calendar" && (
