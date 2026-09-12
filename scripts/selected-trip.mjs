@@ -1,7 +1,8 @@
-import { readFile, realpath } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import { basename, dirname, sep } from "node:path";
 import { createHash } from "node:crypto";
 import { staticFiles } from "./files.mjs";
+import { readJsonFile } from "./read-json.mjs";
 
 // Match the viewer's local document path rules before exposing any source files.
 const safePath = (path) =>
@@ -40,7 +41,7 @@ async function readEntry(entry) {
     error.status = 403;
     throw error;
   }
-  const content = await readFile(entry.file);
+  const content = await readJsonFile(entry.canonicalFile);
   let source;
   try {
     source = JSON.parse(content);
@@ -93,7 +94,9 @@ export function selectedTrips(files) {
       ...entry,
       folder,
       label,
-      documents: staticFiles(dirname(entry.file), `/trips/${folder}/`),
+      documents: staticFiles(dirname(entry.file), `/trips/${folder}/`, {
+        documents: true,
+      }),
     };
   });
   return async (req, res, next) => {
@@ -154,7 +157,13 @@ export function selectedTrips(files) {
       }
     } catch (error) {
       res.writeHead(error.status ?? 404);
-      res.end(error.status === 403 ? "Forbidden" : "Cannot read itinerary");
+      res.end(
+        error.status === 403
+          ? "Forbidden"
+          : error.status === 413
+            ? error.message
+            : "Cannot read itinerary",
+      );
     }
   };
 }

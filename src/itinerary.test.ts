@@ -377,3 +377,54 @@ test("optional budgets accept zero, preserve legacy trips, and require one curre
     /budget.countries/,
   );
 });
+test("rejects estimates whose derived totals overflow", () => {
+  const trip = {
+    version: 1,
+    initialPlace: "a",
+    places: { a: { country: "JP" }, b: { country: "JP" } },
+    days: [{}, {}],
+  };
+  assert.throws(
+    () =>
+      normalizeTrip({
+        ...trip,
+        currency: "EUR",
+        budget: { countries: { JP: { livingPerDay: 1e308 } } },
+      }),
+    /too large to total safely/,
+  );
+  assert.throws(
+    () =>
+      normalizeTrip({
+        ...trip,
+        days: [
+          {
+            blocks: [
+              { type: "travel", to: "b", estimatedDurationMinutes: 1e308 },
+            ],
+          },
+        ],
+      }),
+    /too large to total safely/,
+  );
+  assert.throws(
+    () =>
+      normalizeTrip({
+        ...trip,
+        days: [
+          {
+            blocks: [
+              {
+                type: "travel",
+                to: "b",
+                components: [
+                  { mode: "train", estimatedDurationMinutes: 1e308 },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    /too large to total safely/,
+  );
+});

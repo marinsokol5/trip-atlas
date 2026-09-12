@@ -218,13 +218,28 @@ function zoneValid(zone: unknown, path: string) {
 }
 export function parseTrip(input: unknown): Trip {
   const t = object(input, "trip");
+  if (!Array.isArray(t.days) || !t.days.length)
+    fail("days", "expected at least one day");
 
   let hasPrices = false;
-  const price = (value: unknown, path: string) => {
+  let priceTotal = 0;
+  let durationTotalMs = 0;
+  const duration = (value: unknown, path: string) => {
+    if (value === undefined) return;
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
+      fail(path, "expected positive finite minutes");
+    durationTotalMs += value * 60000;
+    if (!Number.isFinite(durationTotalMs))
+      fail(path, "duration is too large to total safely in milliseconds");
+  };
+  const price = (value: unknown, path: string, units = 1) => {
     if (value === undefined) return;
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
       fail(path, "expected a finite nonnegative amount");
     hasPrices = true;
+    priceTotal += value * units;
+    if (!Number.isFinite(priceTotal))
+      fail(path, "amount is too large to total safely across the trip");
   };
   if (
     t.currency !== undefined &&
@@ -241,10 +256,15 @@ export function parseTrip(input: unknown): Trip {
           "expected uppercase ISO2 country code",
         );
       const rates = object(value, `budget.countries.${code}`);
-      price(rates.livingPerDay, `budget.countries.${code}.livingPerDay`);
+      price(
+        rates.livingPerDay,
+        `budget.countries.${code}.livingPerDay`,
+        t.days.length,
+      );
       price(
         rates.accommodationPerNight,
         `budget.countries.${code}.accommodationPerNight`,
+        Math.max(0, t.days.length - 1),
       );
     }
   }
@@ -302,8 +322,6 @@ export function parseTrip(input: unknown): Trip {
       fail(path, "unknown place ID");
   };
   if (t.initialPlace !== undefined) place(t.initialPlace, "initialPlace");
-  if (!Array.isArray(t.days) || !t.days.length)
-    fail("days", "expected at least one day");
   const travelIds = new Set<string>();
   t.days.forEach((v, i) => {
     const path = `days[${i}]`,
@@ -346,32 +364,17 @@ export function parseTrip(input: unknown): Trip {
             );
           for (const k of ["mode", "notes"])
             if (b[k] !== undefined) string(b[k], p + "." + k);
-          if (
-            b.estimatedDurationMinutes !== undefined &&
-            (typeof b.estimatedDurationMinutes !== "number" ||
-              !Number.isFinite(b.estimatedDurationMinutes) ||
-              b.estimatedDurationMinutes <= 0)
-          )
-            fail(
-              p + ".estimatedDurationMinutes",
-              "expected positive finite minutes",
-            );
+          duration(b.estimatedDurationMinutes, p + ".estimatedDurationMinutes");
           if (b.components !== undefined) {
             if (!Array.isArray(b.components) || !b.components.length)
               fail(p + ".components", "expected nonempty array");
             b.components.forEach((value, k) => {
               const c = object(value, `${p}.components[${k}]`);
               string(c.mode, `${p}.components[${k}].mode`);
-              if (
-                c.estimatedDurationMinutes !== undefined &&
-                (typeof c.estimatedDurationMinutes !== "number" ||
-                  !Number.isFinite(c.estimatedDurationMinutes) ||
-                  c.estimatedDurationMinutes <= 0)
-              )
-                fail(
-                  `${p}.components[${k}].estimatedDurationMinutes`,
-                  "expected positive finite minutes",
-                );
+              duration(
+                c.estimatedDurationMinutes,
+                `${p}.components[${k}].estimatedDurationMinutes`,
+              );
             });
           }
           documents(b.documents, p + ".documents");

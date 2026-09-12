@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { staticFiles } from "./files.mjs";
 import { selectedTrips } from "./selected-trip.mjs";
+import { appPolicy, localRequests } from "./http.mjs";
 
 const usage =
   "Usage: npm start -- [path/to/itinerary.json ...]\n       npm run serve -- [path/to/itinerary.json ...]\nMultiple paths appear in the Journey picker. Without a path, serve the trips/ demos. Relative paths use the invocation directory.";
@@ -33,15 +34,27 @@ if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
       trip = staticFiles(
         fileURLToPath(new URL("../trips/", import.meta.url)),
         "/trips/",
+        { documents: true },
       );
     }
-    const app = staticFiles(
-      fileURLToPath(new URL("../dist/", import.meta.url)),
-    );
+    const appRoot = fileURLToPath(new URL("../dist/", import.meta.url));
+    try {
+      await access(resolve(appRoot, "index.html"), constants.R_OK);
+    } catch {
+      throw new Error(
+        "Build the app first with npm run build (or use npm start)",
+      );
+    }
+    const app = staticFiles(appRoot);
     const port = Number(process.env.PORT ?? 4173);
-    const server = createServer((req, res) =>
-      trip(req, res, () => app(req, res)),
-    );
+    if (!Number.isInteger(port) || port < 0 || port > 65535)
+      throw new Error("PORT must be an integer from 0 to 65535");
+    const server = createServer((req, res) => {
+      localRequests(req, res, () => {
+        res.setHeader("Content-Security-Policy", appPolicy);
+        void trip(req, res, () => app(req, res));
+      });
+    });
     server.on("error", (error) => {
       console.error(`Trip Atlas: ${error.message}`);
       process.exitCode = 1;

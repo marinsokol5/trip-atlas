@@ -1,5 +1,5 @@
-import { createReadStream } from "node:fs";
-import { realpath, stat } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
 import { resolve, sep, extname } from "node:path";
 const types = {
   ".json": "application/json; charset=utf-8",
@@ -16,7 +16,18 @@ const types = {
   ".avif": "image/avif",
   ".pdf": "application/pdf",
 };
-export function staticFiles(root, prefix = "/") {
+const inlineDocuments = new Set([
+  ".json",
+  ".txt",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".avif",
+  ".pdf",
+]);
+export function staticFiles(root, prefix = "/", { documents = false } = {}) {
   return async (
     req,
     res,
@@ -31,6 +42,7 @@ export function staticFiles(root, prefix = "/") {
       return;
     }
     let path;
+    let handle;
     try {
       path = decodeURIComponent((req.url ?? "/").split("?")[0]);
     } catch {
@@ -60,22 +72,48 @@ export function staticFiles(root, prefix = "/") {
         res.end("Forbidden");
         return;
       }
-      const info = await stat(file);
+      handle = await open(
+        file,
+        constants.O_RDONLY |
+          (constants.O_NONBLOCK ?? 0) |
+          (constants.O_NOFOLLOW ?? 0),
+      );
+      const info = await handle.stat();
       if (!info.isFile()) {
         next();
         return;
       }
       res.setHeader("Cache-Control", "no-store");
+      const extension = extname(file).toLowerCase();
+      const inline = !documents || inlineDocuments.has(extension);
       res.setHeader(
         "Content-Type",
-        types[extname(file).toLowerCase()] ?? "application/octet-stream",
+        inline
+          ? (types[extension] ?? "application/octet-stream")
+          : "application/octet-stream",
       );
+      if (documents) {
+        res.setHeader(
+          "Content-Security-Policy",
+          "sandbox; default-src 'none'; frame-ancestors 'none'",
+        );
+        if (!inline) res.setHeader("Content-Disposition", "attachment");
+      }
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Content-Length", info.size);
       if (req.method === "HEAD") res.end();
-      else createReadStream(file).pipe(res);
+      else {
+        // Keep the opened descriptor: a later path replacement must not change the response.
+        const stream = handle.createReadStream();
+        handle = undefined; // The stream owns and closes it, including on disconnect/error.
+        stream.on("error", () => res.destroy());
+        res.on("close", () => stream.destroy());
+        stream.pipe(res);
+      }
     } catch {
       next();
+    } finally {
+      await handle?.close();
     }
   };
 }

@@ -11,6 +11,17 @@ node_modules
 dist
 dist-ssr
 *.local
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+coverage/
+test-results/
+
+# Use explicit paths to keep personal plans outside the public demo directory.
+/itinerary.json
+/private/
+/books/
 
 # Editor directories and files
 .vscode/*

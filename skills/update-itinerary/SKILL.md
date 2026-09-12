@@ -4,7 +4,7 @@ description: Create or edit Trip Atlas itinerary JSON; the default is itinerary.
 ---
 
 Trip Atlas is a local, read-only viewer with a map, calendar, timeline, daily details, cost overview, bookings, and preparation lists.
-Compare trips by opening different JSON files; edit the files and refresh to update the UI.
+Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edit the files and refresh to update the UI.
 
 ## Trip
 
@@ -16,7 +16,7 @@ Compare trips by opening different JSON files; edit the files and refresh to upd
 - `initialPlace` (optional) identifies the starting place from `places`.
 - `timezone` (optional) supplies an IANA timezone fallback, such as `Asia/Tokyo`.
 - `groups` (optional) maps group IDs to named areas that simplify nearby places on the map.
-- `currency` (optional; required with prices) sets one uppercase three-letter currency such as `EUR` for all per-person amounts; zero means free and omission means unknown.
+- `currency` (optional; required with prices) sets one uppercase three-letter currency such as `EUR` for all per-person amounts, whose totals must stay finite; zero means free and omission means unknown.
 - `budget` (optional) holds country-level cost estimates.
 - `bookings` (optional) lists reservations separately from planned destinations.
 - `documents` (optional) lists documents for the whole trip.
@@ -54,7 +54,7 @@ Compare trips by opening different JSON files; edit the files and refresh to upd
 - `end` (optional) gives destination-local arrival time as `HH:mm`.
 - `endDay` (optional) is the absolute 1-based arrival day within the trip, defaulting to departure day; intervening days must have no blocks.
 - `mode` (optional) names transport such as `flight`, `train`, `bus`, `ferry`, `car`, or `walk`.
-- `estimatedDurationMinutes` (optional) gives positive estimated minutes for the whole journey without inventing clock times.
+- `estimatedDurationMinutes` (optional) gives positive estimated minutes for the whole journey, with finite millisecond totals, without inventing clock times.
 - `estimatedCost` (optional) gives a finite, nonnegative journey price per person in the trip currency.
 - `components` (optional) is a nonempty list of mixed transport parts whose estimates are summed when no whole-journey estimate is supplied.
 - `notes` (optional) adds plain-text journey details.
@@ -63,7 +63,7 @@ Compare trips by opening different JSON files; edit the files and refresh to upd
 ## Transport component: `components[]`
 
 - `mode` (required) names this part's transport.
-- `estimatedDurationMinutes` (optional) gives positive estimated minutes for this part.
+- `estimatedDurationMinutes` (optional) gives positive estimated minutes for this part, with finite millisecond totals.
 
 ## Place block: `days[].blocks[]`
 
@@ -107,7 +107,7 @@ Compare trips by opening different JSON files; edit the files and refresh to upd
 ## Document: any `documents[]`
 
 - `label` (required) names the link shown in the UI.
-- `path` (required) references an existing local file relative to the itinerary folder, without absolute paths, URLs, traversal, backslashes, `:`, `%`, `?`, `#`, or control characters.
+- `path` (required) references an existing local file relative to the itinerary folder, without absolute paths, URLs, traversal, backslashes, `:`, `%`, `?`, `#`, or control characters; PDF, raster images, text and JSON open inline, while other types download.
 
 ## Preparation: `prepare`
 

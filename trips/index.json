@@ -1,8 +1,16 @@
 {
   "trips": [
     {
+      "path": "japan-classic/trip.json",
+      "label": "Japan: The Classic Route \u00b7 10 days"
+    },
+    {
+      "path": "japan-kyushu/trip.json",
+      "label": "Japan: Kyushu & Yakushima \u00b7 10 days"
+    },
+    {
       "path": "japan/trip.json",
-      "label": "Japan · an illustrative journey"
+      "label": "Japan \u00b7 an illustrative journey"
     },
     {
       "path": "undated/trip.json",
@@ -10,15 +18,15 @@
     },
     {
       "path": "multicountry/trip.json",
-      "label": "Four countries · illustrative Asia loop"
+      "label": "Four countries \u00b7 illustrative Asia loop"
     },
     {
       "path": "bookings/trip.json",
-      "label": "Bookings & documents · illustrative demo"
+      "label": "Bookings & documents \u00b7 illustrative demo"
     },
     {
       "path": "prepare/trip.json",
-      "label": "Prepare · fictional sketchbook weekend"
+      "label": "Prepare \u00b7 fictional sketchbook weekend"
     }
   ]
 }

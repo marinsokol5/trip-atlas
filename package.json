@@ -1,19 +1,19 @@
 {
-  "name": "trip-visualizer",
+  "name": "trip-atlas",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview",
     "start": "npm run build && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs",
-    "test": "node --experimental-strip-types --test src/*.test.ts scripts/*.test.mjs"
+    "test": "node --test src/*.test.ts scripts/*.test.mjs",
+    "pretest": "npm run build",
+    "check": "npm run lint && npm test"
   },
   "dependencies": {
-    "@types/d3-geo": "^3.1.1",
     "d3-geo": "^3.1.1",
     "lucide-react": "^1.43.0",
     "react": "^19.2.8",
@@ -27,9 +27,12 @@
     "oxlint": "^1.79.0",
     "prettier": "^3.9.6",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "@types/d3-geo": "^3.1.1"
   },
   "engines": {
     "node": ">=24"
-  }
+  },
+  "description": "A local, read-only atlas for comparing travel plans, routes, nights and costs.",
+  "license": "MIT"
 }

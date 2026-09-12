@@ -37,7 +37,9 @@ import {
 import type { CSSProperties } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { GeoPermissibleObjects } from "d3-geo";
-import { normalizeTrip, safeRelativePath } from "./itinerary";
+import { normalizeTrip } from "./itinerary";
+import { loadJson, parseManifest } from "./load-trip";
+import type { TripEntry } from "./load-trip";
 import type { Itinerary, NormalizedDay, Leg } from "./itinerary";
 import {
   activeLegs,
@@ -87,7 +89,7 @@ import { ThemedSelect } from "./ThemedSelect";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { useMapLabelPreference } from "./use-map-label-preference";
 
-type Entry = { path: string; label: string; title?: string };
+type Entry = TripEntry;
 // Only animation consumers subscribe to frame updates. App receives semantic changes.
 function createPlayhead() {
   let value = 0;
@@ -165,16 +167,6 @@ const playbackSpeeds = [0.5, 1, 2, 4, 8];
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
 const color = placeColor;
-async function json(path: string) {
-  const response = await fetch(path, { cache: "no-store" });
-  if (!response.ok)
-    throw new Error(`${path}: ${response.status} ${response.statusText}`);
-  try {
-    return await response.json();
-  } catch {
-    throw new Error(`${path}: invalid JSON`);
-  }
-}
 function Icon({ kind }: { kind: string }) {
   const Component =
     (
@@ -1428,16 +1420,14 @@ function App() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [value, setSemanticValue] = useState(0),
-    [tab, setTab] = useState<TripView>(
-      () => {
-        try {
-          return parseTripView(window.localStorage.getItem("trip-atlas-view"));
-        } catch {
-          /* Use Overview without storage. */
-        }
-        return "overview";
-      },
-    );
+    [tab, setTab] = useState<TripView>(() => {
+      try {
+        return parseTripView(window.localStorage.getItem("trip-atlas-view"));
+      } catch {
+        /* Use Overview without storage. */
+      }
+      return "overview";
+    });
   const carriedCountry = useRef("");
   const viewNavigation = useRef<HTMLElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -1571,31 +1561,18 @@ function App() {
   }
   useEffect(() => {
     let active = true;
-    json("/trips/index.json")
-      .then((data) => {
-        if (
-          !Array.isArray(data.trips) ||
-          !data.trips.length ||
-          !data.trips.every(
-            (e: Entry) =>
-              e &&
-              typeof e.path === "string" &&
-              safeRelativePath(e.path) &&
-              e.path.includes("/") &&
-              typeof e.label === "string",
-          )
-        )
-          throw new Error(
-            "/trips/index.json: expected trips with relative folder/trip.json paths and labels",
-          );
+    const controller = new AbortController();
+    loadJson("/trips/index.json", controller.signal)
+      .then(parseManifest)
+      .then((trips) => {
         if (active) {
-          setEntries(data.trips);
+          setEntries(trips);
           const requested = new URLSearchParams(window.location.search).get(
             "trip",
           );
           setSelected(
-            data.trips.find((entry: Entry) => entry.path === requested)?.path ??
-              data.trips[0].path,
+            trips.find((entry) => entry.path === requested)?.path ??
+              trips[0].path,
           );
         }
       })
@@ -1607,13 +1584,19 @@ function App() {
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, []);
   useEffect(() => {
     if (!selected) return;
     let active = true;
-    json("/trips/" + selected.split("/").map(encodeURIComponent).join("/"))
+    const controller = new AbortController();
+    loadJson(
+      "/trips/" + selected.split("/").map(encodeURIComponent).join("/"),
+      controller.signal,
+    )
       .then((data) => {
+        if (!active) return;
         const model = normalizeTrip(data);
         if (active) {
           let savedCountry = "";
@@ -1649,6 +1632,7 @@ function App() {
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [selected, clock]);
   const dayIndex = itinerary
@@ -1690,7 +1674,9 @@ function App() {
     return () => observer.disconnect();
   }, [activeTab, itinerary]);
   const fullView =
-    activeTab === "overview" || activeTab === "bookings" || activeTab === "prepare";
+    activeTab === "overview" ||
+    activeTab === "bookings" ||
+    activeTab === "prepare";
   return (
     <main
       className={`app-shell ${fullView ? "overview-shell" : ""}`}
@@ -1706,7 +1692,7 @@ function App() {
             </h1>
             <p className="meta">
               {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"}${activeTab === "overview" ? "" : ` · ${itinerary.days.length} days · ${visualGroups(itinerary).length} destinations`}`
+                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"}${activeTab === "overview" ? "" : ` · ${itinerary.days.length} day${itinerary.days.length === 1 ? "" : "s"} · ${visualGroups(itinerary).length} destination${visualGroups(itinerary).length === 1 ? "" : "s"}`}`
                 : "A little perspective, before you go."}
             </p>
           </div>

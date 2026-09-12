@@ -6,6 +6,8 @@ import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { get } from "node:http";
+import { MAX_JSON_BYTES } from "../src/input-limits.ts";
 
 const script = fileURLToPath(new URL("./serve.mjs", import.meta.url));
 async function launch(t, args = [], env = {}) {
@@ -35,6 +37,82 @@ async function launch(t, args = [], env = {}) {
     child.once("error", reject);
   });
 }
+
+test("localhost serving rejects hostile origins and active documents cannot execute in the app origin", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "trip-security-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, "trip.json");
+  const paths = [
+    "page.html",
+    "image.svg",
+    "module.js",
+    "note.TXT",
+    "ticket.PDF",
+  ];
+  await writeFile(
+    file,
+    JSON.stringify({
+      version: 1,
+      places: {},
+      days: [{}],
+      documents: paths.map((path) => ({ label: path, path })),
+    }),
+  );
+  for (const path of paths)
+    await writeFile(
+      join(root, path),
+      "<script>fetch('/trips/index.json')</script>",
+    );
+  const url = await launch(t, [file]);
+  for (const headers of [
+    { host: "attacker.example" },
+    { host: "127.0.0.1:123" },
+    { origin: "https://attacker.example" },
+    { origin: "null" },
+    { "sec-fetch-site": "cross-site" },
+    { "sec-fetch-site": "same-site" },
+  ]) {
+    const status = await new Promise((resolve, reject) => {
+      get(url + "/trips/index.json", { headers }, (response) => {
+        response.resume();
+        resolve(response.statusCode);
+      }).on("error", reject);
+    });
+    assert.equal(status, 403, JSON.stringify(headers));
+  }
+  assert.equal(
+    (await fetch(url + "/trips/index.json", { headers: { origin: url } }))
+      .status,
+    200,
+  );
+  const jsonHead = await fetch(url + "/trips/selected/trip.json", {
+    method: "HEAD",
+  });
+  assert.equal(jsonHead.status, 200);
+  assert.ok(Number(jsonHead.headers.get("content-length")) > 0);
+  assert.equal(await jsonHead.text(), "");
+  for (const path of paths) {
+    const response = await fetch(url + "/trips/selected/" + path);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-security-policy"), /sandbox/);
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    if (["page.html", "image.svg", "module.js"].includes(path)) {
+      assert.equal(response.headers.get("content-disposition"), "attachment");
+      assert.equal(
+        response.headers.get("content-type"),
+        "application/octet-stream",
+      );
+    } else assert.equal(response.headers.get("content-disposition"), null);
+  }
+  const app = await fetch(url);
+  assert.equal(app.status, 200);
+  assert.match(app.headers.get("content-security-policy"), /script-src 'self'/);
+  await writeFile(file, " ".repeat(MAX_JSON_BYTES + 1));
+  const large = await fetch(url + "/trips/selected/trip.json");
+  assert.equal(large.status, 413);
+  assert.match(await large.text(), /2 MiB/);
+  assert.equal((await fetch(url + "/trips/index.json")).status, 200);
+});
 
 test("selected file stays live and exposes only safe referenced documents", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "trip atlas "));
@@ -284,7 +362,10 @@ test("duplicate basenames and parent names use readable distinguishing parent pa
   const entries = (await (await fetch(url + "/trips/index.json")).json()).trips;
   assert.deepEqual(
     entries.map((entry) => entry.label),
-    ["trip.json · shorter/plan", "trip.json · longer/plan"],
+    [
+      `trip.json · ${join("shorter", "plan")}`,
+      `trip.json · ${join("longer", "plan")}`,
+    ],
   );
   assert.notEqual(entries[0].path, entries[1].path);
 });
