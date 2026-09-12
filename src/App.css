@@ -2578,3 +2578,130 @@ main[data-theme="dark"] {
     font-size: 11px;
   }
 }
+
+/* Preparation is authored in the itinerary; these are lists, not controls. */
+.prepare-view {
+  padding: 30px 32px 28px;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-gutter: stable;
+}
+.prepare-heading {
+  margin-bottom: 28px;
+}
+.prepare-heading h2 {
+  font-size: 26px;
+  letter-spacing: -0.035em;
+}
+.prepare-layout {
+  display: grid;
+  gap: 32px;
+  align-items: start;
+}
+.prepare-layout.has-both {
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 1fr);
+}
+.prepare-checklist,
+.prepare-packing {
+  min-width: 0;
+}
+.prepare-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.prepare-section-heading h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+.prepare-section-heading > span {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+.prepare-tasks,
+.prepare-packing-items {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.prepare-task,
+.prepare-packing-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+.prepare-task {
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+}
+.prepare-rank {
+  color: var(--blue);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.prepare-item-copy {
+  min-width: 0;
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+.prepare-item-title {
+  font-weight: 500;
+  margin: 0;
+}
+.prepare-item-notes {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 5px 0 0;
+  white-space: pre-line;
+}
+.prepare-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.prepare-status svg {
+  flex: none;
+}
+.is-complete .prepare-item-title,
+.is-complete .prepare-rank {
+  color: var(--muted);
+  font-weight: 400;
+}
+.prepare-quantity {
+  font-size: 12px;
+  color: var(--muted);
+  display: inline-block;
+  margin-left: 8px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.prepare-packing-group + .prepare-packing-group {
+  margin-top: 18px;
+}
+.prepare-packing-group h4 {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0 0 7px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .prepare-view {
+    padding: 24px 20px;
+  }
+  .prepare-layout.has-both {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .prepare-heading h2 {
+    font-size: 23px;
+  }
+}

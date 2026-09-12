@@ -15,6 +15,10 @@
     {
       "path": "bookings/trip.json",
       "label": "Bookings & documents · illustrative demo"
+    },
+    {
+      "path": "prepare/trip.json",
+      "label": "Prepare · fictional sketchbook weekend"
     }
   ]
 }

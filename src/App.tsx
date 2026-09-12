@@ -22,6 +22,7 @@ import {
   Pause,
   RotateCcw,
   Files,
+  ListChecks,
 } from "lucide-react";
 import {
   useEffect,
@@ -79,7 +80,9 @@ import world from "./assets/world.json";
 import "./App.css";
 import { Overview } from "./Overview";
 import { Bookings, DayBookings, Documents } from "./Bookings";
-import { hasBookingContent } from "./booking-model";
+import { Prepare } from "./Prepare";
+import { activeTripView, availableTripViews, parseTripView } from "./trip-view";
+import type { TripView } from "./trip-view";
 import { ThemedSelect } from "./ThemedSelect";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { useMapLabelPreference } from "./use-map-label-preference";
@@ -178,6 +181,7 @@ function Icon({ kind }: { kind: string }) {
       {
         overview: LayoutDashboard,
         bookings: Files,
+        prepare: ListChecks,
         map: MapIcon,
         calendar: CalendarIcon,
         bed: BedDouble,
@@ -1424,17 +1428,10 @@ function App() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [value, setSemanticValue] = useState(0),
-    [tab, setTab] = useState<"overview" | "map" | "calendar" | "bookings">(
+    [tab, setTab] = useState<TripView>(
       () => {
         try {
-          const saved = window.localStorage.getItem("trip-atlas-view");
-          if (
-            saved === "overview" ||
-            saved === "map" ||
-            saved === "calendar" ||
-            saved === "bookings"
-          )
-            return saved;
+          return parseTripView(window.localStorage.getItem("trip-atlas-view"));
         } catch {
           /* Use Overview without storage. */
         }
@@ -1442,6 +1439,7 @@ function App() {
       },
     );
   const carriedCountry = useRef("");
+  const viewNavigation = useRef<HTMLElement>(null);
   const [playing, setPlaying] = useState(false);
   const [country, setCountry] = useState("");
   const days = useMemo(
@@ -1669,11 +1667,30 @@ function App() {
             ? `${name(itinerary, day.startPlace)} → ${name(itinerary, day.overnight ?? activeLegs(itinerary, day).at(-1)?.to)}`
             : "Route"
       : "";
-  const activeTab =
-    tab === "bookings" && itinerary && !hasBookingContent(itinerary)
-      ? "overview"
-      : tab;
-  const fullView = activeTab === "overview" || activeTab === "bookings";
+  const activeTab = activeTripView(tab, itinerary);
+  useLayoutEffect(() => {
+    const nav = viewNavigation.current;
+    if (!nav) return;
+    const revealActiveTab = () => {
+      const active = nav.querySelector<HTMLButtonElement>(
+        'button[aria-pressed="true"]',
+      );
+      if (!active) return;
+      const tabBounds = active.getBoundingClientRect();
+      const left = nav.getBoundingClientRect().left + nav.clientLeft;
+      const right = left + nav.clientWidth;
+      // Move only this horizontal strip; never scroll the page or move focus.
+      if (tabBounds.left < left) nav.scrollLeft -= left - tabBounds.left;
+      else if (tabBounds.right > right)
+        nav.scrollLeft += tabBounds.right - right;
+    };
+    revealActiveTab();
+    const observer = new ResizeObserver(revealActiveTab);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [activeTab, itinerary]);
+  const fullView =
+    activeTab === "overview" || activeTab === "bookings" || activeTab === "prepare";
   return (
     <main
       className={`app-shell ${fullView ? "overview-shell" : ""}`}
@@ -1735,7 +1752,7 @@ function App() {
           </div>
         </div>
         <div className="view-toolbar">
-          {itinerary && (
+          {itinerary && activeTab !== "prepare" && (
             <div className="global-area">
               <span>Area</span>
               <ThemedSelect
@@ -1752,17 +1769,8 @@ function App() {
               />
             </div>
           )}
-          <nav aria-label="Trip view">
-            {(
-              [
-                "overview",
-                "map",
-                "calendar",
-                ...(itinerary && hasBookingContent(itinerary)
-                  ? ["bookings" as const]
-                  : []),
-              ] as const
-            ).map((t) => (
+          <nav aria-label="Trip view" ref={viewNavigation}>
+            {availableTripViews(itinerary).map((t) => (
               <button
                 key={t}
                 aria-pressed={activeTab === t}
@@ -1784,7 +1792,9 @@ function App() {
                     ? "Map"
                     : t === "calendar"
                       ? "Calendar"
-                      : "Bookings & Documents"}
+                      : t === "bookings"
+                        ? "Bookings & Documents"
+                        : "Prepare"}
               </button>
             ))}
           </nav>
@@ -1818,6 +1828,9 @@ function App() {
               folder={selected.slice(0, selected.lastIndexOf("/"))}
               onWholeTrip={() => changeArea("")}
             />
+          )}
+          {activeTab === "prepare" && itinerary.trip.prepare && (
+            <Prepare prepare={itinerary.trip.prepare} />
           )}
           <div
             className={`view-layout ${fullView ? "map" : activeTab}`}

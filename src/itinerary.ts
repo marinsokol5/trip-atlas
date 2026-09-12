@@ -80,7 +80,25 @@ export interface TripDay {
   documents?: DocumentLink[];
   blocks?: (TravelBlock | PlaceBlock)[];
 }
+export interface PreparationTask {
+  title: string;
+  done?: boolean;
+  notes?: string;
+}
+export interface PackingItem {
+  title: string;
+  packed?: boolean;
+  notes?: string;
+  category?: string;
+  quantity?: number;
+}
+export interface TripPreparation {
+  /** Array order is priority order, including completed tasks. */
+  checklist?: PreparationTask[];
+  packing?: PackingItem[];
+}
 export interface Trip {
+  prepare?: TripPreparation;
   bookings?: Booking[];
   documents?: DocumentLink[];
   currency?: string;
@@ -362,6 +380,34 @@ export function parseTrip(input: unknown): Trip {
     }
   });
   documents(t.documents, "documents");
+  if (t.prepare !== undefined) {
+    const prepare = object(t.prepare, "prepare");
+    for (const key of ["checklist", "packing"] as const) {
+      const items = prepare[key];
+      if (items === undefined) continue;
+      if (!Array.isArray(items)) fail(`prepare.${key}`, "expected an array");
+      items.forEach((value, index) => {
+        const path = `prepare.${key}[${index}]`,
+          item = object(value, path),
+          status = key === "checklist" ? "done" : "packed";
+        string(item.title, path + ".title");
+        if (item.notes !== undefined) string(item.notes, path + ".notes");
+        if (item[status] !== undefined && typeof item[status] !== "boolean")
+          fail(path + "." + status, "expected a boolean");
+        if (key === "packing") {
+          if (item.category !== undefined)
+            string(item.category, path + ".category");
+          if (
+            item.quantity !== undefined &&
+            (typeof item.quantity !== "number" ||
+              !Number.isSafeInteger(item.quantity) ||
+              item.quantity <= 0)
+          )
+            fail(path + ".quantity", "expected a positive safe integer");
+        }
+      });
+    }
+  }
   const dayNumber = (value: unknown, path: string) => {
     if (
       !Number.isInteger(value) ||

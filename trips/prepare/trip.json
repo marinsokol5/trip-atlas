@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "title": "A sketchbook weekend · fictional demo",
+  "initialPlace": "start",
+  "places": {
+    "start": { "name": "Starting city" },
+    "retreat": { "name": "Sketching retreat" }
+  },
+  "days": [
+    { "blocks": [{ "type": "travel", "to": "retreat" }] },
+    {},
+    { "blocks": [{ "type": "travel", "to": "start" }] }
+  ],
+  "prepare": {
+    "checklist": [
+      {
+        "title": "Choose a sketchbook for the weekend",
+        "notes": "Compare the two sample sizes before choosing."
+      },
+      {
+        "title": "Choose a drawing theme",
+        "done": true,
+        "notes": "Fictional theme: windows and doorways."
+      },
+      {
+        "title": "Sharpen the drawing pencils",
+        "done": false
+      },
+      {
+        "title": "Label the sketching pouch"
+      }
+    ],
+    "packing": [
+      { "title": "Sketchbook", "category": "Sketching" },
+      { "title": "Drawing pencils", "category": "Sketching", "quantity": 3 },
+      { "title": "Eraser", "category": "Sketching", "packed": true },
+      { "title": "Shirts", "category": "Clothing", "quantity": 2 },
+      {
+        "title": "Socks",
+        "category": "Clothing",
+        "quantity": 2,
+        "notes": "Quantity is in pairs."
+      },
+      { "title": "Cap", "category": "Clothing", "packed": true },
+      { "title": "Favorite paperback", "packed": false }
+    ]
+  }
+}
