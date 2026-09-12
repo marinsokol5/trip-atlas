@@ -288,3 +288,59 @@ test("duplicate basenames and parent names use readable distinguishing parent pa
   );
   assert.notEqual(entries[0].path, entries[1].path);
 });
+
+test("trip and booking documents use isolated live allowlists and screenshot MIME types", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "booking documents "));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, "itinerary.json");
+  const source = {
+    version: 1,
+    places: {},
+    days: [{}],
+    documents: [
+      { label: "Trip file", path: "trip.json" },
+      { label: "Screenshot", path: "screen.JPG" },
+    ],
+    bookings: [
+      {
+        type: "accommodation",
+        title: "Hotel",
+        documents: [
+          { label: "Confirmation", path: "hotel.pdf" },
+          { label: "Image", path: "screen.WebP" },
+          { label: "Escaping symlink", path: "escape.pdf" },
+          { label: "Unsafe", path: "../secret" },
+        ],
+      },
+    ],
+  };
+  await writeFile(file, JSON.stringify(source));
+  await writeFile(join(root, "trip.json"), "trip document");
+  await writeFile(join(root, "hotel.pdf"), "%PDF-1.4\nexample");
+  await writeFile(join(root, "screen.JPG"), "image data");
+  await writeFile(join(root, "screen.WebP"), "image data");
+  await writeFile(join(root, "private.pdf"), "unreferenced");
+  await symlink(script, join(root, "escape.pdf"));
+  const url = await launch(t, [file]);
+  const entry = (await (await fetch(url + "/trips/index.json")).json())
+    .trips[0];
+  assert.equal(entry.path, "selected/_trip.json");
+  for (const [path, contentType] of [
+    ["trip.json", "application/json; charset=utf-8"],
+    ["hotel.pdf", "application/pdf"],
+    ["screen.JPG", "image/jpeg"],
+    ["screen.WebP", "image/webp"],
+  ]) {
+    const response = await fetch(`${url}/trips/selected/${path}`);
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers.get("content-type"), contentType);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  }
+  assert.equal((await fetch(url + "/trips/selected/private.pdf")).status, 404);
+  assert.equal((await fetch(url + "/trips/selected/escape.pdf")).status, 403);
+  source.bookings = [];
+  await writeFile(file, JSON.stringify(source));
+  assert.equal((await fetch(url + "/trips/selected/hotel.pdf")).status, 404);
+  assert.equal((await fetch(url + "/trips/selected/screen.JPG")).status, 200);
+});

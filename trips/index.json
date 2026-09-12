@@ -2,7 +2,7 @@
   "trips": [
     {
       "path": "japan/trip.json",
-      "label": "Japan \u00b7 an illustrative journey"
+      "label": "Japan · an illustrative journey"
     },
     {
       "path": "undated/trip.json",
@@ -10,7 +10,11 @@
     },
     {
       "path": "multicountry/trip.json",
-      "label": "Four countries \u00b7 illustrative Asia loop"
+      "label": "Four countries · illustrative Asia loop"
+    },
+    {
+      "path": "bookings/trip.json",
+      "label": "Bookings & documents · illustrative demo"
     }
   ]
 }

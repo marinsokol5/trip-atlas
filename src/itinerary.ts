@@ -1,6 +1,33 @@
+import { validateBookingAllocations } from "./booking-model.ts";
+
 export interface DocumentLink {
   label: string;
   path: string;
+}
+export type CostStatus = "estimated" | "confirmed" | "paid";
+export type BookingAllocation =
+  | { type: "accommodation"; nights: number[] }
+  | { type: "transport"; leg: string }
+  | { type: "living"; days: number[] }
+  | { type: "additional"; day: number }
+  | { type: "unallocated" };
+export interface Booking {
+  type: "accommodation" | "transport" | "activity";
+  title: string;
+  place?: string;
+  startDate?: string;
+  endDate?: string;
+  startDay?: number;
+  endDay?: number;
+  status?: "planned" | "confirmed" | "cancelled";
+  reference?: string;
+  documents?: DocumentLink[];
+  cost?: {
+    /** Whole booking amount for one person, in the trip currency. */
+    amount: number;
+    status?: CostStatus;
+    allocation?: BookingAllocation;
+  };
 }
 export interface PlaceGroup {
   name: string;
@@ -27,6 +54,8 @@ export interface CountryBudget {
   accommodationPerNight?: number;
 }
 export interface TravelBlock {
+  /** Stable optional ID for explicit booking cost replacement. */
+  id?: string;
   /** Estimated price for one person, in the trip currency. */
   estimatedCost?: number;
   components?: TravelComponent[];
@@ -52,6 +81,8 @@ export interface TripDay {
   blocks?: (TravelBlock | PlaceBlock)[];
 }
 export interface Trip {
+  bookings?: Booking[];
+  documents?: DocumentLink[];
   currency?: string;
   budget?: { countries: Record<string, CountryBudget> };
   version: 1;
@@ -255,6 +286,7 @@ export function parseTrip(input: unknown): Trip {
   if (t.initialPlace !== undefined) place(t.initialPlace, "initialPlace");
   if (!Array.isArray(t.days) || !t.days.length)
     fail("days", "expected at least one day");
+  const travelIds = new Set<string>();
   t.days.forEach((v, i) => {
     const path = `days[${i}]`,
       d = object(v, path);
@@ -268,6 +300,12 @@ export function parseTrip(input: unknown): Trip {
           b = object(v, p);
         if (b.type === "place") place(b.place, p + ".place");
         else if (b.type === "travel") {
+          if (b.id !== undefined) {
+            string(b.id, p + ".id");
+            if (travelIds.has(b.id as string))
+              fail(p + ".id", "duplicate travel ID");
+            travelIds.add(b.id as string);
+          }
           price(b.estimatedCost, p + ".estimatedCost");
           place(b.to, p + ".to");
           if (b.from !== undefined) place(b.from, p + ".from");
@@ -323,10 +361,131 @@ export function parseTrip(input: unknown): Trip {
       });
     }
   });
+  documents(t.documents, "documents");
+  const dayNumber = (value: unknown, path: string) => {
+    if (
+      !Number.isInteger(value) ||
+      Number(value) < 1 ||
+      Number(value) > (t.days as unknown[]).length
+    )
+      fail(path, "expected a 1-based day within the trip");
+  };
+  if (t.bookings !== undefined) {
+    if (!Array.isArray(t.bookings)) fail("bookings", "expected an array");
+    t.bookings.forEach((value, index) => {
+      const path = `bookings[${index}]`,
+        b = object(value, path);
+      string(b.title, path + ".title");
+      if (
+        !["accommodation", "transport", "activity"].includes(b.type as string)
+      )
+        fail(path + ".type", "expected accommodation, transport or activity");
+      if (b.place !== undefined) place(b.place, path + ".place");
+      if (b.reference !== undefined) string(b.reference, path + ".reference");
+      if (
+        b.status !== undefined &&
+        !["planned", "confirmed", "cancelled"].includes(b.status as string)
+      )
+        fail(path + ".status", "expected planned, confirmed or cancelled");
+      documents(b.documents, path + ".documents");
+      for (const key of ["startDate", "endDate"])
+        if (
+          b[key] !== undefined &&
+          (typeof b[key] !== "string" || !dateValid(b[key] as string))
+        )
+          fail(path + "." + key, "expected a real YYYY-MM-DD date");
+      for (const key of ["startDay", "endDay"])
+        if (b[key] !== undefined) dayNumber(b[key], path + "." + key);
+      if (
+        (b.startDate !== undefined || b.endDate !== undefined) &&
+        (b.startDay !== undefined || b.endDay !== undefined)
+      )
+        fail(path, "use calendar dates or trip day numbers, not both");
+      for (const [start, end] of [
+        ["startDate", "endDate"],
+        ["startDay", "endDay"],
+      ])
+        if (
+          b[start] !== undefined &&
+          b[end] !== undefined &&
+          (b[end]! < b[start]! ||
+            (b.type === "accommodation" && b[end] === b[start]))
+        )
+          fail(
+            path + "." + end,
+            "must follow the start (accommodation needs at least one night)",
+          );
+      if (b.cost !== undefined) {
+        const c = object(b.cost, path + ".cost");
+        if (c.amount === undefined)
+          fail(
+            path + ".cost.amount",
+            "required when cost is supplied; omit cost if unknown",
+          );
+        price(c.amount, path + ".cost.amount");
+        if (
+          c.status !== undefined &&
+          !["estimated", "confirmed", "paid"].includes(c.status as string)
+        )
+          fail(path + ".cost.status", "expected estimated, confirmed or paid");
+        if (c.allocation !== undefined) {
+          const a = object(c.allocation, path + ".cost.allocation"),
+            ap = path + ".cost.allocation";
+          const keys =
+            a.type === "accommodation"
+              ? ["type", "nights"]
+              : a.type === "transport"
+                ? ["type", "leg"]
+                : a.type === "living"
+                  ? ["type", "days"]
+                  : a.type === "additional"
+                    ? ["type", "day"]
+                    : a.type === "unallocated"
+                      ? ["type"]
+                      : [];
+          if (!keys.length)
+            fail(
+              ap + ".type",
+              "expected accommodation, transport, living, additional or unallocated",
+            );
+          if (Object.keys(a).some((key) => !keys.includes(key)))
+            fail(ap, "unexpected allocation field");
+          if (
+            (a.type === "accommodation" && b.type !== "accommodation") ||
+            (a.type === "transport" && b.type !== "transport") ||
+            (["living", "additional"].includes(a.type as string) &&
+              b.type !== "activity")
+          )
+            fail(ap + ".type", "allocation must match the booking type");
+          if (a.type === "transport") {
+            if (typeof a.leg !== "string" || !travelIds.has(a.leg))
+              fail(ap + ".leg", "unknown travel block ID");
+          } else if (a.type === "additional") dayNumber(a.day, ap + ".day");
+          else if (a.type !== "unallocated") {
+            const key = a.type === "accommodation" ? "nights" : "days",
+              units = a[key];
+            if (!Array.isArray(units) || !units.length)
+              fail(ap + "." + key, "expected a nonempty array of day numbers");
+            units.forEach((n, i) => dayNumber(n, `${ap}.${key}[${i}]`));
+            if (new Set(units).size !== units.length)
+              fail(ap + "." + key, "duplicate day number");
+            if (
+              a.type === "accommodation" &&
+              units.includes((t.days as unknown[]).length)
+            )
+              fail(
+                ap + ".nights",
+                "the final trip day has no accommodation night",
+              );
+          }
+        }
+      }
+    });
+  }
   if (hasPrices && t.currency === undefined)
     fail(
       "currency",
-      "required when budget rates or estimatedCost are supplied; use one uppercase ISO3 currency for the whole trip",
+      "required when budget rates, estimatedCost or booking amounts are supplied; use one uppercase ISO3 currency for the whole trip",
     );
   return {
     ...t,
@@ -556,7 +715,7 @@ export function normalizeTrip(input: unknown): Itinerary {
   const hasUnknownTiming = days.some((d) => d.hasUnknownTiming),
     start = days[0].start,
     end = days.at(-1)!.end;
-  return {
+  const model: Itinerary = {
     trip,
     days,
     legs,
@@ -569,6 +728,8 @@ export function normalizeTrip(input: unknown): Itinerary {
     knownTravelDurationMs: legs.reduce((s, l) => s + (l.durationMs ?? 0), 0),
     hasUnknownTiming,
   };
+  validateBookingAllocations(model);
+  return model;
 }
 export function positionAt(
   itinerary: Itinerary,

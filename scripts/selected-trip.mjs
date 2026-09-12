@@ -13,18 +13,15 @@ const safePath = (path) =>
   path.split("/").every((p) => !!p && p !== "." && p !== "..");
 function documentPaths(source) {
   const paths = new Set();
-  for (const day of Array.isArray(source?.days) ? source.days : []) {
-    for (const owner of [
-      day,
-      ...(Array.isArray(day?.blocks) ? day.blocks : []),
-    ]) {
-      for (const doc of Array.isArray(owner?.documents)
-        ? owner.documents
-        : []) {
-        if (safePath(doc?.path)) paths.add(doc.path);
-      }
-    }
-  }
+  const owners = [
+    source,
+    ...(Array.isArray(source?.bookings) ? source.bookings : []),
+  ];
+  for (const day of Array.isArray(source?.days) ? source.days : [])
+    owners.push(day, ...(Array.isArray(day?.blocks) ? day.blocks : []));
+  for (const owner of owners)
+    for (const doc of Array.isArray(owner?.documents) ? owner.documents : [])
+      if (safePath(doc?.path)) paths.add(doc.path);
   return paths;
 }
 

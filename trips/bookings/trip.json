@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "title": "Reservations in context · illustrative demo",
+  "startDate": "2026-11-01",
+  "currency": "EUR",
+  "initialPlace": "tokyo",
+  "places": {
+    "tokyo": {
+      "name": "Tokyo",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.6762,
+        "lon": 139.6503
+      }
+    },
+    "hanoi": {
+      "name": "Hanoi",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 21.0285,
+        "lon": 105.8542
+      }
+    }
+  },
+  "budget": {
+    "countries": {
+      "JP": {
+        "livingPerDay": 20,
+        "accommodationPerNight": 50
+      },
+      "VN": {
+        "livingPerDay": 10,
+        "accommodationPerNight": 30
+      }
+    }
+  },
+  "documents": [
+    {
+      "label": "Journey notes",
+      "path": "documents/journey.txt"
+    }
+  ],
+  "days": [
+    {
+      "title": "Arrive in Tokyo"
+    },
+    {
+      "title": "An easy day in Tokyo",
+      "documents": [
+        {
+          "label": "Museum opening notes",
+          "path": "documents/museum.txt"
+        }
+      ]
+    },
+    {
+      "title": "Fly to Hanoi",
+      "blocks": [
+        {
+          "type": "travel",
+          "id": "tokyo-hanoi",
+          "to": "hanoi",
+          "mode": "flight",
+          "estimatedCost": 200,
+          "estimatedDurationMinutes": 300
+        }
+      ]
+    },
+    {
+      "title": "A final morning in Hanoi"
+    }
+  ],
+  "bookings": [
+    {
+      "type": "accommodation",
+      "title": "Tokyo guesthouse",
+      "place": "tokyo",
+      "startDate": "2026-11-01",
+      "endDate": "2026-11-03",
+      "status": "confirmed",
+      "reference": "DEMO-TYO-123",
+      "cost": {
+        "amount": 80,
+        "status": "paid"
+      },
+      "documents": [
+        {
+          "label": "Guesthouse confirmation",
+          "path": "documents/guesthouse.txt"
+        }
+      ]
+    },
+    {
+      "type": "accommodation",
+      "title": "Hanoi courtyard hotel",
+      "place": "hanoi",
+      "startDay": 3,
+      "endDay": 4,
+      "status": "planned",
+      "cost": {
+        "amount": 35
+      },
+      "documents": [
+        {
+          "label": "Saved room details",
+          "path": "documents/room.txt"
+        }
+      ]
+    },
+    {
+      "type": "accommodation",
+      "title": "Previous Tokyo hotel",
+      "status": "cancelled",
+      "place": "tokyo",
+      "startDate": "2026-11-01",
+      "endDate": "2026-11-03",
+      "cost": {
+        "amount": 150,
+        "status": "confirmed"
+      }
+    },
+    {
+      "type": "transport",
+      "title": "Tokyo → Hanoi flight",
+      "status": "confirmed",
+      "reference": "DEMO-FLY-456",
+      "cost": {
+        "amount": 100,
+        "status": "confirmed",
+        "allocation": {
+          "type": "transport",
+          "leg": "tokyo-hanoi"
+        }
+      },
+      "documents": [
+        {
+          "label": "Flight confirmation",
+          "path": "documents/flight.txt"
+        }
+      ]
+    },
+    {
+      "type": "activity",
+      "title": "Tokyo day tour & meals",
+      "startDay": 2,
+      "place": "tokyo",
+      "status": "confirmed",
+      "cost": {
+        "amount": 30,
+        "status": "estimated",
+        "allocation": {
+          "type": "living",
+          "days": [
+            2
+          ]
+        }
+      }
+    },
+    {
+      "type": "activity",
+      "title": "Hanoi museum admission",
+      "startDay": 3,
+      "place": "hanoi",
+      "cost": {
+        "amount": 15,
+        "status": "paid",
+        "allocation": {
+          "type": "additional",
+          "day": 3
+        }
+      }
+    },
+    {
+      "type": "activity",
+      "title": "A possible cooking class",
+      "cost": {
+        "amount": 40,
+        "allocation": {
+          "type": "unallocated"
+        }
+      }
+    }
+  ]
+}

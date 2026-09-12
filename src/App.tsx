@@ -21,6 +21,7 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Files,
 } from "lucide-react";
 import {
   useEffect,
@@ -35,8 +36,8 @@ import {
 import type { CSSProperties } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { GeoPermissibleObjects } from "d3-geo";
-import { documentUrl, normalizeTrip, safeRelativePath } from "./itinerary";
-import type { Itinerary, NormalizedDay, DocumentLink, Leg } from "./itinerary";
+import { normalizeTrip, safeRelativePath } from "./itinerary";
+import type { Itinerary, NormalizedDay, Leg } from "./itinerary";
 import {
   activeLegs,
   clockAt,
@@ -77,6 +78,8 @@ import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
 import { Overview } from "./Overview";
+import { Bookings, DayBookings, Documents } from "./Bookings";
+import { hasBookingContent } from "./booking-model";
 import { ThemedSelect } from "./ThemedSelect";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { useMapLabelPreference } from "./use-map-label-preference";
@@ -174,6 +177,7 @@ function Icon({ kind }: { kind: string }) {
     (
       {
         overview: LayoutDashboard,
+        bookings: Files,
         map: MapIcon,
         calendar: CalendarIcon,
         bed: BedDouble,
@@ -1352,28 +1356,6 @@ function GroupLabels({ model, day }: { model: Itinerary; day: NormalizedDay }) {
     </span>
   );
 }
-function Documents({
-  documents,
-  folder,
-}: {
-  documents?: DocumentLink[];
-  folder: string;
-}) {
-  return documents?.length ? (
-    <div className="documents">
-      {documents.map((d, i) => (
-        <a
-          key={i}
-          href={documentUrl(folder, d.path)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Icon kind="link" /> {d.label}
-        </a>
-      ))}
-    </div>
-  ) : null;
-}
 function DayDetails({
   model,
   day,
@@ -1403,6 +1385,7 @@ function DayDetails({
           : `Night: ${name(model, day.overnight)}`}
       </span>
       <Bands model={model} day={day} />
+      <DayBookings model={model} dayNumber={day.index + 1} folder={folder} />
       <details key={day.index}>
         <summary>Day details · notes & documents</summary>
         {legs.map((l) => (
@@ -1441,16 +1424,23 @@ function App() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [value, setSemanticValue] = useState(0),
-    [tab, setTab] = useState<"overview" | "map" | "calendar">(() => {
-      try {
-        const saved = window.localStorage.getItem("trip-atlas-view");
-        if (saved === "overview" || saved === "map" || saved === "calendar")
-          return saved;
-      } catch {
-        /* Use Overview without storage. */
-      }
-      return "overview";
-    });
+    [tab, setTab] = useState<"overview" | "map" | "calendar" | "bookings">(
+      () => {
+        try {
+          const saved = window.localStorage.getItem("trip-atlas-view");
+          if (
+            saved === "overview" ||
+            saved === "map" ||
+            saved === "calendar" ||
+            saved === "bookings"
+          )
+            return saved;
+        } catch {
+          /* Use Overview without storage. */
+        }
+        return "overview";
+      },
+    );
   const carriedCountry = useRef("");
   const [playing, setPlaying] = useState(false);
   const [country, setCountry] = useState("");
@@ -1679,9 +1669,14 @@ function App() {
             ? `${name(itinerary, day.startPlace)} → ${name(itinerary, day.overnight ?? activeLegs(itinerary, day).at(-1)?.to)}`
             : "Route"
       : "";
+  const activeTab =
+    tab === "bookings" && itinerary && !hasBookingContent(itinerary)
+      ? "overview"
+      : tab;
+  const fullView = activeTab === "overview" || activeTab === "bookings";
   return (
     <main
-      className={`app-shell ${tab === "overview" ? "overview-shell" : ""}`}
+      className={`app-shell ${fullView ? "overview-shell" : ""}`}
       data-theme={theme}
       style={{ colorScheme: theme } as CSSProperties}
     >
@@ -1694,7 +1689,7 @@ function App() {
             </h1>
             <p className="meta">
               {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"}${tab === "overview" ? "" : ` · ${itinerary.days.length} days · ${visualGroups(itinerary).length} destinations`}`
+                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"}${activeTab === "overview" ? "" : ` · ${itinerary.days.length} days · ${visualGroups(itinerary).length} destinations`}`
                 : "A little perspective, before you go."}
             </p>
           </div>
@@ -1758,11 +1753,20 @@ function App() {
             </div>
           )}
           <nav aria-label="Trip view">
-            {(["overview", "map", "calendar"] as const).map((t) => (
+            {(
+              [
+                "overview",
+                "map",
+                "calendar",
+                ...(itinerary && hasBookingContent(itinerary)
+                  ? ["bookings" as const]
+                  : []),
+              ] as const
+            ).map((t) => (
               <button
                 key={t}
-                aria-pressed={tab === t}
-                className={tab === t ? "tab active" : "tab"}
+                aria-pressed={activeTab === t}
+                className={activeTab === t ? "tab active" : "tab"}
                 onClick={() => {
                   setPlaying(false);
                   setTab(t);
@@ -1778,7 +1782,9 @@ function App() {
                   ? "Overview"
                   : t === "map"
                     ? "Map"
-                    : "Calendar"}
+                    : t === "calendar"
+                      ? "Calendar"
+                      : "Bookings & Documents"}
               </button>
             ))}
           </nav>
@@ -1797,7 +1803,7 @@ function App() {
         </section>
       ) : itinerary && day && moment ? (
         <>
-          {tab === "overview" && (
+          {activeTab === "overview" && (
             <Overview
               key={`${selected}:${country}`}
               model={itinerary}
@@ -1805,12 +1811,22 @@ function App() {
               onSelectCountry={changeArea}
             />
           )}
+          {activeTab === "bookings" && (
+            <Bookings
+              model={itinerary}
+              country={country}
+              folder={selected.slice(0, selected.lastIndexOf("/"))}
+              onWholeTrip={() => changeArea("")}
+            />
+          )}
           <div
-            className={`view-layout ${tab === "overview" ? "map" : tab}`}
-            hidden={tab === "overview"}
+            className={`view-layout ${fullView ? "map" : activeTab}`}
+            hidden={fullView}
           >
-            <section aria-label={tab === "map" ? "Map view" : "Calendar view"}>
-              <div className="map-view" hidden={tab !== "map"}>
+            <section
+              aria-label={activeTab === "map" ? "Map view" : "Calendar view"}
+            >
+              <div className="map-view" hidden={activeTab !== "map"}>
                 <TripMap
                   key={selected}
                   model={itinerary}
@@ -1828,7 +1844,7 @@ function App() {
                   changePlaybackSpeed={changePlaybackSpeed}
                 />
               </div>
-              {tab === "calendar" && (
+              {activeTab === "calendar" && (
                 <Calendar
                   model={itinerary}
                   selectedDay={dayIndex}
@@ -1846,7 +1862,7 @@ function App() {
               folder={selected.slice(0, selected.lastIndexOf("/"))}
             />
           </div>
-          <footer className="scrubber" hidden={tab === "overview"}>
+          <footer className="scrubber" hidden={fullView}>
             <div className="time-head">
               <label htmlFor="trip-time">
                 {country

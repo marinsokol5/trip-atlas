@@ -1,0 +1,4 @@
+FICTIONAL FLIGHT CONFIRMATION
+Tokyo to Hanoi
+Reference: DEMO-FLY-456
+Linked to travel block tokyo-hanoi. All amounts are per person.

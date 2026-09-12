@@ -11,6 +11,7 @@ import { mapAreas } from "./view-model";
 import {
   averageLabel,
   combine,
+  costStatusAmounts,
   headlineTimeLabel,
   moneyLabel,
   nightShare,
@@ -73,7 +74,14 @@ export function Overview({
       : defaultStaySort;
   const rows = orderStayRows(data.stays, data.countries, sort);
   const hasNights = data.nights > 0;
-  const placeCostLabel = hasNights ? "Living + stay" : "Living";
+  const placeCostLabel = data.costs.activities.known
+    ? "Living + stay + activities"
+    : hasNights
+      ? "Living + stay"
+      : "Living";
+  const mixedStatuses =
+    data.costs.total.statuses?.confirmed !== undefined ||
+    data.costs.total.statuses?.paid !== undefined;
   const countrySubtotal = combine(
     ...[...data.countries]
       .filter(([code]) => code !== "unknown")
@@ -136,6 +144,7 @@ export function Overview({
   const costItems = [
     ["Living", data.costs.living],
     ["Accommodation", data.costs.accommodation],
+    ["Additional activities", data.costs.activities],
     [country ? "Domestic flights" : "Flights", data.costs.flights],
     [country ? "In-country transport" : "Other transport", data.costs.other],
     ...(unallocatedCost
@@ -186,7 +195,11 @@ export function Overview({
         {showCosts && (
           <section className="overview-metric overview-budget">
             <h3>
-              {country ? "In-country total" : "Estimated cost"}
+              {country
+                ? "In-country total"
+                : mixedStatuses
+                  ? "Trip cost"
+                  : "Estimated cost"}
               {currency ? ` · ${currency}` : ""}
             </h3>
             <p className="overview-number">
@@ -236,6 +249,32 @@ export function Overview({
               </div>
             ))}
         </div>
+      )}
+      {mixedStatuses && (
+        <div
+          className="overview-status-amounts"
+          aria-label="Cost status breakdown"
+        >
+          {costStatusAmounts(data.costs.total).map(([status, amount]) => (
+            <span key={status}>
+              {status[0].toUpperCase() + status.slice(1)}
+              <strong>{moneyLabel(amount, currency)}</strong>
+            </span>
+          ))}
+        </div>
+      )}
+      {data.unallocatedBookings.known > 0 && (
+        <section
+          className="overview-unallocated-bookings"
+          aria-label="Unallocated booking costs"
+        >
+          Unallocated booking costs
+          <strong>{moneyLabel(data.unallocatedBookings, currency)}</strong>
+          <p>
+            Excluded from the total and daily average until linked to estimates
+            or explicitly added outside the living budget.
+          </p>
+        </section>
       )}
       {showSeparateCosts &&
         (country || !countryCosts) &&
@@ -476,14 +515,26 @@ export function Overview({
           nights in transit.
         </p>
         <p>
-          Country totals include living, accommodation and travel with both
-          endpoints in that country. Between countries contains each
-          international fare once; unknown-country costs are Unassigned.
-          Average/day divides the country total by its living-budget days
-          (including transit fallback), not days touched or hotel nights. Zero
-          budget days show a dash. Travel time still includes arriving and
-          departing journeys. Place rows contain living and stays only.
+          Country totals include living, accommodation, additional activities
+          and travel with both endpoints in that country. Between countries
+          contains each international fare once; unknown-country costs are
+          Unassigned. Average/day divides the country total by its living-budget
+          days (including transit fallback), not days touched or hotel nights.
+          Zero budget days show a dash. Travel time still includes arriving and
+          departing journeys. Place rows contain living, stays and explicitly
+          additional activities; transport remains separate.
         </p>
+        {!!model.trip.bookings?.some((booking) => booking.cost) && (
+          <p>
+            Booking amounts replace only their linked estimates. Accommodation
+            totals are spread across the named nights, excluding checkout;
+            living replacements cover the entire linked daily budget. Additional
+            activities sit outside that budget. Estimated, confirmed and paid
+            are separate authored cost categories, independent of reservation
+            status. Cancelled bookings are excluded and their estimates remain.
+            Unallocated booking amounts are shown separately, outside totals.
+          </p>
+        )}
         {unallocatedTime && (
           <p>
             {timeLabel(data.times.unallocated)} of mixed travel cannot be split

@@ -1,4 +1,5 @@
-import type { Itinerary, Leg } from "./itinerary.ts";
+import { bookingAllocation } from "./booking-model.ts";
+import type { CostStatus, Itinerary, Leg } from "./itinerary.ts";
 import {
   activeLegs,
   areaDays,
@@ -16,6 +17,7 @@ export interface Amount {
   known: number;
   missing: number;
   estimated: boolean;
+  statuses?: Partial<Record<CostStatus, number>>;
 }
 const amount = (): Amount => ({
   value: 0,
@@ -31,22 +33,56 @@ function add(target: Amount, value?: number, estimated = true) {
     target.estimated ||= estimated;
   }
 }
+function addCost(
+  target: Amount,
+  value?: number,
+  status: CostStatus = "estimated",
+) {
+  add(target, value, status === "estimated");
+  if (value !== undefined) {
+    target.statuses ??= {};
+    target.statuses[status] = (target.statuses[status] ?? 0) + value;
+  }
+}
 export function combine(...values: Amount[]): Amount {
-  return values.reduce(
-    (sum, a) => ({
-      value: sum.value + a.value,
-      known: sum.known + a.known,
-      missing: sum.missing + a.missing,
-      estimated: sum.estimated || a.estimated,
-    }),
-    amount(),
+  const sum = amount();
+  for (const a of values) {
+    sum.value += a.value;
+    sum.known += a.known;
+    sum.missing += a.missing;
+    sum.estimated ||= a.estimated;
+    if (a.statuses) {
+      sum.statuses ??= {};
+      for (const status of ["estimated", "confirmed", "paid"] as const)
+        if (a.statuses[status] !== undefined)
+          sum.statuses[status] =
+            (sum.statuses[status] ?? 0) + a.statuses[status]!;
+    }
+  }
+  return sum;
+}
+export function costStatusAmounts(value: Amount): [CostStatus, Amount][] {
+  return (["estimated", "confirmed", "paid"] as const).flatMap((status) =>
+    value.statuses?.[status] === undefined
+      ? []
+      : [
+          [
+            status,
+            {
+              value: value.statuses[status]!,
+              known: 1,
+              missing: 0,
+              estimated: status === "estimated",
+            },
+          ] as [CostStatus, Amount],
+        ],
   );
 }
 export function moneyLabel(value: Amount, currency?: string): string {
   if (!value.known && value.missing) return "?";
   if (!value.known && !value.missing) return "0";
   if (!currency) return "?";
-  return `~${new Intl.NumberFormat("en-IE", { style: "currency", currency, maximumFractionDigits: 0 }).format(value.value)}${value.missing ? "+" : ""}`;
+  return `${value.estimated ? "~" : ""}${new Intl.NumberFormat("en-IE", { style: "currency", currency, maximumFractionDigits: 0 }).format(value.value)}${value.missing ? "+" : ""}`;
 }
 export function averageLabel(
   total: Amount,
@@ -198,6 +234,49 @@ export function overview(
   country = "",
   breakdown: "countries" | "places" = country ? "places" : "countries",
 ) {
+  type Override = { value: number; status: CostStatus };
+  const nightOverrides = new Map<number, Override>(),
+    livingOverrides = new Map<number, Override>(),
+    legOverrides = new Map<string, Override>();
+  const additions = new Map<number, { price: Override; place?: string }[]>();
+  const unallocatedBookings = amount();
+  for (const booking of model.trip.bookings ?? []) {
+    if (!booking.cost || booking.status === "cancelled") continue;
+    const allocation = bookingAllocation(booking, model.trip);
+    const price = {
+      value: booking.cost.amount,
+      status: booking.cost.status ?? "estimated",
+    };
+    if (!allocation) {
+      if (!country) addCost(unallocatedBookings, price.value, price.status);
+    } else if (allocation.type === "transport")
+      legOverrides.set(allocation.leg, price);
+    else if (
+      allocation.type === "accommodation" ||
+      allocation.type === "living"
+    ) {
+      const units =
+        allocation.type === "accommodation"
+          ? allocation.nights
+          : allocation.days;
+      const target =
+        allocation.type === "accommodation" ? nightOverrides : livingOverrides;
+      // Equal per-unit shares, with the final residual retained at full precision.
+      units.forEach((day, index) =>
+        target.set(day, {
+          ...price,
+          value:
+            index === units.length - 1
+              ? price.value - (price.value / units.length) * (units.length - 1)
+              : price.value / units.length,
+        }),
+      );
+    } else if (allocation.type === "additional") {
+      const list = additions.get(allocation.day) ?? [];
+      list.push({ price, place: booking.place });
+      additions.set(allocation.day, list);
+    }
+  }
   const countryOf = (id?: string) =>
     id ? model.trip.places[id]?.country : undefined;
   // Populate cost buckets alongside the existing daily allocation, never from days touched.
@@ -230,8 +309,12 @@ export function overview(
             : key === "unknown"
               ? "Unknown"
               : breakdown === "countries"
-                ? (areas.find((a) => a.country === code)?.name ?? code!)
-                : (groups.find((g) => g.key === key)?.name ?? "Unknown"),
+                ? (areas.find((a) => a.country === code)?.name ??
+                  new Intl.DisplayNames(["en"], { type: "region" }).of(code!) ??
+                  code!)
+                : (groups.find((g) => g.key === key)?.name ??
+                  (place ? model.trip.places[place]?.name : undefined) ??
+                  "Unknown"),
         color:
           key === "transit"
             ? "var(--transit)"
@@ -248,7 +331,8 @@ export function overview(
     return rows.get(key)!;
   };
   const living = amount(),
-    accommodation = amount();
+    accommodation = amount(),
+    activities = amount();
   let lastKnownPlace = countryOf(model.trip.initialPlace)
     ? model.trip.initialPlace
     : undefined;
@@ -287,18 +371,30 @@ export function overview(
     const rate = livingCountry
       ? model.trip.budget?.countries[livingCountry]
       : undefined;
+    const livingOverride = livingOverrides.get(day.index + 1);
+    const livingValue = livingOverride?.value ?? rate?.livingPerDay;
+    const livingStatus = livingOverride?.status;
     const budgetBucket = countryBucket(livingCountry);
     budgetBucket.budgetDays++;
-    add(budgetBucket.total, rate?.livingPerDay);
+    addCost(budgetBucket.total, livingValue, livingStatus);
     if (!country || livingCountry === country) {
-      add(living, rate?.livingPerDay);
+      addCost(living, livingValue, livingStatus);
       // During transit, country rows can still show the departing country's daily living cost.
-      add(row(livingPlace).cost, rate?.livingPerDay);
+      addCost(row(livingPlace).cost, livingValue, livingStatus);
     }
     if (!country && !dayCountries(model, day).length)
       row(undefined, day.inTransit ? "transit" : "unknown").daySet.add(
         day.index,
       );
+    for (const entry of additions.get(day.index + 1) ?? []) {
+      const place = entry.place ?? livingPlace,
+        code = countryOf(place);
+      addCost(countryBucket(code).total, entry.price.value, entry.price.status);
+      if (!country || code === country) {
+        addCost(activities, entry.price.value, entry.price.status);
+        addCost(row(place).cost, entry.price.value, entry.price.status);
+      }
+    }
     if (day.index === model.days.length - 1) continue;
     if (day.inTransit) {
       if (!country) {
@@ -311,12 +407,15 @@ export function overview(
       const nightRate = nightCountry
         ? model.trip.budget?.countries[nightCountry]?.accommodationPerNight
         : undefined;
-      add(countryBucket(nightCountry).total, nightRate);
+      const nightOverride = nightOverrides.get(day.index + 1);
+      const nightValue = nightOverride?.value ?? nightRate,
+        nightStatus = nightOverride?.status;
+      addCost(countryBucket(nightCountry).total, nightValue, nightStatus);
       if (country && nightCountry !== country) continue;
       const r = row(day.overnight);
       r.nights++;
-      add(accommodation, nightRate);
-      add(r.cost, nightRate);
+      addCost(accommodation, nightValue, nightStatus);
+      addCost(r.cost, nightValue, nightStatus);
     }
   }
   const legs = scopedLegs(model, country);
@@ -326,35 +425,36 @@ export function overview(
     transport = amount();
   for (const leg of model.legs) {
     const cs = legKinds(leg);
-    if (
-      cs.length === 1 &&
-      cs[0] === "walk" &&
-      leg.block.estimatedCost === undefined
-    )
-      continue;
+    const replacement = leg.block.id
+      ? legOverrides.get(leg.block.id)
+      : undefined;
+    const legValue = replacement?.value ?? leg.block.estimatedCost,
+      legStatus = replacement?.status;
+    if (cs.length === 1 && cs[0] === "walk" && legValue === undefined) continue;
     const from = countryOf(leg.from),
       to = countryOf(leg.to);
     if (!from || !to) {
       if (!country || from === country || to === country)
-        add(unassignedTravel, leg.block.estimatedCost);
+        addCost(unassignedTravel, legValue, legStatus);
     } else if (from !== to) {
       if (!country || from === country || to === country)
-        add(betweenCountries, leg.block.estimatedCost);
-    } else add(countryBucket(from).total, leg.block.estimatedCost);
+        addCost(betweenCountries, legValue, legStatus);
+    } else addCost(countryBucket(from).total, legValue, legStatus);
     // Country cost categories have the same domestic scope as the country total.
     if (country && (from !== country || to !== country)) continue;
-    add(transport, leg.block.estimatedCost);
+    addCost(transport, legValue, legStatus);
     const costKinds = [
       ...new Set(cs.map((kind) => (kind === "flights" ? "flights" : "other"))),
     ];
     if (costKinds.length === 1)
-      add(
+      addCost(
         costKinds[0] === "flights" ? flights : other,
-        leg.block.estimatedCost,
+        legValue,
+        legStatus,
       );
     else {
-      for (const c of costKinds) add(c === "flights" ? flights : other);
-      add(unallocated, leg.block.estimatedCost);
+      for (const c of costKinds) addCost(c === "flights" ? flights : other);
+      addCost(unallocated, legValue, legStatus);
     }
   }
   const stays = [...rows.values()]
@@ -374,15 +474,17 @@ export function overview(
       unassignedTravel,
     ),
     times: travelTimes(legs),
-    hasBudget: combine(living, accommodation, transport).known > 0,
-    hasStayCosts: combine(living, accommodation).known > 0,
+    unallocatedBookings,
+    hasBudget: combine(living, accommodation, transport, activities).known > 0,
+    hasStayCosts: combine(living, accommodation, activities).known > 0,
     costs: {
       living,
       accommodation,
+      activities,
       flights,
       other,
       unallocated,
-      total: combine(living, accommodation, transport),
+      total: combine(living, accommodation, transport, activities),
     },
   };
 }
