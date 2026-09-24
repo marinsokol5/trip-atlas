@@ -114,45 +114,6 @@ export function Documents({
     </div>
   ) : null;
 }
-function bookingDates(booking: Booking, model: Itinerary): string | undefined {
-  const label = (date?: string, day?: number) =>
-    date
-      ? dateLabel(date, { day: "numeric", month: "short", year: "numeric" })
-      : day
-        ? `Day ${day}`
-        : undefined;
-  const start = label(booking.startDate, booking.startDay),
-    end = label(booking.endDate, booking.endDay);
-  if (booking.startDate && booking.endDate && start !== end) {
-    // "4–5 Dec 2026", "30 Nov – 2 Dec 2026": share the parts both ends have.
-    const [a, b] = [booking.startDate, booking.endDate];
-    const from =
-      a.slice(0, 7) === b.slice(0, 7)
-        ? dateLabel(a, { day: "numeric" })
-        : a.slice(0, 4) === b.slice(0, 4)
-          ? dateLabel(a)
-          : start;
-    return `${from}${a.slice(0, 7) === b.slice(0, 7) ? "–" : " – "}${end}`;
-  }
-  if (start && end && start !== end) return `${start} – ${end}`;
-  if (start)
-    return booking.type === "accommodation" ? `Check-in ${start}` : start;
-  if (end)
-    return `${booking.type === "accommodation" ? "Check-out" : "Until"} ${end}`;
-  const a = bookingAllocation(booking, model.trip);
-  if (a?.type === "transport") {
-    const leg = model.legs.find((leg) => leg.block.id === a.leg)!;
-    return leg.day === leg.endDay
-      ? `Day ${leg.day}`
-      : `Days ${leg.day}–${leg.endDay}`;
-  }
-  if (a?.type === "additional") return `Day ${a.day}`;
-  if (a?.type === "living") return `Days ${a.days.join(", ")}`;
-  if (a?.type === "accommodation")
-    return `Nights after days ${a.nights.join(", ")}`;
-  return undefined;
-}
-/** Only unusual cost handling needs a word; a normal linked booking says nothing. */
 function allocationLabel(
   booking: Booking,
   model: Itinerary,
@@ -246,13 +207,12 @@ export function BookingCard({
   model: Itinerary;
   folder: string;
   dayNumber?: number;
-  /** A tile in the Documents grid: dates move into this chip on top. */
-  dateChip?: string;
+  /** The tile's dates, in a chip on top. */
+  dateChip: string;
   /** The tile's country flag, when the booking sits in one country. */
   country?: string;
 }) {
-  const dates = bookingDates(booking, model),
-    count = nights(booking, model),
+  const count = nights(booking, model),
     leg = transportLeg(booking, model),
     flightTime = leg && modeKind(leg) === "flight" ? legDuration(leg) : "",
     allocation = allocationLabel(booking, model),
@@ -286,7 +246,7 @@ export function BookingCard({
   const identity = (
     <div className="booking-identity">
       <h3>{booking.title}</h3>
-      {(dates || booking.place || count !== undefined || flightTime) && (
+      {(booking.place || count !== undefined || flightTime) && (
         <p className="booking-meta">
           {[
             // In a day panel "Night: <place>" already names the place.
@@ -295,7 +255,6 @@ export function BookingCard({
               model.days[dayNumber - 1].overnight !== booking.place)
               ? model.trip.places[booking.place].name
               : undefined,
-            dateChip === undefined ? dates : undefined,
             flightTime,
             count !== undefined &&
               `${count} ${count === 1 ? "night" : "nights"}`,
@@ -348,9 +307,12 @@ export function BookingCard({
   );
   const actions = (
     <div className="booking-actions">
-      {booking.coordinates && (
+      {(booking.mapUrl || booking.coordinates) && (
         <a
-          href={`https://www.google.com/maps/search/?api=1&query=${booking.coordinates.lat},${booking.coordinates.lon}`}
+          href={
+            booking.mapUrl ??
+            `https://www.google.com/maps/search/?api=1&query=${booking.coordinates!.lat},${booking.coordinates!.lon}`
+          }
           target="_blank"
           rel="noopener noreferrer"
           title="Open in Google Maps"
@@ -408,45 +370,27 @@ export function BookingCard({
     </p>
   );
   const className = `booking-card ${booking.status === "cancelled" ? "booking-cancelled" : ""}`;
-  if (dateChip !== undefined)
-    // Tile: date and buttons on top, the price row and note pinned to the bottom.
-    return (
-      <article className={`${className} booking-tile`}>
-        <div className="booking-tile-top">
-          <span className="booking-date-chip">
-            {country && <Flag code={country} />}
-            {dateChip}
-          </span>
-          {checkoutBadge}
-          {actions}
-        </div>
-        <div className="booking-card-heading">
-          {icon}
-          {identity}
-        </div>
-        {details}
-        <div className="booking-tile-money">
-          {statusBadge}
-          {price}
-          {reference}
-        </div>
-        {notes}
-      </article>
-    );
+  // Date and buttons on top, the price row and note pinned to the bottom.
   return (
-    <article className={className}>
+    <article className={`${className} booking-tile`}>
+      <div className="booking-tile-top">
+        <span className="booking-date-chip">
+          {country && <Flag code={country} />}
+          {dateChip}
+        </span>
+        {checkoutBadge}
+        {actions}
+      </div>
       <div className="booking-card-heading">
         {icon}
         {identity}
-        {checkoutBadge}
-        <div className="booking-money">
-          {statusBadge}
-          {price}
-          {reference}
-        </div>
-        {actions}
       </div>
-      <div className="booking-body">{details}</div>
+      {details}
+      <div className="booking-tile-money">
+        {statusBadge}
+        {price}
+        {reference}
+      </div>
       {notes}
     </article>
   );
@@ -468,17 +412,28 @@ export function DayBookings({
     dayNumber,
   );
   return bookings.length ? (
-    <section className="day-bookings" aria-label="Bookings for selected day">
-      <h3>Bookings</h3>
-      {bookings.map((booking, index) => (
-        <BookingCard
-          key={index}
-          booking={booking}
-          model={model}
-          folder={folder}
-          dayNumber={dayNumber}
-        />
-      ))}
+    <section className="day-bookings" aria-label="Documents for selected day">
+      <h3>Documents</h3>
+      <div className="day-booking-tiles">
+        {bookings.map((booking, index) => {
+          const countries = bookingCountries(model, booking);
+          return (
+            <BookingCard
+              key={index}
+              booking={booking}
+              model={model}
+              folder={folder}
+              dayNumber={dayNumber}
+              dateChip={bookingDateChip(
+                booking,
+                model,
+                bookingDayIndex(booking, model) ?? dayNumber - 1,
+              )}
+              country={countries.length === 1 ? countries[0] : undefined}
+            />
+          );
+        })}
+      </div>
     </section>
   ) : null;
 }

@@ -2405,22 +2405,9 @@ main[data-theme="dark"] {
 .day-bookings {
   margin-top: 22px;
 }
-.day-bookings .booking-card {
-  padding: 14px 0;
-}
-.day-bookings .booking-card-heading {
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.day-bookings .booking-card h3 {
-  font-size: 13px;
-}
-.day-bookings .booking-type-icon {
-  width: 16px;
-  height: 16px;
-}
-.day-bookings .booking-checkout {
-  margin-left: 24px;
+.day-booking-tiles {
+  display: grid;
+  gap: 10px;
 }
 .overview-status-amounts {
   display: flex;
@@ -3397,12 +3384,6 @@ main[data-theme="dark"] {
 .booking-tile .booking-notes {
   margin: 0;
 }
-/* Every card: title, money and buttons on top; stay details below the title. */
-.booking-body {
-  margin-top: 8px;
-  padding-left: 32px;
-}
-.booking-body:empty,
 .booking-details:empty {
   display: none;
 }
@@ -3413,47 +3394,6 @@ main[data-theme="dark"] {
 }
 .booking-details > * {
   margin: 0;
-}
-.booking-body .booking-stay {
-  justify-content: flex-start;
-  margin-top: 0;
-  font-size: 12px;
-}
-.booking-money {
-  display: grid;
-  justify-items: end;
-  gap: 3px;
-  margin-left: auto;
-  text-align: right;
-}
-.booking-money + .booking-actions {
-  margin-left: 4px;
-}
-.booking-money .booking-price {
-  margin-left: 0;
-}
-.booking-money .booking-price strong {
-  font-size: 16px;
-}
-.booking-card > .booking-notes {
-  margin-left: 32px;
-}
-.day-bookings .booking-body,
-.day-bookings .booking-card > .booking-notes {
-  padding-left: 0;
-  margin-left: 0;
-}
-@media (max-width: 760px) {
-  .booking-body {
-    padding-left: 0;
-  }
-  .booking-card > .booking-notes {
-    margin-left: 0;
-  }
-}
-/* In the narrow day panel the title keeps most of the line; money wraps below it. */
-.day-bookings .booking-identity {
-  min-width: 55%;
 }
 .booking-list .booking-tile > .booking-notes,
 .booking-grid .booking-tile > .booking-notes {

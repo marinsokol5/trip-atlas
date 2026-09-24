@@ -102,6 +102,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `checkIn` (optional) gives the local check-in time as `HH:mm` or a `HH:mm-HH:mm` window.
 - `checkOut` (optional) gives the latest local check-out time as `HH:mm`.
 - `coordinates` (optional) gives the exact property `lat`/`lon`, linked to Google Maps from the booking card.
+- `mapUrl` (optional) is an https Google Maps link to the place itself (a `maps.app.goo.gl` share link or a `google.com/maps/place/…` URL); the map pin opens it instead of the bare coordinates, showing the listing rather than a dropped pin. Take it from the user or the confirmation; never invent one.
 - `baggage` (optional) lists per-person bag allowances as `{ "type": "checked" | "cabin" | "personal", "pieces": 1, "kg": 23 }`, with `kg` as the optional limit per piece.
 - `notes` (optional) adds a plain-text reminder shown on the booking card, as a quiet tip by default.
 - `important` (optional) is `true` when the note is a must rather than a tip (e.g. "Bring ¥32,000 in cash"); the card then highlights it.

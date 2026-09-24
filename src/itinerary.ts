@@ -45,6 +45,8 @@ export interface Booking {
   important?: boolean;
   /** Exact property location, linked to an external map. */
   coordinates?: { lat: number; lon: number };
+  /** A Google Maps link to the place itself, opened instead of the coordinates. */
+  mapUrl?: string;
   documents?: DocumentLink[];
   cost?: {
     /** Whole booking amount for one person, in the trip currency. */
@@ -204,6 +206,28 @@ function coordinates(value: unknown, path: string) {
     Math.abs(c.lon) > 180
   )
     fail(path, "invalid latitude/longitude");
+}
+/** The one external site Trip Atlas links to: Google Maps, over https. */
+export function isGoogleMapsUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  const host = url.hostname,
+    path = url.pathname;
+  return (
+    url.protocol === "https:" &&
+    !url.username &&
+    !url.password &&
+    (host === "maps.app.goo.gl" ||
+      /^maps\.google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host) ||
+      (/^(www\.)?google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(host) &&
+        (path === "/maps" || path.startsWith("/maps/"))) ||
+      (host === "goo.gl" && path.startsWith("/maps/")))
+  );
 }
 function string(value: unknown, path: string) {
   if (typeof value !== "string" || !value.trim())
@@ -508,6 +532,8 @@ export function parseTrip(input: unknown): Trip {
         fail(path + ".checkOut", "expected HH:mm");
       if (b.coordinates !== undefined)
         coordinates(b.coordinates, path + ".coordinates");
+      if (b.mapUrl !== undefined && !isGoogleMapsUrl(b.mapUrl))
+        fail(path + ".mapUrl", "expected an https Google Maps link");
       if (b.notes !== undefined) string(b.notes, path + ".notes");
       if (b.important !== undefined && typeof b.important !== "boolean")
         fail(path + ".important", "expected a boolean");

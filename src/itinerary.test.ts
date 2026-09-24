@@ -428,7 +428,7 @@ test("rejects estimates whose derived totals overflow", () => {
     /too large to total safely/,
   );
 });
-test("booking stay details validate meals, times, notes and coordinates", () => {
+test("booking stay details validate meals, times, notes, coordinates and map links", () => {
   const stay = (extra: Record<string, unknown>) => ({
     ...base(),
     bookings: [
@@ -443,6 +443,7 @@ test("booking stay details validate meals, times, notes and coordinates", () => 
       notes: "Pay cash",
       important: true,
       coordinates: { lat: 33.8, lon: 135.7 },
+      mapUrl: "https://maps.app.goo.gl/AbC123",
     }),
   );
   assert.equal(ok.trip.bookings![0].important, true);
@@ -474,6 +475,24 @@ test("booking stay details validate meals, times, notes and coordinates", () => 
   );
   assert.throws(() => normalizeTrip(stay({ notes: " " })), /notes/);
   assert.throws(() => normalizeTrip(stay({ important: "yes" })), /important/);
+  for (const mapUrl of [
+    "https://www.google.com/maps/place/Inn/@33.8,135.7,17z",
+    "https://www.google.co.jp/maps?q=Inn",
+    "https://maps.google.com/?cid=123",
+    "https://goo.gl/maps/xyz",
+  ])
+    assert.doesNotThrow(() => normalizeTrip(stay({ mapUrl })), mapUrl);
+  for (const mapUrl of [
+    "http://maps.app.goo.gl/AbC123",
+    "https://www.google.com/search?q=Inn",
+    "https://evil.example/maps/x",
+    "https://google.com.evil.example/maps/x",
+    "https://user@maps.app.goo.gl/x",
+    "javascript:alert(1)",
+    "not a url",
+    42,
+  ])
+    assert.throws(() => normalizeTrip(stay({ mapUrl })), /mapUrl/);
 });
 test("walk legs validate distance and climb", () => {
   const walk = (extra: Record<string, unknown>) => ({
