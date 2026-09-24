@@ -29,6 +29,7 @@ import {
   bookingCountries,
   bookingsOnDay,
   isCheckoutDay,
+  isListedBooking,
   nightBookingsOnDay,
 } from "./booking-model";
 import {
@@ -457,10 +458,7 @@ export function Bookings({
   const bookings = (model.trip.bookings ?? []).filter(
     (booking) => !country || bookingCountries(model, booking).includes(country),
   );
-  // Reservations and anything with a file; a plain expense lives in the Overview.
-  const listed = bookings.filter(
-    (booking) => booking.type !== "other" || booking.documents?.length,
-  );
+  const listed = bookings.filter(isListedBooking);
   const tripWide = listed.filter(
     (booking) => bookingDayIndex(booking, model) === undefined,
   );

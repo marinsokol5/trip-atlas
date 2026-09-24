@@ -68,6 +68,11 @@ test("legacy and empty optional content add no view; independent trip, day and t
   trip.bookings = [];
   trip.documents = [];
   assert.equal(hasBookingContent(normalizeTrip(trip)), false);
+  // A plain trip-wide expense shows in the Overview, not as an empty Documents tab.
+  trip.bookings = [{ type: "other", title: "Tour package", cost: 1495 }];
+  assert.equal(hasBookingContent(normalizeTrip(trip)), false);
+  trip.bookings[0].documents = [{ label: "Invoice", path: "docs/invoice.pdf" }];
+  assert.equal(hasBookingContent(normalizeTrip(trip)), true);
   trip.bookings = [{ type: "activity", title: "Museum" }];
   assert.equal(hasBookingContent(normalizeTrip(trip)), true);
   assert.equal(parseTrip(trip).bookings![0].status, undefined);

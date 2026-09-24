@@ -170,9 +170,13 @@ export function bookingCountries(model: Itinerary, booking: Booking): string[] {
     ),
   ];
 }
+/** A booking the Documents view lists: a plain trip-wide expense without a file lives only in the Overview. */
+export function isListedBooking(booking: Booking): boolean {
+  return booking.type !== "other" || !!booking.documents?.length;
+}
 export function hasBookingContent(model: Itinerary): boolean {
   return !!(
-    model.trip.bookings?.length ||
+    model.trip.bookings?.some(isListedBooking) ||
     model.trip.documents?.length ||
     model.days.some((day) => day.source.documents?.length) ||
     model.legs.some((leg) => leg.block.documents?.length)
