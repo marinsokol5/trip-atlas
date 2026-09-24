@@ -8,6 +8,7 @@ Trip Atlas is a local, read-only viewer for itinerary JSON files: map, calendar,
 - `npm run check`: lint, production build and all tests. Run it before finishing a change.
 - `npm start -- <file.json>...`: build, then serve those itineraries on 127.0.0.1.
 - `node scripts/cli.mjs check <file.json>...`: validate itineraries exactly as the viewer does, including linked documents.
+- `npm run build:pages`: the public demo site (one demo, base `/trip-atlas/`) in `dist-pages/`; `.github/workflows/pages.yml` deploys it on every push to `main`.
 
 ## Layout
 

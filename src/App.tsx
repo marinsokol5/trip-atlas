@@ -53,7 +53,7 @@ import {
   zoomGlobe,
 } from "./globe";
 import type { GlobeView } from "./globe";
-import { normalizeTrip } from "./itinerary";
+import { normalizeTrip, tripsRoot } from "./itinerary";
 import { loadJson, parseManifest } from "./load-trip";
 import type { TripEntry } from "./load-trip";
 import type { Itinerary, NormalizedDay, Leg } from "./itinerary";
@@ -1909,7 +1909,7 @@ function App() {
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
-    loadJson("/trips/index.json", controller.signal)
+    loadJson(tripsRoot + "index.json", controller.signal)
       .then(parseManifest)
       .then((trips) => {
         if (active) {
@@ -1939,7 +1939,7 @@ function App() {
     let active = true;
     const controller = new AbortController();
     loadJson(
-      "/trips/" + selected.split("/").map(encodeURIComponent).join("/"),
+      tripsRoot + selected.split("/").map(encodeURIComponent).join("/"),
       controller.signal,
     )
       .then((data) => {

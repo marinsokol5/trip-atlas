@@ -13,6 +13,7 @@
     "scripts/*.mjs",
     "!scripts/*.test.mjs",
     "!scripts/release.mjs",
+    "!scripts/pages.mjs",
     "skills/",
     "trips/",
     "THIRD_PARTY_NOTICES.md"
@@ -45,6 +46,7 @@
     "pretest": "npm run build",
     "check": "npm run lint && npm test",
     "prepublishOnly": "npm run check",
+    "build:pages": "tsc -b && vite build --mode pages && node scripts/pages.mjs",
     "release": "node scripts/release.mjs"
   },
   "devDependencies": {

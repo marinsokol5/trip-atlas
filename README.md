@@ -6,10 +6,7 @@ An LLM-friendly trip planner and visualizer. Your whole trip is one JSON file, a
 - Keep your bookings and documents linked in one place.
 - Give your trip a structure you and an LLM can discuss and edit together.
 
-<p>
-  <img src="https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/.github/readme/map.jpg" alt="Map view of a ten-day Japan trip" width="49%">
-  <img src="https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/.github/readme/calendar.jpg" alt="Calendar view of the same trip" width="49%">
-</p>
+**[Try the demo](https://marinsokol5.github.io/trip-atlas/)** in your browser, no install needed.
 
 ## Install
 

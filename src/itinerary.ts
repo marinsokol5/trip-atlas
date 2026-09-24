@@ -279,11 +279,13 @@ export function safeRelativePath(path: string): boolean {
     path.split("/").every((p) => !!p && p !== "." && p !== "..")
   );
 }
+/** Where demo trips are served: under the site's base path in a Vite build (e.g. GitHub Pages), else the root. */
+export const tripsRoot = (import.meta.env?.BASE_URL ?? "/") + "trips/";
 export function documentUrl(folder: string, path: string): string {
   if (!safeRelativePath(folder) || !safeRelativePath(path))
     fail("documents.path", "use a relative local path without traversal");
   return (
-    "/trips/" +
+    tripsRoot +
     [...folder.split("/"), ...path.split("/")].map(encodeURIComponent).join("/")
   );
 }
