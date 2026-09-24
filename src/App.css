@@ -1618,8 +1618,15 @@ main[data-theme="dark"] {
   border: 0;
   border-top: 1px solid var(--line);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* All · Flights · None, then the four thresholds. */
+  grid-template-columns: repeat(12, 1fr);
   gap: 5px;
+}
+.map-duration-options label {
+  grid-column: span 3;
+}
+.map-duration-options label:nth-of-type(-n + 3) {
+  grid-column: span 4;
 }
 .map-duration-options legend {
   padding: 0 0 4px;

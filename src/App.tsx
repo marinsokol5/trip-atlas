@@ -90,6 +90,7 @@ import {
   calendarCountries,
   routeCurve,
   spanCenter,
+  mapDurationFilters,
 } from "./view-model";
 import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
@@ -179,6 +180,20 @@ function TimelineInput({
 }
 const playbackSpeeds = [0.5, 1, 2, 4, 8];
 const unmovedView = { x: 0, y: 0, k: 1 };
+/** A whole trip across countries starts with flight times; a single area with trips over an hour. */
+function savedDurationFilter(
+  key: string,
+  wholeTrip: boolean,
+): MapDurationFilter {
+  try {
+    const saved = window.localStorage.getItem(key);
+    if (saved && mapDurationFilters.includes(saved as MapDurationFilter))
+      return saved as MapDurationFilter;
+  } catch {
+    // Defaults remain usable when browser storage is unavailable.
+  }
+  return wholeTrip ? "flights" : "60";
+}
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
 const color = placeColor;
@@ -462,18 +477,18 @@ function TripMap({
     () => turnedGlobe ?? { center: globeFit.center, k: 1 },
     [turnedGlobe, globeFit],
   );
-  const [durationFilter, setDurationFilter] = useState<MapDurationFilter>(
-    () => {
-      try {
-        const saved = window.localStorage.getItem("trip-atlas-duration-filter");
-        if (saved && ["all", "30", "60", "120", "240", "none"].includes(saved))
-          return saved as MapDurationFilter;
-      } catch {
-        // Defaults remain usable when browser storage is unavailable.
-      }
-      return "60";
-    },
+  // The multi-country whole trip and single areas each remember their own duration labels.
+  const durationKey = globe
+    ? "trip-atlas-duration-filter:whole"
+    : "trip-atlas-duration-filter";
+  const [durationFilter, setDurationFilter] = useState(() =>
+    savedDurationFilter(durationKey, globe),
   );
+  const [filterKey, setFilterKey] = useState(durationKey);
+  if (filterKey !== durationKey) {
+    setFilterKey(durationKey);
+    setDurationFilter(savedDurationFilter(durationKey, globe));
+  }
   const frame = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
   // The canvas around the fixed-ratio frame also shows geography, most of all on phones.
@@ -862,10 +877,7 @@ function TripMap({
                 setDurationFilter={(filter) => {
                   setDurationFilter(filter);
                   try {
-                    window.localStorage.setItem(
-                      "trip-atlas-duration-filter",
-                      filter,
-                    );
+                    window.localStorage.setItem(durationKey, filter);
                   } catch {
                     // The selection still applies for this session.
                   }

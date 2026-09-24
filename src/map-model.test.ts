@@ -562,3 +562,37 @@ test("bundled country IDs cover worldwide names and Natural Earth ISO exceptions
   );
   assert.ok(![...countries.values()].includes("ZZ"));
 });
+
+test("the Flights duration filter keeps only connections that fly", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "hanoi",
+    places: { hanoi: {}, ninhbinh: {}, bangkok: {} },
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "ninhbinh",
+            mode: "bus",
+            estimatedDurationMinutes: 150,
+          },
+        ],
+      },
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "bangkok",
+            mode: "flight",
+            estimatedDurationMinutes: 110,
+          },
+        ],
+      },
+    ],
+  });
+  const [bus, flight] = mapConnections(model);
+  assert.equal(mapConnectionVisible(model, bus, "flights"), false);
+  assert.equal(mapConnectionVisible(model, flight, "flights"), true);
+  assert.equal(mapConnectionVisible(model, bus, "120"), true);
+});

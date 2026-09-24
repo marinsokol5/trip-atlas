@@ -1,5 +1,16 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { mapDurationFilters } from "./view-model";
 import type { MapDurationFilter } from "./view-model";
+
+const durationLabels: Record<MapDurationFilter, string> = {
+  all: "All",
+  flights: "Flights",
+  none: "None",
+  "30": ">30m",
+  "60": ">1h",
+  "120": ">2h",
+  "240": ">4h",
+};
 
 export function MapLabelsMenu({
   showEndpoints,
@@ -105,16 +116,7 @@ export function MapLabelsMenu({
         </label>
         <fieldset className="map-duration-options">
           <legend>Transport durations</legend>
-          {(
-            [
-              ["all", "All"],
-              ["30", ">30m"],
-              ["60", ">1h"],
-              ["120", ">2h"],
-              ["240", ">4h"],
-              ["none", "None"],
-            ] as const
-          ).map(([value, label]) => (
+          {mapDurationFilters.map((value) => (
             <label key={value}>
               <input
                 type="radio"
@@ -123,7 +125,7 @@ export function MapLabelsMenu({
                 checked={durationFilter === value}
                 onChange={() => setDurationFilter(value)}
               />
-              <span>{label}</span>
+              <span>{durationLabels[value]}</span>
             </label>
           ))}
         </fieldset>

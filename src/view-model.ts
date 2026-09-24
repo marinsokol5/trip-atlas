@@ -348,17 +348,26 @@ export function mapConnections(
   flush();
   return result;
 }
-export type MapDurationFilter = "all" | "30" | "60" | "120" | "240" | "none";
+export type MapDurationFilter =
+  "all" | "flights" | "30" | "60" | "120" | "240" | "none";
+export const mapDurationFilters: readonly MapDurationFilter[] = [
+  "all",
+  "flights",
+  "none",
+  "30",
+  "60",
+  "120",
+  "240",
+];
 export function mapConnectionVisible(
   _model: Itinerary,
   connection: MapConnection,
   filter: MapDurationFilter,
 ) {
-  return (
-    filter !== "none" &&
-    connection.minutes !== undefined &&
-    connection.minutes > (filter === "all" ? 0 : Number(filter))
-  );
+  if (filter === "none" || connection.minutes === undefined) return false;
+  if (filter === "flights")
+    return connection.legs.some((leg) => modeKind(leg) === "flight");
+  return connection.minutes > (filter === "all" ? 0 : Number(filter));
 }
 export function mapConnectionDuration(connection: MapConnection) {
   if (connection.minutes === undefined) return "";
