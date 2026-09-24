@@ -8,20 +8,16 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 ## Writing guidance
 
-- Keep the file short: every later reader, human or LLM, reads all of it. Write only what is specific to this trip and useful on the day — no general travel advice, explanations of how estimates or pins work, disclaimers, sources, or editing history. A one-line note beats a paragraph; no note beats a redundant one.
-- Only the fields listed here exist: the app rejects any other field, so there is nowhere to park prose or extra metadata.
-- Structure first: put facts in their fields (times, durations, distance, climb, meals, check-in/out, coordinates, prices). A fact that keeps recurring without a field is a reason to extend the schema, not to write prose.
-- Notes and tips are rare. Before writing one, ask: would a sensible traveller get this wrong without it, and does it matter? If not, leave it out. Most days, journeys and bookings have none. Never write what anyone would assume or look up anyway ("start early", "bring water", "book ahead", "check opening hours", "enjoy the view"), what a field already shows (times, modes, flight numbers, meals, distance, prices, where you sleep), subjective labels ("hard", "longest day"), or routine host courtesies. One short sentence, no lists, no markdown, no links.
-- Each note has one owner, the thing it is about:
-  - A booking's `notes`: doing something with or at that booking, such as paying, a shuttle, holding luggage or a pickup ("Bring ¥32,000 in cash; no cards").
-  - A journey's `notes`: something about that journey you'd otherwise get wrong ("Meet the driver at Terminal 2, Pillar 17").
-  - An activity's `tip`: something about that place or experience that a local would tell you ("Skip the first deer; there are many more further in, with fewer people").
-  - A day's `notes`: a must-know for that day that none of the above owns, usually a consequence you must act on today ("Buy food for tomorrow: no shops between MUI and Hongu").
-- The day's plan is its `activities`, not prose: anything to see or do, from a temple to a cruise or a bath. Name each one; add a verified `mapUrl`, a `tip` or an `estimatedCost` only when they earn it. Never describe the plan in a day note.
-- Keep money in its place: `livingPerDay` covers food, drinks and small local rides only. Entrance fees, tours, cruises and passes go on the activity as `estimatedCost`, never folded into a living rate.
-- Titles stay short and plain: no series numbering or group names the `group` label already shows (not "Kumano Kodo 3: …"), no superlative tags ("(hardest climb)").
-- Booking titles are the property name only, without the platform ("(Airbnb)"); `reference` holds only a real confirmation code.
-- Fill bookings from the confirmation document: dates, `checkIn`/`checkOut`, `meals` (details such as `"18:00, Japanese"` as text), `coordinates` from its GPS, `status`, and per-person `cost.amount` (total ÷ guests). A price fixed in a foreign currency is still `confirmed`.
+- The file is the agreed plan: no options, "or" days or backup plans. Ask the user about anything undecided; anything without a field goes in your chat reply.
+- Keep it short and trip-specific: no general advice, explanations, sources or history.
+- Only the fields below exist. Put facts in fields, not prose; a recurring fact without a field means extending the schema.
+- Notes and tips are rare: only what a sensible traveller would otherwise get wrong. Never the obvious ("start early", "book ahead"), what a field shows, subjective labels or host courtesies. One sentence, no markdown or links.
+- A note belongs to what it's about: a booking ("Bring ¥32,000 in cash"), a journey ("Meet the driver at Pillar 17"), an activity's `tip` ("Skip the first deer; more further in"), or else the day ("No shops tomorrow; buy food today").
+- The day's plan is its `activities`, never a day note.
+- `livingPerDay` is food, drinks and local rides; tickets and tours are an activity's `estimatedCost`.
+- Titles short and plain, no numbering or superlatives. Booking titles are the property name; `reference` is a real code.
+- Fill bookings from the confirmation: dates, check-in/out, `meals`, GPS `coordinates`, `status`, per-person `cost.amount`.
+- Add checklist or packing items only once the user agrees to them.
 
 ## Trip
 

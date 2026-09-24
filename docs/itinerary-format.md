@@ -74,7 +74,7 @@ A day's card reads top to bottom: the header (date, countries, title, groups, wh
 
 Activity prices count under **Activities** in the Overview, in the country where you sleep that night. They never belong in `livingPerDay`, which covers food, drinks and small local rides only. An activity without `estimatedCost` is free or unknown and is never flagged as missing. The day card shows each activity's price, and "Booked" once a booking replaces its estimate.
 
-Notes and tips are for things a sensible traveller would otherwise get wrong, each on what it is about: a booking, a journey, an activity, or, when none of those owns it, the day.
+A trip file presents one agreed plan: no alternatives or backup plans. To compare options, keep each in its own trip file. Notes and tips are for things a sensible traveller would otherwise get wrong, each on what it is about: a booking, a journey, an activity, or, when none of those owns it, the day.
 
 Booking cards can also show stay details: `meals` (dinner, breakfast and lunch icons in eating order; `true`, `false`, text such as `"18:00, Japanese"` for an included meal shown on hover, or unknown when omitted), `checkIn` (`"15:00-18:00"` or `"15:00"`), a latest `checkOut` (`"10:00"`), a `notes` reminder (a quiet tip, or highlighted with `"important": true`), per-person `baggage` allowances (checked, cabin or personal item, with pieces and optional kg), and exact `coordinates`. Coordinates add a map-pin link that opens Google Maps in a new tab at that point. An optional `mapUrl`, an https Google Maps link such as a `maps.app.goo.gl` share link, opens the place's own listing instead. Google Maps is the only external site Trip Atlas links to, and nothing is fetched until you click it.
 
