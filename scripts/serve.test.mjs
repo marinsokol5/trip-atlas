@@ -114,6 +114,77 @@ test("localhost serving rejects hostile origins and active documents cannot exec
   assert.equal((await fetch(url + "/trips/index.json")).status, 200);
 });
 
+test("TRIP_ATLAS_HOSTS admits only the listed proxy names, documents included", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "trip-hosts-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, "trip.json");
+  await writeFile(
+    file,
+    JSON.stringify({
+      version: 1,
+      places: {},
+      days: [{}],
+      documents: [{ label: "Ticket", path: "ticket.pdf" }],
+    }),
+  );
+  await writeFile(join(root, "ticket.pdf"), "%PDF-1.4");
+  const status = (url, headers) =>
+    new Promise((resolve, reject) => {
+      get(url, { headers }, (response) => {
+        response.resume();
+        resolve([response.statusCode, response.headers["content-type"]]);
+      }).on("error", reject);
+    });
+  const plain = await launch(t, [file]);
+  assert.equal(
+    (
+      await status(plain + "/trips/index.json", { host: "trip.example.ts.net" })
+    )[0],
+    403,
+  );
+  const url = await launch(t, [file], {
+    TRIP_ATLAS_HOSTS: " Trip.Example.ts.net , other.example.ts.net:8443",
+  });
+  for (const headers of [
+    { host: "trip.example.ts.net" },
+    { host: "TRIP.example.ts.net" },
+    { host: "trip.example.ts.net", origin: "https://trip.example.ts.net" },
+    { host: "other.example.ts.net:8443" },
+    { host: `127.0.0.1:${new URL(url).port}` },
+  ])
+    assert.equal(
+      (await status(url + "/trips/index.json", headers))[0],
+      200,
+      JSON.stringify(headers),
+    );
+  assert.deepEqual(
+    await status(url + "/trips/selected/ticket.pdf", {
+      host: "trip.example.ts.net",
+    }),
+    [200, "application/pdf"],
+  );
+  for (const headers of [
+    { host: "attacker.example" },
+    { host: "trip.example.ts.net.attacker.example" },
+    { host: "other.example.ts.net" },
+    { host: "trip.example.ts.net", origin: "https://attacker.example" },
+    // A listed name never widens what the loopback origins accept.
+    { host: `127.0.0.1:${new URL(url).port}`, origin: "https://127.0.0.1" },
+    { host: "trip.example.ts.net", "sec-fetch-site": "cross-site" },
+  ])
+    assert.equal(
+      (await status(url + "/trips/index.json", headers))[0],
+      403,
+      JSON.stringify(headers),
+    );
+  for (const value of ["https://trip.example.ts.net", "trip.example/path", "*"])
+    await assert.rejects(
+      launch(t, [file], { TRIP_ATLAS_HOSTS: value }),
+      /TRIP_ATLAS_HOSTS/,
+      value,
+    );
+});
+
 test("selected file stays live and exposes only safe referenced documents", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "trip atlas "));
   t.after(() => rm(root, { recursive: true, force: true }));

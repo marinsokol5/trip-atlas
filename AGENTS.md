@@ -23,7 +23,7 @@ Trip Atlas is a local, read-only viewer for itinerary JSON files: map, calendar,
 
 - A schema, field meaning, validation or document path change updates `skills/trip-atlas-update-itinerary/SKILL.md`, the README and the relevant tests in the same change.
 - The app never writes itineraries or documents, and it fetches nothing at runtime. The only outbound links are ones the user clicks.
-- Keep the server's security boundary intact: loopback only, GET/HEAD only, Host and Origin checks, and only declared document paths inside each itinerary's folder. Add a regression test when touching `scripts/files.mjs`, `http.mjs` or `serve.mjs`.
+- Keep the server's security boundary intact: loopback only, GET/HEAD only, Host and Origin checks (extra hosts only through the opt-in `TRIP_ATLAS_HOSTS`), and only declared document paths inside each itinerary's folder. Add a regression test when touching `scripts/files.mjs`, `http.mjs` or `serve.mjs`.
 - The published package has no runtime dependencies: React, d3 and lucide are bundled into `dist/` and stay in `devDependencies`. Runtime scripts must run on Node 22 as plain JavaScript, without importing TypeScript.
 - Develop and test with the demos or temporary files. Never commit personal itineraries, tickets, confirmation codes, names or home locations; fixtures, tests and screenshots use fictional data.
 - Do not modify a user's own itinerary unless they explicitly ask for itinerary editing.

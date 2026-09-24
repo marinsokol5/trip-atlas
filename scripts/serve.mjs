@@ -6,11 +6,12 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { staticFiles } from "./files.mjs";
 import { selectedTrips } from "./selected-trip.mjs";
-import { appPolicy, localRequests } from "./http.mjs";
+import { appPolicy, localRequests, parseAllowedHosts } from "./http.mjs";
 
 const usage = `Usage: trip-atlas [--no-open] [path/to/itinerary.json ...]
        trip-atlas check path/to/itinerary.json ...
-Multiple paths appear in the Journey picker. Without a path, open the demo trips. Relative paths use the invocation directory. PORT sets the port (default 4173).`;
+Multiple paths appear in the Journey picker. Without a path, open the demo trips. Relative paths use the invocation directory. PORT sets the port (default 4173).
+TRIP_ATLAS_HOSTS lists extra host names to accept, comma-separated, for a proxy such as tailscale serve.`;
 const noOpen = process.argv.includes("--no-open");
 const args = process.argv.slice(2).filter((arg) => arg !== "--no-open");
 
@@ -65,11 +66,12 @@ if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
       );
     }
     const app = staticFiles(appRoot);
+    const allowedHosts = parseAllowedHosts(process.env.TRIP_ATLAS_HOSTS);
     const port = Number(process.env.PORT ?? 4173);
     if (!Number.isInteger(port) || port < 0 || port > 65535)
       throw new Error("PORT must be an integer from 0 to 65535");
     const server = createServer((req, res) => {
-      localRequests(req, res, () => {
+      localRequests(req, res, allowedHosts, () => {
         res.setHeader("Content-Security-Policy", appPolicy);
         void trip(req, res, () => app(req, res));
       });
@@ -81,6 +83,8 @@ if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
     server.listen(port, "127.0.0.1", () => {
       const url = `http://127.0.0.1:${server.address().port}`;
       console.log(`Trip Atlas: ${url}`);
+      if (allowedHosts.length)
+        console.log(`Trip Atlas: also accepting ${allowedHosts.join(", ")}`);
       // Only an interactive terminal opens a browser; tests, CI and pipes just print the URL.
       if (!noOpen && process.stdout.isTTY) openBrowser(url);
     });

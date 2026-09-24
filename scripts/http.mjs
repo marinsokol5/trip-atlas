@@ -1,15 +1,47 @@
+/**
+ * Extra Host names the viewer answers to, such as a tailnet name in front of
+ * `tailscale serve`. Comma-separated; a port is part of the name when it is not 80/443.
+ */
+export function parseAllowedHosts(value = "") {
+  return value
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean)
+    .map((host) => {
+      let parsed;
+      try {
+        parsed = new URL(`http://${host}`);
+      } catch {
+        /* Reported below. */
+      }
+      // Letters, digits, dots and hyphens (or a bracketed IPv6 address): no wildcards.
+      if (
+        !/^([a-z0-9.-]+|\[[0-9a-f:.]+\])(:\d+)?$/.test(host) ||
+        parsed?.host !== host
+      )
+        throw new Error(
+          `TRIP_ATLAS_HOSTS: "${host}" is not a host name (write it like your-mac.tailnet.ts.net, without a scheme or path)`,
+        );
+      return host;
+    });
+}
+
 /** Keep the local viewer out of other websites' origins (including DNS rebinding). */
-export function localRequests(req, res, next) {
+export function localRequests(req, res, allowedHosts, next) {
   const host = req.headers.host;
   const port = req.socket.localPort;
+  const local = [
+    `127.0.0.1:${port}`,
+    `localhost:${port}`,
+    ...(port === 80 ? ["127.0.0.1", "localhost"] : []),
+  ].includes(host);
+  // A proxy for a listed name may terminate HTTPS in front of this loopback server.
+  const listed = !local && allowedHosts.includes(host?.toLowerCase());
+  const origins = [`http://${host}`, ...(listed ? [`https://${host}`] : [])];
   if (
-    ![
-      `127.0.0.1:${port}`,
-      `localhost:${port}`,
-      ...(port === 80 ? ["127.0.0.1", "localhost"] : []),
-    ].includes(host) ||
+    !(local || listed) ||
     (req.headers.origin !== undefined &&
-      req.headers.origin !== `http://${host}`) ||
+      !origins.includes(req.headers.origin)) ||
     (["cross-site", "same-site"].includes(req.headers["sec-fetch-site"]) &&
       req.headers["sec-fetch-mode"] !== "navigate")
   ) {
