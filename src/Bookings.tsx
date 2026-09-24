@@ -17,7 +17,10 @@ import {
   Soup,
   Ticket,
   TrainFront,
+  TriangleAlert,
 } from "lucide-react";
+import { Flag } from "./Flag";
+import { Fragment } from "react";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
 import { documentUrl } from "./itinerary";
 import {
@@ -28,6 +31,7 @@ import {
   nightBookingsOnDay,
 } from "./booking-model";
 import {
+  countryName,
   dayCountries,
   dayLabel,
   dateLabel,
@@ -197,6 +201,40 @@ function transportIcon(booking: Booking, model: Itinerary) {
     ? transportIcons[kind as keyof typeof transportIcons]
     : TrainFront;
 }
+/** The trip day (0-based) a booking starts on, or undefined for trip-wide ones. */
+function bookingDayIndex(booking: Booking, model: Itinerary) {
+  const start = model.trip.startDate;
+  if (booking.startDate && start)
+    return Math.round(
+      (Date.parse(booking.startDate) - Date.parse(start)) / 864e5,
+    );
+  if (booking.startDay !== undefined) return booking.startDay - 1;
+  const allocation = bookingAllocation(booking, model.trip);
+  if (allocation?.type === "transport") {
+    const leg = model.legs.find((leg) => leg.block.id === allocation.leg);
+    return leg ? leg.day - 1 : undefined;
+  }
+  if (allocation?.type === "additional") return allocation.day - 1;
+  if (allocation?.type === "living") return allocation.days[0] - 1;
+  if (allocation?.type === "accommodation") return allocation.nights[0] - 1;
+  return undefined;
+}
+/** The date column: "4–7" over "Nov", or "30–2" over "Nov–Dec"; "Day 3" without dates. */
+function bookingDateBlock(booking: Booking, model: Itinerary, index: number) {
+  const start = booking.startDate ?? model.days[index]?.date;
+  if (!start) return { top: `Day ${index + 1}`, bottom: "" };
+  const end = booking.endDate;
+  const day = (date: string) => String(Number(date.slice(8)));
+  const month = (date: string) => dateLabel(date, { month: "short" });
+  const range = end && end !== start;
+  return {
+    top: range ? `${day(start)}–${day(end)}` : day(start),
+    bottom:
+      range && month(end) !== month(start)
+        ? `${month(start)}–${month(end)}`
+        : month(start),
+  };
+}
 const typeLabels = {
   accommodation: "Accommodation",
   transport: "Transport",
@@ -208,11 +246,14 @@ export function BookingCard({
   model,
   folder,
   dayNumber,
+  showDates = true,
 }: {
   booking: Booking;
   model: Itinerary;
   folder: string;
   dayNumber?: number;
+  /** Off where a date column beside the card already gives them. */
+  showDates?: boolean;
 }) {
   const dates = bookingDates(booking, model),
     count = nights(booking, model),
@@ -236,6 +277,16 @@ export function BookingCard({
           : Ticket;
   const checkout =
     dayNumber !== undefined && isCheckoutDay(model, booking, dayNumber);
+  const status =
+    booking.status === "confirmed"
+      ? costStatus === "paid"
+        ? "Paid"
+        : undefined
+      : booking.status
+        ? booking.status[0].toUpperCase() + booking.status.slice(1)
+        : booking.type === "other"
+          ? undefined
+          : "Status not specified";
   return (
     <article
       className={`booking-card ${booking.status === "cancelled" ? "booking-cancelled" : ""}`}
@@ -257,7 +308,7 @@ export function BookingCard({
                   model.days[dayNumber - 1].overnight !== booking.place)
                   ? model.trip.places[booking.place].name
                   : undefined,
-                dates,
+                showDates ? dates : undefined,
                 flightTime,
                 count !== undefined &&
                   `${count} ${count === 1 ? "night" : "nights"}`,
@@ -268,76 +319,94 @@ export function BookingCard({
           )}
         </div>
         {checkout && <span className="booking-checkout">Check-out today</span>}
-        {booking.coordinates && (
-          <a
-            className="booking-map-link"
-            href={`https://www.google.com/maps/search/?api=1&query=${booking.coordinates.lat},${booking.coordinates.lon}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Open in Google Maps"
-            aria-label={`Open ${booking.title} in Google Maps`}
-          >
-            <MapPin strokeWidth={1.75} aria-hidden="true" />
-          </a>
-        )}
-      </div>
-      {(booking.checkIn || booking.checkOut || booking.meals) && (
-        <div className="booking-stay">
-          {(booking.checkIn || booking.checkOut) && (
-            <span className="booking-times">
-              {[
-                booking.checkIn && `In ${booking.checkIn.replace("-", "–")}`,
-                booking.checkOut && `Out by ${booking.checkOut}`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+        <div className="booking-money">
+          {/* Confirmed is the norm; only other states earn a badge. */}
+          {status && (
+            <span
+              className={`booking-status booking-status-${booking.status ?? "unspecified"}`}
+            >
+              {status}
             </span>
           )}
-          {booking.meals && <Meals meals={booking.meals} />}
+          {booking.cost && (
+            <span
+              className="booking-price"
+              title={`${costStatus[0].toUpperCase() + costStatus.slice(1)} price per person`}
+            >
+              <strong>
+                {costStatus === "estimated" ? "~" : ""}
+                {money(booking.cost.amount)}
+              </strong>
+              {count !== undefined && count > 1 && (
+                <small>
+                  {money(booking.cost.amount / count)}
+                  /night
+                </small>
+              )}
+            </span>
+          )}
+          {booking.reference && (
+            <span className="booking-reference">
+              Ref <strong>{booking.reference}</strong>
+            </span>
+          )}
         </div>
-      )}
-      <div className="booking-facts">
-        {/* A plain expense has no reservation to confirm. */}
-        {(booking.status || booking.type !== "other") && (
-          <span
-            className={`booking-status booking-status-${booking.status ?? "unspecified"}`}
-          >
-            {booking.status === "confirmed" && costStatus === "paid"
-              ? "Paid"
-              : booking.status
-                ? booking.status[0].toUpperCase() + booking.status.slice(1)
-                : "Status not specified"}
-          </span>
-        )}
-        {booking.reference && (
-          <span className="booking-reference">
-            Ref <strong>{booking.reference}</strong>
-          </span>
-        )}
-        {booking.cost && (
-          <span
-            className="booking-price"
-            title={`${costStatus[0].toUpperCase() + costStatus.slice(1)} price per person`}
-          >
-            <strong>
-              {costStatus === "estimated" ? "~" : ""}
-              {money(booking.cost.amount)}
-            </strong>
-            {count !== undefined && count > 1 && (
-              <small>
-                {money(booking.cost.amount / count)}
-                /night
-              </small>
-            )}
-          </span>
-        )}
+        <div className="booking-actions">
+          {booking.coordinates && (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${booking.coordinates.lat},${booking.coordinates.lon}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open in Google Maps"
+              aria-label={`Open ${booking.title} in Google Maps`}
+            >
+              <MapPin strokeWidth={1.75} aria-hidden="true" />
+            </a>
+          )}
+          {booking.documents?.map((document, index) => (
+            <a
+              key={index}
+              href={documentUrl(folder, document.path)}
+              target="_blank"
+              rel="noreferrer"
+              title={document.label}
+              aria-label={`Open ${document.label}`}
+            >
+              <FileText strokeWidth={1.75} aria-hidden="true" />
+            </a>
+          ))}
+        </div>
       </div>
-      {booking.cost && allocation && (
-        <p className="booking-allocation">{allocation}</p>
+      <div className="booking-body">
+        <div className="booking-details">
+          {(booking.checkIn || booking.checkOut || booking.meals) && (
+            <div className="booking-stay">
+              {(booking.checkIn || booking.checkOut) && (
+                <span className="booking-times">
+                  {[
+                    booking.checkIn &&
+                      `In ${booking.checkIn.replace("-", "–")}`,
+                    booking.checkOut && `Out by ${booking.checkOut}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              )}
+              {booking.meals && <Meals meals={booking.meals} />}
+            </div>
+          )}
+          {!!booking.baggage?.length && <Baggage bags={booking.baggage} />}
+          {booking.cost && allocation && (
+            <p className="booking-allocation">{allocation}</p>
+          )}
+        </div>
+      </div>
+      {booking.notes && (
+        <p className="booking-notes">
+          <TriangleAlert strokeWidth={1.9} aria-hidden="true" />
+          <span>{booking.notes}</span>
+        </p>
       )}
-      {!!booking.baggage?.length && <Baggage bags={booking.baggage} />}
-      {booking.notes && <p className="booking-notes">{booking.notes}</p>}
-      <Documents documents={booking.documents} folder={folder} />
     </article>
   );
 }
@@ -386,6 +455,32 @@ export function Bookings({
   const bookings = (model.trip.bookings ?? []).filter(
     (booking) => !country || bookingCountries(model, booking).includes(country),
   );
+  // Reservations and anything with a file; a plain expense lives in the Overview.
+  const listed = bookings.filter(
+    (booking) => booking.type !== "other" || booking.documents?.length,
+  );
+  const tripWide = listed.filter(
+    (booking) => bookingDayIndex(booking, model) === undefined,
+  );
+  let chapter: string | undefined;
+  const dated = listed
+    .flatMap((booking) => {
+      const index = bookingDayIndex(booking, model);
+      return index === undefined ? [] : [{ booking, index }];
+    })
+    .sort((a, b) => a.index - b.index)
+    .map(({ booking, index }) => {
+      const countries = bookingCountries(model, booking);
+      // A new country opens a chapter; journeys between countries stay in between.
+      const country = countries.length === 1 ? countries[0] : undefined;
+      const opens = country && country !== chapter ? country : undefined;
+      if (country) chapter = country;
+      return {
+        booking,
+        chapter: opens,
+        date: bookingDateBlock(booking, model, index),
+      };
+    });
   const days = model.days.filter(
     (day) =>
       day.source.documents?.length &&
@@ -409,7 +504,7 @@ export function Bookings({
       <header className="bookings-heading">
         <h2>Documents</h2>
       </header>
-      {!bookings.length && !hasDocuments && country && (
+      {!listed.length && !hasDocuments && country && (
         <div className="booking-scope-empty">
           <p>No bookings or documents for this area.</p>
           <button className="overview-back" onClick={onWholeTrip}>
@@ -418,39 +513,41 @@ export function Bookings({
         </div>
       )}
       <div
-        className={`bookings-layout ${bookings.length && hasDocuments ? "has-documents" : ""}`}
+        className={`bookings-layout ${listed.length && hasDocuments ? "has-documents" : ""}`}
       >
-        {!!bookings.length && (
-          <div className="booking-groups">
-            {(["accommodation", "transport", "activity", "other"] as const).map(
-              (type) => {
-                const group = bookings.filter(
-                  (booking) => booking.type === type,
-                );
-                return group.length ? (
-                  <section
-                    className="booking-group"
-                    key={type}
-                    aria-label={typeLabels[type]}
-                  >
-                    <h3>
-                      {type === "activity" ? "Activities" : typeLabels[type]}{" "}
-                      <span>{group.length}</span>
-                    </h3>
-                    <div className="booking-grid">
-                      {group.map((booking, index) => (
-                        <BookingCard
-                          key={index}
-                          booking={booking}
-                          model={model}
-                          folder={folder}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                ) : null;
-              },
+        {!!listed.length && (
+          <div className="booking-list">
+            {!!tripWide.length && (
+              <h3 className="booking-chapter">Whole trip</h3>
             )}
+            {tripWide.map((booking, index) => (
+              <div className="booking-row" key={`trip-${index}`}>
+                <span className="booking-date" />
+                <BookingCard booking={booking} model={model} folder={folder} />
+              </div>
+            ))}
+            {dated.map(({ booking, chapter, date }, index) => (
+              <Fragment key={index}>
+                {chapter && (
+                  <h3 className="booking-chapter">
+                    <Flag code={chapter} />
+                    {countryName(chapter)}
+                  </h3>
+                )}
+                <div className="booking-row">
+                  <span className="booking-date">
+                    <strong>{date.top}</strong>
+                    {date.bottom && <span>{date.bottom}</span>}
+                  </span>
+                  <BookingCard
+                    booking={booking}
+                    model={model}
+                    folder={folder}
+                    showDates={false}
+                  />
+                </div>
+              </Fragment>
+            ))}
           </div>
         )}
         {hasDocuments && (
