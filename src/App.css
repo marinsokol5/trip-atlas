@@ -2703,7 +2703,6 @@ main[data-theme="dark"] {
   background: var(--note-bg);
   border-radius: 6px;
   color: var(--ink);
-  font-weight: 500;
 }
 .booking-notes.is-important svg {
   width: 15px;
@@ -3468,13 +3467,23 @@ main[data-theme="dark"] {
 .booking-date-chip .flag {
   font-size: 12px;
 }
-/* Tips read green: helpful, not urgent. */
+/* Tips sit in a green box, important notes in amber: same shape, different weight. */
 main {
   --tip: #2f7a4a;
+  --tip-bg: #e4f3e9;
 }
 main[data-theme="dark"] {
   --tip: #7cc79a;
+  --tip-bg: #1f3a2b;
 }
 .booking-notes:not(.is-important) {
+  padding: 8px 10px;
+  background: var(--tip-bg);
+  border-radius: 6px;
+  color: var(--ink);
+}
+.booking-notes:not(.is-important) svg {
+  width: 15px;
+  height: 15px;
   color: var(--tip);
 }
