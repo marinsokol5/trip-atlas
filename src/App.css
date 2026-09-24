@@ -2076,6 +2076,10 @@ main[data-theme="dark"] {
   .overview-table td {
     font-size: 12px;
   }
+  .overview-toggle button {
+    min-height: 40px;
+    padding-inline: 14px;
+  }
   .overview-costs {
     gap: 10px 24px;
   }
@@ -2456,7 +2460,7 @@ main[data-theme="dark"] {
     font-size: 23px;
   }
   .view-toolbar nav {
-    gap: 16px;
+    gap: 8px;
     max-width: 100%;
     overflow-x: auto;
   }
@@ -2464,6 +2468,9 @@ main[data-theme="dark"] {
     flex-shrink: 0;
     white-space: nowrap;
     font-size: 12px;
+    /* A finger-sized target; the padding replaces most of the gap between tabs. */
+    min-height: 44px;
+    padding: 14px 8px 11px;
   }
   .view-toolbar .tab .icon {
     width: 15px;
@@ -2472,7 +2479,7 @@ main[data-theme="dark"] {
 }
 @media (max-width: 440px) {
   .view-toolbar nav {
-    gap: 13px;
+    gap: 0;
     width: 100%;
   }
   .view-toolbar .tab .icon {
@@ -3110,17 +3117,37 @@ main[data-theme="dark"] {
 .overview-table td.overview-share {
   color: var(--muted);
 }
+.overview-inline-share {
+  display: none;
+  color: var(--muted);
+  font-size: 11px;
+}
 @media (max-width: 760px) {
-  /* Six columns need room: the breakdown scrolls sideways on phones instead of breaking names. */
-  .overview-stays .overview-table {
-    min-width: 480px;
+  /* Phones fold each share under its value, so the breakdown fits without scrolling sideways. */
+  .overview-table .overview-share,
+  .overview-col-share {
+    display: none;
+  }
+  .overview-inline-share {
+    display: block;
+    margin-top: 2px;
+  }
+  .overview-stays .overview-table th:first-child {
+    width: auto;
   }
   .overview-col-cost {
-    width: 64px;
+    width: 60px;
   }
-  .overview-col-share,
   .overview-col-nights {
-    width: 42px;
+    width: 56px;
+  }
+  .overview-stays .overview-place {
+    gap: 6px;
+  }
+  /* Taller hit areas for the sort headings without making the header row taller. */
+  .overview-sort {
+    padding-block: 15px;
+    margin-block: -15px;
   }
 }
 /* Wide screens: the Overview fits the window like Map and Calendar. */

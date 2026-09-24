@@ -133,7 +133,16 @@ export function Overview({
     days?: number;
   }) => (
     <>
-      {costColumns && <td>{cost ? moneyLabel(cost, currency) : "—"}</td>}
+      {costColumns && (
+        <td>
+          {cost ? moneyLabel(cost, currency) : "—"}
+          {countryCosts && cost && cost.value > 0 && (
+            <small className="overview-inline-share">
+              {percent(cost.value, data.costs.total.value)}
+            </small>
+          )}
+        </td>
+      )}
       {countryCosts && (
         <td className="overview-share">
           {cost && cost.value > 0
@@ -141,7 +150,14 @@ export function Overview({
             : "—"}
         </td>
       )}
-      <td hidden={!hasNights}>{nights ?? "—"}</td>
+      <td hidden={!hasNights}>
+        {nights ?? "—"}
+        {nights !== undefined && (
+          <small className="overview-inline-share">
+            {percent(nights, data.nights)}
+          </small>
+        )}
+      </td>
       <td hidden={!hasNights} className="overview-share">
         {nights !== undefined ? percent(nights, data.nights) : "—"}
       </td>
@@ -589,9 +605,11 @@ export function Overview({
                   {countryCosts
                     ? sortHeading("total", "Cost")
                     : data.hasStayCosts && <th>{placeCostLabel}</th>}
-                  {countryCosts && <th>Cost %</th>}
+                  {countryCosts && <th className="overview-share">Cost %</th>}
                   {sortHeading("nights", "Nights", !hasNights)}
-                  <th hidden={!hasNights}>Nights %</th>
+                  <th hidden={!hasNights} className="overview-share">
+                    Nights %
+                  </th>
                   {countryCosts && sortHeading("average", "Avg/day")}
                 </tr>
               </thead>
