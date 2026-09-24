@@ -189,10 +189,17 @@ export function mapArea(model: Itinerary, country = "") {
   const placeIds = new Set(
     country ? occurrences : Object.keys(model.trip.places),
   );
-  const groups = visualGroups(model).flatMap((group) => {
-    const members = group.members.filter((id) => placeIds.has(id));
-    return members.length ? [{ ...group, members }] : [];
-  });
+  // Number groups in travel order; places never visited follow in file order.
+  const firstVisit = (members: string[]) => {
+    const index = occurrences.findIndex((id) => members.includes(id));
+    return index < 0 ? occurrences.length : index;
+  };
+  const groups = visualGroups(model)
+    .flatMap((group) => {
+      const members = group.members.filter((id) => placeIds.has(id));
+      return members.length ? [{ ...group, members }] : [];
+    })
+    .sort((a, b) => firstVisit(a.members) - firstVisit(b.members));
   return { placeIds, groups, first: occurrences[0], last: occurrences.at(-1) };
 }
 

@@ -334,6 +334,30 @@ test("map areas follow visits and scope chronological endpoints and cross-countr
   assert.equal(mapArea(model, "TH").placeIds.size, 0);
 });
 
+test("map groups are numbered in travel order, not file order", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "ams",
+    groups: { trail: { name: "Trail" } },
+    places: {
+      kyoto: { country: "JP" },
+      unused: { country: "TH" },
+      hike: { country: "JP", group: "trail" },
+      hanoi: { country: "VN" },
+      ams: { country: "NL" },
+    },
+    days: [
+      { blocks: [{ type: "travel", to: "hanoi" }] },
+      { blocks: [{ type: "travel", to: "kyoto" }] },
+      { blocks: [{ type: "travel", to: "hike" }] },
+    ],
+  });
+  const names = (country?: string) =>
+    mapArea(model, country).groups.map((group) => group.name);
+  assert.deepEqual(names(), ["ams", "hanoi", "kyoto", "Trail", "unused"]);
+  assert.deepEqual(names("JP"), ["kyoto", "Trail"]);
+});
+
 test("country endpoints retain unmapped place resets, even without travel legs", () => {
   const model = normalizeTrip({
     version: 1,
