@@ -343,18 +343,7 @@ export function overview(
   const remember = (place?: string) => {
     if (countryOf(place)) lastKnownPlace = place;
   };
-  for (const day of model.days) {
-    const places = [
-      day.startPlace,
-      ...(day.source.blocks?.flatMap((b) =>
-        b.type === "place" ? [b.place] : [b.from, b.to],
-      ) ?? []),
-      ...activeLegs(model, day).flatMap((l) => [l.from, l.to]),
-      day.overnight,
-    ];
-    for (const place of places)
-      if (place && (!country || countryOf(place) === country))
-        row(place).daySet.add(day.index);
+  const livingPlaces = model.days.map((day) => {
     // Follow real block order; a visit before an unknown-location departure can
     // change the last known country without ever becoming an overnight stay.
     remember(day.startPlace);
@@ -370,18 +359,45 @@ export function overview(
       }
     }
     if (!day.inTransit) remember(day.overnight);
-    const livingPlace = day.inTransit ? lastKnownPlace : day.overnight;
+    return day.inTransit ? lastKnownPlace : day.overnight;
+  });
+  // Days before the first stay country and after the last are ordinary life at home,
+  // however the traveler reaches the airport: no living budget unless explicitly added.
+  const stayCountries = new Set(areas.map((area) => area.country));
+  const away = livingPlaces.map((place) =>
+    stayCountries.has(countryOf(place) ?? ""),
+  );
+  const firstAway = away.indexOf(true),
+    lastAway = away.lastIndexOf(true);
+  const homeDay = (index: number) =>
+    firstAway >= 0 && (index < firstAway || index > lastAway);
+  for (const day of model.days) {
+    const places = [
+      day.startPlace,
+      ...(day.source.blocks?.flatMap((b) =>
+        b.type === "place" ? [b.place] : [b.from, b.to],
+      ) ?? []),
+      ...activeLegs(model, day).flatMap((l) => [l.from, l.to]),
+      day.overnight,
+    ];
+    for (const place of places)
+      if (place && (!country || countryOf(place) === country))
+        row(place).daySet.add(day.index);
+    const livingPlace = livingPlaces[day.index];
     const livingCountry = countryOf(livingPlace);
     const rate = livingCountry
       ? model.trip.budget?.countries[livingCountry]
       : undefined;
     const livingOverride = livingOverrides.get(day.index + 1);
-    const livingValue = livingOverride?.value ?? rate?.livingPerDay;
+    const home = homeDay(day.index);
+    const livingValue =
+      livingOverride?.value ?? (home ? undefined : rate?.livingPerDay);
     const livingStatus = livingOverride?.status;
     const budgetBucket = countryBucket(livingCountry);
-    budgetBucket.budgetDays++;
-    addCost(budgetBucket.total, livingValue, livingStatus);
-    if (!country || livingCountry === country) {
+    if (!home) budgetBucket.budgetDays++;
+    if (!home || livingOverride)
+      addCost(budgetBucket.total, livingValue, livingStatus);
+    if ((!home || livingOverride) && (!country || livingCountry === country)) {
       addCost(living, livingValue, livingStatus);
       // During transit, country rows can still show the departing country's daily living cost.
       addCost(row(livingPlace).cost, livingValue, livingStatus);
@@ -462,6 +478,18 @@ export function overview(
     }
   }
   const stays = [...rows.values()]
+    .filter((r) => {
+      // Home and layover countries appear only once something is spent there.
+      if (breakdown !== "countries" || stayCountries.has(r.key)) return true;
+      const total = countries.get(r.key)?.total;
+      return (
+        r.key === "transit" ||
+        r.key === "unknown" ||
+        r.nights > 0 ||
+        !!total?.known ||
+        !!total?.missing
+      );
+    })
     .map(({ daySet, ...r }) => ({ ...r, days: daySet.size }))
     .sort((a, b) => b.nights - a.nights || b.days - a.days);
   return {

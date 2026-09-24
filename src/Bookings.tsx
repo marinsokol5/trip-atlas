@@ -27,7 +27,13 @@ import {
   isCheckoutDay,
   nightBookingsOnDay,
 } from "./booking-model";
-import { dayCountries, dayLabel, dateLabel, modeKind } from "./view-model";
+import {
+  dayCountries,
+  dayLabel,
+  dateLabel,
+  legDuration,
+  modeKind,
+} from "./view-model";
 
 /** Meals in the order they happen for one night: dinner, breakfast, lunch box. */
 const mealKinds = [
@@ -176,13 +182,16 @@ const transportIcons = {
   ferry: Ship,
   car: Car,
 } as const;
+/** The journey a transport booking pays for. */
+function transportLeg(booking: Booking, model: Itinerary) {
+  const allocation = bookingAllocation(booking, model.trip);
+  return allocation?.type === "transport"
+    ? model.legs.find((leg) => leg.block.id === allocation.leg)
+    : undefined;
+}
 /** A transport booking takes the icon of the journey it pays for. */
 function transportIcon(booking: Booking, model: Itinerary) {
-  const allocation = bookingAllocation(booking, model.trip);
-  const leg =
-    allocation?.type === "transport"
-      ? model.legs.find((leg) => leg.block.id === allocation.leg)
-      : undefined;
+  const leg = transportLeg(booking, model);
   const kind = leg && modeKind(leg);
   return kind && kind in transportIcons
     ? transportIcons[kind as keyof typeof transportIcons]
@@ -207,6 +216,8 @@ export function BookingCard({
 }) {
   const dates = bookingDates(booking, model),
     count = nights(booking, model),
+    leg = transportLeg(booking, model),
+    flightTime = leg && modeKind(leg) === "flight" ? legDuration(leg) : "",
     allocation = allocationLabel(booking, model),
     costStatus = booking.cost?.status ?? "estimated",
     money = (amount: number) =>
@@ -237,7 +248,7 @@ export function BookingCard({
         />
         <div className="booking-identity">
           <h3>{booking.title}</h3>
-          {(dates || booking.place || count !== undefined) && (
+          {(dates || booking.place || count !== undefined || flightTime) && (
             <p className="booking-meta">
               {[
                 // In a day panel "Night: <place>" already names the place.
@@ -247,6 +258,7 @@ export function BookingCard({
                   ? model.trip.places[booking.place].name
                   : undefined,
                 dates,
+                flightTime,
                 count !== undefined &&
                   `${count} ${count === 1 ? "night" : "nights"}`,
               ]

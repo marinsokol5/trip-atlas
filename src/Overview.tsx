@@ -521,8 +521,9 @@ export function Overview({
         <p>
           All costs are per person. ~ means estimated; + means some values are
           missing; ? means unknown. No daily budget or travel prices are
-          assumed. Living costs use one country per day; accommodation excludes
-          nights in transit.
+          assumed. Living costs use one country per day, skipping days at home
+          before departure and after return; accommodation excludes nights in
+          transit.
         </p>
         <p>
           Country totals include living, accommodation, additional activities

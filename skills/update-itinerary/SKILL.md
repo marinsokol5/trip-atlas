@@ -84,7 +84,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Budget: `budget`
 
 - `countries` (required with budget) maps uppercase two-letter country codes to rate objects.
-- `countries[code].livingPerDay` (optional) gives a finite, nonnegative daily living estimate per person.
+- `countries[code].livingPerDay` (optional) gives a finite, nonnegative daily living estimate per person, not charged on home days before the first night-stay country or after the last.
 - `countries[code].accommodationPerNight` (optional) gives a finite, nonnegative nightly accommodation share per person, excluding transit nights and the final day.
 
 ## Booking: `bookings[]`

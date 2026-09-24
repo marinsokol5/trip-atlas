@@ -47,7 +47,7 @@ Every price is **per person**, in one trip `currency`. A shared room price must 
 }
 ```
 
-These are illustrative inputs, not price recommendations. `livingPerDay` is charged once per day, assigned to the overnight country or the last known/departing country during transit; the final day uses its final location. `accommodationPerNight` applies only to known hotel nights before the final day. In-transit nights incur no hotel estimate. Unknown countries do not borrow another country's rates; unused country budgets have no effect.
+These are illustrative inputs, not price recommendations. `livingPerDay` is charged once per day, assigned to the overnight country or the last known/departing country during transit; the final day uses its final location. Days before reaching the first country with a night, and after leaving the last, count as home and carry no living budget; add a taxi leg or a booking for anything spent there. `accommodationPerNight` applies only to known hotel nights before the final day. In-transit nights incur no hotel estimate. Unknown countries do not borrow another country's rates; unused country budgets have no effect.
 
 A travel block's `estimatedCost` covers that entire journey. Domestic travel is assigned to its country. International travel is counted once in **Between countries**; travel with unknown endpoint country goes to **Unassigned**. Country totals + Between countries + Unassigned + Other expenses reconcile with the whole trip. Place rows show living, accommodation and explicitly additional activities; transport remains separate.
 

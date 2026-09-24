@@ -63,6 +63,7 @@ import {
   momentAt,
   mapMomentAt,
   mapAreas,
+  mapCountries,
   mapHighlightedCountries,
   areaDays,
   scopedPosition,
@@ -76,7 +77,7 @@ import {
   modeKind,
   legDuration,
   dayBands,
-  modeDurations,
+  dayModeDurations,
   mapRoute,
   mapPointStyle,
   transferPlaces,
@@ -426,9 +427,9 @@ function TripMap({
   const [tooltipPlace, setTooltipPlace] = useState<string | null>(null);
 
   const area = useMemo(() => mapArea(model, country), [model, country]);
-  // A whole trip across countries sits on a turnable globe; one country stays a flat map.
+  // A whole trip across countries, origin included, sits on a turnable globe; one country stays a flat map.
   const globe = useMemo(
-    () => !country && mapAreas(model).length > 1,
+    () => !country && mapCountries(model).length > 1,
     [model, country],
   );
   const [flatView, setFlatView] = useState(unmovedView);
@@ -1406,8 +1407,16 @@ function Calendar({
                 )}
                 <GroupLabels model={model} day={day} />
                 <span className="cell-chips">
-                  {modeDurations(activeLegs(model, day)).map((m) => (
-                    <span key={m.kind} className="leg-chip" title={m.kind}>
+                  {dayModeDurations(model, day).map((m) => (
+                    <span
+                      key={m.kind}
+                      className="leg-chip"
+                      title={
+                        m.total
+                          ? `${m.label ? `${m.label} of ` : ""}${m.total} ${m.kind}`
+                          : m.kind
+                      }
+                    >
                       <Icon kind={m.kind} />
                       <span>{m.label}</span>
                       <span className="sr-only">{m.kind}</span>

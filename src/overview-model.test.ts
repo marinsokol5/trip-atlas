@@ -524,3 +524,79 @@ test("zero-day country retains domestic total and transit fallback owns budget d
   data = reconcile(trip);
   assert.equal(averageLabel(data.countries.get("VN")!.total, 2, "EUR"), "~€0");
 });
+
+test("home days before the first stay country and after the last carry no living budget", () => {
+  const trip = (homeLeg = false) =>
+    normalizeTrip({
+      version: 1,
+      currency: "EUR",
+      initialPlace: "home",
+      places: {
+        home: { country: "NL" },
+        ams: { country: "NL" },
+        hanoi: { country: "VN" },
+        zagreb: { country: "HR" },
+      },
+      budget: {
+        countries: {
+          NL: { livingPerDay: 30 },
+          VN: { livingPerDay: 35 },
+          HR: { livingPerDay: 25 },
+        },
+      },
+      days: [
+        {
+          blocks: [
+            ...(homeLeg
+              ? [
+                  {
+                    type: "travel" as const,
+                    to: "ams",
+                    mode: "taxi",
+                    estimatedCost: 40,
+                  },
+                ]
+              : []),
+            {
+              type: "travel" as const,
+              ...(homeLeg ? {} : { from: "ams" }),
+              to: "hanoi",
+              mode: "flight",
+              start: "16:00",
+              end: "09:00",
+              endDay: 2,
+            },
+          ],
+        },
+        {},
+        {},
+        { blocks: [{ type: "travel", to: "zagreb", mode: "flight" }] },
+      ],
+    });
+  const plain = overview(trip(), "", "countries");
+  // Day 1 at Schiphol and the final day at home in Zagreb are ordinary life.
+  assert.equal(plain.costs.living.value, 2 * 35);
+  assert.equal(plain.costs.living.missing, 0);
+  assert.deepEqual(
+    plain.stays.map((row) => row.key),
+    ["VN", "transit"],
+  );
+  assert.equal(plain.countries.get("VN")!.budgetDays, 2);
+  // Something spent at home brings the country back as a row.
+  const taxi = overview(trip(true), "", "countries");
+  assert.equal(taxi.countries.get("NL")!.total.value, 40);
+  assert.ok(taxi.stays.some((row) => row.key === "NL"));
+  assert.equal(taxi.costs.living.value, 2 * 35);
+});
+
+test("a trip that starts at its destination counts its first day", () => {
+  const model = normalizeTrip({
+    version: 1,
+    currency: "EUR",
+    initialPlace: "tokyo",
+    places: { tokyo: { country: "JP" } },
+    budget: { countries: { JP: { livingPerDay: 40 } } },
+    days: [{}, {}, {}],
+  });
+  assert.equal(overview(model).costs.living.value, 3 * 40);
+});

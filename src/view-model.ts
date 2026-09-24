@@ -164,7 +164,8 @@ export function advancePlayback(
   return { value: tripPosition(days, next), atEnd: next >= end };
 }
 
-export function mapAreas(model: Itinerary) {
+/** Every country the itinerary passes through, in visit order, including origins and layovers. */
+export function mapCountries(model: Itinerary) {
   const names = new Intl.DisplayNames(["en"], { type: "region" });
   return [
     ...new Set(
@@ -175,10 +176,30 @@ export function mapAreas(model: Itinerary) {
   ].map((country) => ({ country, name: names.of(country) ?? country }));
 }
 
+/**
+ * Countries worth their own Area: at least one night is spent there, so a home airport
+ * or a layover stays on the map without becoming a choice. The final day adds no night,
+ * and nights in transit belong to no country. A trip with no nights placed yet keeps every country.
+ */
+export function mapAreas(model: Itinerary) {
+  const nights = new Set(
+    model.days.slice(0, -1).flatMap((day) => {
+      const country =
+        !day.inTransit && day.overnight
+          ? model.trip.places[day.overnight].country
+          : undefined;
+      return country ? [country] : [];
+    }),
+  );
+  const visited = mapCountries(model);
+  const areas = visited.filter((area) => nights.has(area.country));
+  return areas.length ? areas : visited;
+}
+
 /** Highlight visited countries from the itinerary, never unused place definitions or the playhead. */
 export function mapHighlightedCountries(model: Itinerary, country = "") {
   return new Set(
-    country ? [country] : mapAreas(model).map((area) => area.country),
+    country ? [country] : mapCountries(model).map((area) => area.country),
   );
 }
 
@@ -709,6 +730,43 @@ export function modeDurations(legs: Leg[]) {
     label: timed ? `${approximate ? "~" : ""}${duration(ms)}` : "",
   }));
 }
+/** Like modeDurations for one day: an overnight journey counts only its time within the day, or its estimate on the departure day when untimed; `total` keeps its whole length. */
+export function dayModeDurations(
+  model: Itinerary,
+  day: NormalizedDay,
+): { kind: string; label: string; total?: string }[] {
+  const totals = new Map<string, string>();
+  return modeDurations(
+    activeLegs(model, day).flatMap((leg) => {
+      if (leg.day === leg.endDay) return [leg];
+      totals.set(modeKind(leg), legDuration(leg));
+      if (
+        leg.durationMs !== undefined &&
+        day.start !== undefined &&
+        day.end !== undefined
+      ) {
+        const ms =
+          Math.min(day.end, leg.arrival!) - Math.max(day.start, leg.departure!);
+        return ms > 0 ? [{ ...leg, durationMs: ms }] : [];
+      }
+      if (leg.day === day.index + 1) return [leg];
+      return [
+        {
+          ...leg,
+          durationMs: undefined,
+          block: {
+            ...leg.block,
+            estimatedDurationMinutes: undefined,
+            components: leg.block.components?.map((part) => ({
+              ...part,
+              estimatedDurationMinutes: undefined,
+            })),
+          },
+        },
+      ];
+    }),
+  ).map((m) => (totals.get(m.kind) ? { ...m, total: totals.get(m.kind) } : m));
+}
 export function durationTotals(model: Itinerary) {
   return (["transport", "walking", "mixed"] as const).map((category) => {
     const legs = model.legs
@@ -773,11 +831,15 @@ export interface DisplayBand {
   weight: number;
 }
 export function dayBands(model: Itinerary, day: NormalizedDay): DisplayBand[] {
+  const legs = activeLegs(model, day);
+  // A day that opens mid-journey really starts at that journey's origin.
+  const entering = legs.find((leg) => leg.day < day.index + 1);
+  const origin = entering ? entering.from : day.startPlace;
   // Days that end where they started (day trips, local walks) have no transfer.
   const roundTrip =
-    !!day.startPlace &&
+    !!origin &&
     !day.inTransit &&
-    groupKey(model, day.startPlace) === groupKey(model, day.overnight);
+    groupKey(model, origin) === groupKey(model, day.overnight);
   const internal = (leg: Leg) =>
     roundTrip ||
     (modeKind(leg) === "walk" &&
@@ -789,18 +851,23 @@ export function dayBands(model: Itinerary, day: NormalizedDay): DisplayBand[] {
       transfer: s.type === "travel" && !internal(s.leg!),
       weight: s.durationMs!,
     }));
-  const legs = activeLegs(model, day);
   if (!legs.length)
     return [{ place: day.overnight, transfer: false, weight: 1 }];
   const bands: DisplayBand[] = [];
-  if (day.startPlace)
-    bands.push({ place: day.startPlace, transfer: false, weight: 4 });
-  for (const leg of legs)
+  const start = () => {
+    if (day.startPlace)
+      bands.push({ place: day.startPlace, transfer: false, weight: 4 });
+  };
+  // An overnight arrival comes before the place it arrives at.
+  if (!entering) start();
+  for (const leg of legs) {
     bands.push({
       place: internal(leg) ? leg.to : undefined,
       transfer: !internal(leg),
       weight: internal(leg) ? 5 : 1,
     });
+    if (leg === entering) start();
+  }
   if (day.overnight)
     bands.push({ place: day.overnight, transfer: false, weight: 4 });
   return bands;

@@ -6,6 +6,8 @@ import {
   mapDisplayDuration,
   mapArea,
   mapAreas,
+  mapCountries,
+  mapHighlightedCountries,
   areaDays,
   dayCountries,
   calendarCountries,
@@ -308,11 +310,17 @@ test("map areas follow visits and scope chronological endpoints and cross-countr
       },
     ],
   });
-  assert.deepEqual(mapAreas(model), [
+  assert.deepEqual(mapCountries(model), [
     { country: "NL", name: "Netherlands" },
     { country: "JP", name: "Japan" },
     { country: "VN", name: "Vietnam" },
   ]);
+  // Home is the origin and the final day, so it has no night and no Area.
+  assert.deepEqual(mapAreas(model), [
+    { country: "JP", name: "Japan" },
+    { country: "VN", name: "Vietnam" },
+  ]);
+  assert.ok(mapHighlightedCountries(model).has("NL"));
   const japan = mapArea(model, "JP");
   assert.deepEqual([...japan.placeIds], ["tokyo", "kyoto"]);
   assert.equal(japan.first, "tokyo");
@@ -332,6 +340,54 @@ test("map areas follow visits and scope chronological endpoints and cross-countr
   assert.equal(mapArea(model, "VN").first, "hanoi");
   assert.equal(mapArea(model, "VN").last, "hanoi");
   assert.equal(mapArea(model, "TH").placeIds.size, 0);
+});
+
+test("only countries with a night become Areas; layovers and sketches stay sensible", () => {
+  const layover = normalizeTrip({
+    version: 1,
+    initialPlace: "ams",
+    places: {
+      ams: { country: "NL" },
+      doh: { country: "QA" },
+      bkk: { country: "TH" },
+    },
+    days: [
+      {
+        blocks: [
+          { type: "travel", to: "doh", mode: "flight" },
+          {
+            type: "travel",
+            to: "bkk",
+            mode: "flight",
+            start: "22:00",
+            end: "08:00",
+            endDay: 2,
+          },
+        ],
+      },
+      {},
+      {},
+    ],
+  });
+  assert.deepEqual(
+    mapCountries(layover).map((area) => area.country),
+    ["NL", "QA", "TH"],
+  );
+  assert.deepEqual(
+    mapAreas(layover).map((area) => area.country),
+    ["TH"],
+  );
+  // Nothing placed overnight yet: every visited country remains a choice.
+  const sketch = normalizeTrip({
+    version: 1,
+    initialPlace: "ams",
+    places: { ams: { country: "NL" }, bkk: { country: "TH" } },
+    days: [{ blocks: [{ type: "travel", to: "bkk" }] }],
+  });
+  assert.deepEqual(
+    mapAreas(sketch).map((area) => area.country),
+    ["NL", "TH"],
+  );
 });
 
 test("map groups are numbered in travel order, not file order", () => {
@@ -709,4 +765,85 @@ test("calendar chips merge legs by mode; round trips have no transfer bands", as
   assert.deepEqual(modeDurations(legs(2)), [{ kind: "train", label: "" }]);
   assert.ok(dayBands(model, model.days[0]).every((b) => !b.transfer));
   assert.ok(dayBands(model, model.days[1]).some((b) => b.transfer));
+});
+
+test("overnight journeys split chips by day and arrive before the start place", async () => {
+  const { dayModeDurations, dayBands } = await import("./view-model.ts");
+  const model = normalizeTrip({
+    version: 1,
+    startDate: "2026-11-03",
+    initialPlace: "ams",
+    places: {
+      ams: { timezone: "Europe/Amsterdam" },
+      han: { timezone: "Asia/Ho_Chi_Minh" },
+      hanoi: { timezone: "Asia/Ho_Chi_Minh" },
+      nrt: { timezone: "Asia/Tokyo" },
+    },
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "han",
+            mode: "flight",
+            start: "16:00",
+            end: "09:10",
+            endDay: 2,
+          },
+        ],
+      },
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "hanoi",
+            mode: "car",
+            estimatedDurationMinutes: 40,
+          },
+        ],
+      },
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "nrt",
+            mode: "flight",
+            estimatedDurationMinutes: 360,
+            endDay: 4,
+          },
+        ],
+      },
+      {},
+      {
+        blocks: [
+          {
+            type: "travel",
+            from: "hanoi",
+            to: "ams",
+            mode: "flight",
+            start: "23:00",
+            end: "07:00",
+            endDay: 6,
+          },
+        ],
+      },
+      {},
+    ],
+  });
+  const chips = (day: number) => dayModeDurations(model, model.days[day - 1]);
+  assert.deepEqual(chips(1), [
+    { kind: "flight", label: "8h", total: "11h 10m" },
+  ]);
+  assert.deepEqual(chips(2), [
+    { kind: "flight", label: "3h 10m", total: "11h 10m" },
+    { kind: "car", label: "~40m" },
+  ]);
+  assert.deepEqual(chips(3), [{ kind: "flight", label: "~6h", total: "~6h" }]);
+  assert.deepEqual(chips(4), [{ kind: "flight", label: "", total: "~6h" }]);
+  assert.deepEqual(
+    dayBands(model, model.days[1]).map((b) => (b.transfer ? "~" : b.place)),
+    ["~", "han", "~", "hanoi"],
+  );
+  // Returning home overnight is still a transfer, not a round trip.
+  assert.ok(dayBands(model, model.days[5])[0].transfer);
 });
