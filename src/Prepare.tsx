@@ -42,7 +42,8 @@ export function Prepare({ prepare }: { prepare: TripPreparation }) {
   return (
     <section className="prepare-view" aria-labelledby="prepare-heading">
       <header className="prepare-heading">
-        <h2 id="prepare-heading">Prepare</h2>
+        <h2 id="prepare-heading">Trip checklist</h2>
+        <p>Before you go: tasks and packing for the whole trip</p>
       </header>
       <div
         className={`prepare-layout${hasChecklist && hasPacking ? " has-both" : ""}`}

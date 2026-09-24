@@ -88,13 +88,13 @@ A complete accommodation range and matching place automatically replace exactly 
 
 Explicit `cost.allocation` can replace or add specific units:
 
-| Allocation | Effect |
-| --- | --- |
-| `{"type":"accommodation","nights":[1,2]}` | Divide the amount over the nights after days 1 and 2. No final-day or transit night. Supplied place and complete dates must match. |
-| `{"type":"transport","leg":"kyoto-nara"}` | Replace one travel block's estimate, identified by its unique authored `id`. |
-| `{"type":"living","days":[2]}` | Replace the **whole daily living allowance** for day 2 with this activity amount. This is not a ticket deduction from a larger allowance. |
-| `{"type":"additional","day":3}` | Add an activity amount outside the daily living allowance, once on day 3. Keep that expense out of the broad allowance. |
-| `{"type":"unallocated"}` | Show the amount separately, excluded from totals and automatic hotel replacement. |
+| Allocation                                | Effect                                                                                                                                    |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `{"type":"accommodation","nights":[1,2]}` | Divide the amount over the nights after days 1 and 2. No final-day or transit night. Supplied place and complete dates must match.        |
+| `{"type":"transport","leg":"kyoto-nara"}` | Replace one travel block's estimate, identified by its unique authored `id`.                                                              |
+| `{"type":"living","days":[2]}`            | Replace the **whole daily living allowance** for day 2 with this activity amount. This is not a ticket deduction from a larger allowance. |
+| `{"type":"additional","day":3}`           | Add an activity amount outside the daily living allowance, once on day 3. Keep that expense out of the broad allowance.                   |
+| `{"type":"unallocated"}`                  | Show the amount separately, excluded from totals and automatic hotel replacement.                                                         |
 
 Accommodation/transport allocations require the corresponding booking type; living/additional require an activity; `other` bookings take none. Day arrays must be nonempty, unique and inside the trip. Two active costs cannot replace the same night, living day or travel leg, even if an amount is zero. Additional activities may coexist because they replace nothing.
 
@@ -122,12 +122,16 @@ PDF, PNG, JPEG, WebP, GIF, AVIF, text and JSON receive inline MIME types, includ
 
 Preparation is trip-wide. Checklist array order supplies priority ranks; completed tasks keep their original rank. Packing groups follow first appearance of category, preserving item order within each group. Missing completion flags display as outstanding. Quantities appear only when supplied and must be positive safe integers. Counts refer to entries, not summed quantities. Edit status flags in JSON and refresh; there are no UI write actions.
 
-Bookings/Documents and Prepare tabs appear only when their data is present. A saved unavailable view falls back to Overview without losing the preference. Area belongs to each journey; Prepare hides the selector without discarding it.
+Bookings/Documents and Trip checklist tabs appear only when their data is present. A saved unavailable view falls back to Overview without losing the preference. Area belongs to each journey; Trip checklist locks the selector on Whole trip without discarding the choice.
 
 The bundled demo manifest is `trips/index.json`:
 
 ```json
-{ "trips": [{ "path": "japan/trip.json", "label": "Japan", "title": "A short journey" }] }
+{
+  "trips": [
+    { "path": "japan/trip.json", "label": "Japan", "title": "A short journey" }
+  ]
+}
 ```
 
 Paths must be unique safe relative paths containing a folder; labels must be nonempty text, and optional titles must be nonempty text. The selected-file launcher generates its manifest automatically and rereads source titles on refresh. Duplicate references to one canonical file appear once. Identical filenames gain the shortest distinguishing parent path. An unreadable alternative does not block the others.

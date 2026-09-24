@@ -1982,12 +1982,19 @@ function App() {
           </div>
         </div>
         <div className="view-toolbar">
-          {itinerary && activeTab !== "prepare" && (
+          {itinerary && (
             <div className="global-area">
               <span>Area</span>
+              {/* The checklist covers the whole trip; the Area stays in place, locked, and returns afterwards. */}
               <ThemedSelect
                 label="Trip area"
-                value={country}
+                value={activeTab === "prepare" ? "" : country}
+                disabled={activeTab === "prepare"}
+                title={
+                  activeTab === "prepare"
+                    ? "Checklist and packing cover the whole trip"
+                    : undefined
+                }
                 options={[
                   { value: "", label: "Whole trip" },
                   ...mapAreas(itinerary).map((area) => ({
@@ -2024,7 +2031,7 @@ function App() {
                       ? "Calendar"
                       : t === "bookings"
                         ? "Bookings & Documents"
-                        : "Prepare"}
+                        : "Trip checklist"}
               </button>
             ))}
           </nav>
