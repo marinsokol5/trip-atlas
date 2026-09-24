@@ -20,7 +20,7 @@ const output = (command, args) => {
     return undefined;
   }
 };
-const run = (command, args) => {
+const run = (command, args, undo) => {
   console.log(`\n$ ${command} ${args.join(" ")}`);
   const result = spawnSync(command, args, {
     cwd: root,
@@ -29,6 +29,7 @@ const run = (command, args) => {
   });
   if (result.status !== 0) {
     console.error(`\n${command} failed; stopping.`);
+    if (undo) console.error(`Undo the local release before retrying: ${undo}`);
     process.exit(result.status ?? 1);
   }
 };
@@ -99,11 +100,18 @@ if (dryRun) {
   console.log(`\nDry run done; v${version} was not tagged or published.`);
   process.exit(0);
 }
-if (part === "current")
+// check already ran above. A current version is tagged only once it is published.
+if (part === "current") {
+  run("npm", ["publish", "--ignore-scripts"]);
   run("git", ["tag", "-a", `v${version}`, "-m", `v${version}`]);
-else run("npm", ["version", part, "-m", "Release v%s"]);
-// check already ran above.
-run("npm", ["publish", "--ignore-scripts"]);
+} else {
+  run("npm", ["version", part, "-m", "Release v%s"]);
+  run(
+    "npm",
+    ["publish", "--ignore-scripts"],
+    `git tag -d v${version} && git reset --hard HEAD~1`,
+  );
+}
 run("git", ["push", "--follow-tags", "origin", "main"]);
 if (output("gh", ["--version"]))
   run("gh", [
