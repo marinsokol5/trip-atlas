@@ -118,7 +118,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 - `type` (required) is `"accommodation"`, `"transport"`, `"living"`, `"additional"`, or `"unallocated"`; living/additional require an activity, the first two match booking type, `other` bookings take none, and unallocated excludes the price.
 - `nights` (required for accommodation) lists unique 1-based days whose following nights are replaced equally, matching any supplied hotel place/dates and excluding transit and the final day.
-- `leg` (required for transport) references the travel block's authored `id` whose estimate is replaced. It is also how a flight counts as booked: the Calendar marks every flight without a non-planned, non-cancelled booking linked this way, so give booked flights' blocks an `id`.
+- `leg` (required for transport) references the travel block's authored `id` whose estimate is replaced. It is also how a flight counts as booked: once the trip has any booking, the Calendar marks every flight without a non-planned, non-cancelled booking linked this way, so give booked flights' blocks an `id`.
 - `days` (required for living) lists unique 1-based days whose entire living budgets are replaced equally by the activity price.
 - `day` (required for additional) identifies the 1-based day receiving an activity cost outside its living budget.
 

@@ -57,7 +57,7 @@ Average/day divides costs by the days assigned to that country's daily living bu
 
 Bookings are separate from the route. They never change travel times, destinations or nights. An optional reservation `status` is planned, confirmed or cancelled; missing status confirms nothing. Documents, references and paid amounts do not imply confirmation.
 
-The Calendar marks what is still to book, and counts it above the grid: each night away from home that no stay covers, and each flight with no booking linked through `cost.allocation.leg`. Planned and cancelled bookings cover nothing. Nights on a plane, the final day and ground transport are never marked.
+Once a trip has any booking, the Calendar marks what is still to book, and counts it above the grid: each night away from home that no stay covers, and each flight with no booking linked through `cost.allocation.leg`. Planned and cancelled bookings cover nothing. Nights on a plane, the final day and ground transport are never marked.
 
 Use fixed calendar `startDate` / `endDate`, or 1-based `startDay` / `endDay`, never both systems in one booking. Calendar dates stay fixed when the trip start moves. Day numbers must be inside the trip; calendar dates may be outside it. Accommodation's end is checkout and must follow its start; other date ranges include both endpoints. Either endpoint can be omitted.
 

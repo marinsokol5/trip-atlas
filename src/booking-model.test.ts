@@ -529,4 +529,9 @@ test("booking gaps: stay nights no booked stay covers and flights no booking lin
     [...gaps.unbookedFlights].map((leg) => leg.to),
     ["hanoi", "ams"],
   );
+  // A trip with no bookings is only a possible route: nothing to mark.
+  delete trip.bookings;
+  const sketch = bookingGaps(normalizeTrip(trip));
+  assert.deepEqual([sketch.nights, sketch.flights], [[], []]);
+  assert.equal(sketch.unbookedNights.size + sketch.unbookedFlights.size, 0);
 });
