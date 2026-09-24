@@ -2917,3 +2917,39 @@ main[data-theme="dark"] {
   height: 14px;
   color: var(--ink);
 }
+/* Whole multi-country trips turn on a globe floating in space. */
+main {
+  --space: #e4eaef;
+  --globe-light: #fff;
+  --globe-dark: #0b1a2a;
+}
+main[data-theme="dark"] {
+  --space: #0b131b;
+  --globe-light: #9fc3e0;
+  --globe-dark: #000;
+}
+.map-canvas.globe {
+  background: var(--space);
+}
+.globe-sphere {
+  fill: var(--water);
+  stroke: var(--coast);
+  stroke-width: 0.8;
+}
+.globe-graticule {
+  fill: none;
+  stroke: var(--coast);
+  stroke-width: 0.5;
+  opacity: 0.45;
+}
+.globe-shade {
+  pointer-events: none;
+}
+.globe-light {
+  stop-color: var(--globe-light);
+  stop-opacity: 0.16;
+}
+.globe-dark {
+  stop-color: var(--globe-dark);
+  stop-opacity: 0.18;
+}

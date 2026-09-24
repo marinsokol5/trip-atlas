@@ -579,6 +579,22 @@ export function curvePoint({ a, b, c }: Curve, t: number): Point {
     (1 - t) ** 2 * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1],
   ];
 }
+/** Middle of [longitude, latitude] points, centered across the largest longitude gap so a dateline crossing stays together. */
+export function spanCenter(points: Point[]): Point {
+  if (!points.length) return [0, 0];
+  const lons = points.map((p) => (p[0] + 360) % 360).sort((a, b) => a - b);
+  const gaps = lons.map((lon, i) => ({
+    gap: lons[(i + 1) % lons.length] + (i === lons.length - 1 ? 360 : 0) - lon,
+    i,
+  }));
+  const gap = gaps.sort((a, b) => b.gap - a.gap)[0];
+  const lon = (lons[(gap.i + 1) % lons.length] + (360 - gap.gap) / 2) % 360;
+  const lats = points.map((p) => p[1]);
+  return [
+    lon > 180 ? lon - 360 : lon,
+    (Math.min(...lats) + Math.max(...lats)) / 2,
+  ];
+}
 
 export function groupKey(model: Itinerary, id?: string) {
   return id

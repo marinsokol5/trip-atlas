@@ -35,8 +35,19 @@ import {
   useCallback,
 } from "react";
 import type { CSSProperties } from "react";
-import { geoMercator, geoPath } from "d3-geo";
-import type { GeoPermissibleObjects } from "d3-geo";
+import { geoGraticule10, geoMercator, geoPath } from "d3-geo";
+import type { GeoPermissibleObjects, GeoProjection } from "d3-geo";
+import {
+  fitGlobe,
+  globeFacing,
+  globeOrigin,
+  globeProjection,
+  globeRouteCurve,
+  globeShapes,
+  rotateGlobe,
+  zoomGlobe,
+} from "./globe";
+import type { GlobeView } from "./globe";
 import { normalizeTrip } from "./itinerary";
 import { loadJson, parseManifest } from "./load-trip";
 import type { TripEntry } from "./load-trip";
@@ -77,6 +88,7 @@ import {
   scopedCalendarSlots,
   calendarCountries,
   routeCurve,
+  spanCenter,
 } from "./view-model";
 import type { Point, MapDurationFilter } from "./view-model";
 import world from "./assets/world.json";
@@ -165,6 +177,7 @@ function TimelineInput({
   );
 }
 const playbackSpeeds = [0.5, 1, 2, 4, 8];
+const unmovedView = { x: 0, y: 0, k: 1 };
 const name = (model: Itinerary, id?: string) =>
   id ? (model.trip.places[id].name ?? id) : "Location open";
 const color = placeColor;
@@ -413,12 +426,41 @@ function TripMap({
   const [tooltipPlace, setTooltipPlace] = useState<string | null>(null);
 
   const area = useMemo(() => mapArea(model, country), [model, country]);
-  const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  // A whole trip across countries sits on a turnable globe; one country stays a flat map.
+  const globe = useMemo(
+    () => !country && mapAreas(model).length > 1,
+    [model, country],
+  );
+  const [flatView, setFlatView] = useState(unmovedView);
+  const [turnedGlobe, setGlobeView] = useState<GlobeView>();
+  // Coastlines drop to a draft while the globe is dragged, then redraw in full.
+  const [turning, setTurning] = useState(false);
   const [viewCountry, setViewCountry] = useState(country);
   if (viewCountry !== country) {
     setViewCountry(country);
-    setView({ x: 0, y: 0, k: 1 });
+    setFlatView(unmovedView);
+    setGlobeView(undefined);
   }
+  // The globe is re-projected instead of transformed, so its drawing needs no pan or zoom.
+  const view = globe ? unmovedView : flatView;
+  const locations = useMemo(
+    () =>
+      Object.entries(model.trip.places)
+        .filter(([id, p]) => area.placeIds.has(id) && p.coordinates)
+        .map(([id, p]) => ({
+          id,
+          coordinates: [p.coordinates!.lon, p.coordinates!.lat] as Point,
+        })),
+    [model, area],
+  );
+  const globeFit = useMemo(
+    () => fitGlobe(locations.map((p) => p.coordinates)),
+    [locations],
+  );
+  const globeView = useMemo(
+    () => turnedGlobe ?? { center: globeFit.center, k: 1 },
+    [turnedGlobe, globeFit],
+  );
   const [durationFilter, setDurationFilter] = useState<MapDurationFilter>(
     () => {
       try {
@@ -433,20 +475,29 @@ function TripMap({
   );
   const frame = useRef<HTMLDivElement>(null);
   const [frameSize, setFrameSize] = useState({ width: 900, height: 480 });
+  // The canvas around the fixed-ratio frame also shows geography, most of all on phones.
+  const [canvasSize, setCanvasSize] = useState({ width: 900, height: 480 });
   const frameScale = Math.min(frameSize.width / 900, frameSize.height / 480);
   useEffect(() => {
     const node = frame.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry.contentRect.width > 0 && entry.contentRect.height > 0)
-        setFrameSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
+    const canvas = node?.parentElement;
+    if (!node || !canvas) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const { target, contentRect } of entries)
+        if (contentRect.width > 0 && contentRect.height > 0)
+          (target === node ? setFrameSize : setCanvasSize)({
+            width: contentRect.width,
+            height: contentRect.height,
+          });
     });
     observer.observe(node);
+    observer.observe(canvas);
     return () => observer.disconnect();
   }, []);
+  // Map units from the globe's middle to the farthest visible canvas corner.
+  const globeReach =
+    Math.hypot(canvasSize.width, canvasSize.height) / 2 / frameScale +
+    Math.abs(globeOrigin[1] - 240);
   useEffect(() => {
     const node = frame.current;
     if (!node) return;
@@ -460,22 +511,31 @@ function TripMap({
         (event.clientX - rect.left - (rect.width - 900 * scale) / 2) / scale,
         (event.clientY - rect.top - (rect.height - 480 * scale) / 2) / scale,
       ];
-      setView((view) =>
-        zoomMap(
-          view,
-          wheelZoomFactor(event.deltaY, event.deltaMode, rect.height),
-          anchor,
-        ),
+      const factor = wheelZoomFactor(
+        event.deltaY,
+        event.deltaMode,
+        rect.height,
       );
+      if (globe)
+        setGlobeView((view) =>
+          zoomGlobe(
+            view ?? { center: globeFit.center, k: 1 },
+            factor,
+            globeFit.scale,
+            anchor,
+          ),
+        );
+      else setFlatView((view) => zoomMap(view, factor, anchor));
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [globe, globeFit]);
   const pixelScale = frameScale * view.k;
   const numbered = !showGroupNames;
   const dragged = useRef(false);
   const drag = useRef<
-    { x: number; y: number; vx: number; vy: number } | undefined
+    | { x: number; y: number; vx: number; vy: number; globe: GlobeView }
+    | undefined
   >(undefined);
   const { groups, first, last } = area;
   const transfers = useMemo(() => transferPlaces(model), [model]);
@@ -484,72 +544,78 @@ function TripMap({
     [model, country],
   );
   const geometry = useMemo(() => {
-    const locations = Object.entries(model.trip.places)
-      .filter(([id, p]) => area.placeIds.has(id) && p.coordinates)
-      .map(([id, p]) => ({
-        id,
-        coordinates: [p.coordinates!.lon, p.coordinates!.lat] as Point,
-      }));
-    // Center across the largest longitude gap so a dateline crossing stays together.
-    const lons = locations
-      .map((p) => (p.coordinates[0] + 360) % 360)
-      .sort((a, b) => a - b);
-    let center = 0;
-    if (lons.length) {
-      const gaps = lons.map((lon, i) => ({
-        gap:
-          lons[(i + 1) % lons.length] + (i === lons.length - 1 ? 360 : 0) - lon,
-        i,
-      }));
-      const gap = gaps.sort((a, b) => b.gap - a.gap)[0];
-      center = (lons[(gap.i + 1) % lons.length] + (360 - gap.gap) / 2) % 360;
+    let projection: GeoProjection;
+    if (globe) projection = globeProjection(globeView, globeFit.scale);
+    else {
+      projection = geoMercator()
+        .rotate([-spanCenter(locations.map((p) => p.coordinates))[0], 0])
+        .scale(1)
+        .translate([0, 0]);
+      const raw = locations.map((p) => projection(p.coordinates)!);
+      if (raw.length) {
+        const xs = raw.map((p) => p[0]),
+          ys = raw.map((p) => p[1]);
+        const minX = Math.min(...xs),
+          maxX = Math.max(...xs),
+          minY = Math.min(...ys),
+          maxY = Math.max(...ys);
+        const scale = Math.min(
+          690 / Math.max(maxX - minX, 0.035),
+          280 / Math.max(maxY - minY, 0.035),
+        );
+        projection
+          .scale(scale)
+          .translate([
+            450 - ((minX + maxX) / 2) * scale,
+            260 - ((minY + maxY) / 2) * scale,
+          ]);
+      } else projection.scale(135).translate([450, 260]);
     }
-    const projection = geoMercator()
-      .rotate([-center, 0])
-      .scale(1)
-      .translate([0, 0]);
-    const raw = locations.map((p) => projection(p.coordinates)!);
-    if (raw.length) {
-      const xs = raw.map((p) => p[0]),
-        ys = raw.map((p) => p[1]);
-      const minX = Math.min(...xs),
-        maxX = Math.max(...xs),
-        minY = Math.min(...ys),
-        maxY = Math.max(...ys);
-      const scale = Math.min(
-        690 / Math.max(maxX - minX, 0.035),
-        280 / Math.max(maxY - minY, 0.035),
-      );
-      projection
-        .scale(scale)
-        .translate([
-          450 - ((minX + maxX) / 2) * scale,
-          260 - ((minY + maxY) / 2) * scale,
-        ]);
-    } else projection.scale(135).translate([450, 260]);
+    const coordinates = Object.fromEntries(
+      locations.map((p) => [p.id, p.coordinates]),
+    );
+    // Places on the far side of the globe drop out with their routes and labels.
     const points = Object.fromEntries(
-      locations.map((p) => [p.id, projection(p.coordinates)!]),
+      locations
+        .filter((p) => !globe || globeFacing(globeView.center, p.coordinates))
+        .map((p) => [p.id, projection(p.coordinates)!]),
     );
     const routes = connections.flatMap(({ outbound, inbound }) =>
-      outbound.legs.flatMap((leg, index) =>
-        leg.from && points[leg.from] && points[leg.to]
+      outbound.legs.flatMap((leg, index) => {
+        if (!leg.from || !points[leg.from] || !points[leg.to]) return [];
+        const curve = globe
+          ? globeRouteCurve(
+              projection,
+              globeView.center,
+              coordinates[leg.from],
+              coordinates[leg.to],
+            )
+          : routeCurve(points[leg.from], points[leg.to]);
+        return curve
           ? [
               {
                 leg,
                 reverseLeg: inbound?.legs[inbound.legs.length - 1 - index],
-                curve: routeCurve(points[leg.from], points[leg.to]),
+                curve,
               },
             ]
-          : [],
-      ),
+          : [];
+      }),
     );
     const path = geoPath(projection);
+    const outlines = globe
+      ? globeShapes(world.features, projection, globeReach, turning ? 5 : 2.5)
+      : world.features.map((feature) =>
+          path(feature as unknown as GeoPermissibleObjects),
+        );
     const shapes = world.features.map((feature, i) => ({
       id: i,
-      path: path(feature as unknown as GeoPermissibleObjects),
+      path: outlines[i],
       name: feature.properties.name,
       country: feature.properties.iso2,
     }));
+    const sphere = globe ? path({ type: "Sphere" }) : null;
+    const graticule = globe ? path(geoGraticule10()) : null;
     // Prefer an overnight base over an area's transfer waypoint for its numbered label.
     const labels = groups.flatMap((group) => {
       const id =
@@ -565,8 +631,18 @@ function TripMap({
           ]
         : [];
     });
-    return { points, routes, shapes, labels };
-  }, [model, area, groups, transfers, connections]);
+    return { points, routes, shapes, labels, sphere, graticule };
+  }, [
+    locations,
+    groups,
+    transfers,
+    connections,
+    globe,
+    globeView,
+    globeFit,
+    globeReach,
+    turning,
+  ]);
   // Lay out text in physical pixels again after zooming, so labels never scale or collide.
   const screen = (point: Point): Point => [
     (view.x + point[0] * view.k) * frameScale,
@@ -698,11 +774,15 @@ function TripMap({
   const selected = new Set(activeLegs(model, day).map((l) => l.id));
   const zoom = (factor: number) => {
     setTooltipPlace(null);
-    setView((view) => zoomMap(view, factor));
+    if (globe) setGlobeView(zoomGlobe(globeView, factor, globeFit.scale));
+    else setFlatView((view) => zoomMap(view, factor));
   };
   return (
     <>
-      <div className="map-canvas" data-testid="map-canvas">
+      <div
+        className={`map-canvas${globe ? " globe" : ""}`}
+        data-testid="map-canvas"
+      >
         <div className="map-header">
           <div className="map-caption">
             <span>{dayLabel(day)}</span>
@@ -725,7 +805,8 @@ function TripMap({
                 title="Fit selected area"
                 onClick={() => {
                   setTooltipPlace(null);
-                  setView({ x: 0, y: 0, k: 1 });
+                  setFlatView(unmovedView);
+                  setGlobeView(undefined);
                 }}
               >
                 <Icon kind="reset" />
@@ -807,6 +888,7 @@ function TripMap({
                 y: e.clientY,
                 vx: view.x,
                 vy: view.y,
+                globe: globeView,
               };
             }}
             onPointerMove={(e) => {
@@ -816,17 +898,33 @@ function TripMap({
                   dragged.current = true;
                   setTooltipPlace(null);
                 }
-                // React may apply this update after pointerup clears the drag ref.
-                const x = start.vx + (e.clientX - start.x) / frameScale;
-                const y = start.vy + (e.clientY - start.y) / frameScale;
-                setView((v) => ({ ...v, x, y }));
+                const dx = (e.clientX - start.x) / frameScale;
+                const dy = (e.clientY - start.y) / frameScale;
+                if (globe) {
+                  if (dragged.current) setTurning(true);
+                  setGlobeView(
+                    rotateGlobe(
+                      start.globe,
+                      dx,
+                      dy,
+                      globeFit.scale * start.globe.k,
+                    ),
+                  );
+                } else {
+                  // React may apply this update after pointerup clears the drag ref.
+                  const x = start.vx + dx;
+                  const y = start.vy + dy;
+                  setFlatView((v) => ({ ...v, x, y }));
+                }
               }
             }}
             onPointerUp={() => {
               drag.current = undefined;
+              setTurning(false);
             }}
             onPointerCancel={() => {
               drag.current = undefined;
+              setTurning(false);
             }}
           >
             <defs>
@@ -848,11 +946,25 @@ function TripMap({
                   />
                 </marker>
               ))}
+              <radialGradient id="globe-shade" cx="38%" cy="30%" r="75%">
+                <stop offset="0%" className="globe-light" />
+                <stop offset="60%" className="globe-light" stopOpacity={0} />
+                <stop offset="100%" className="globe-dark" />
+              </radialGradient>
             </defs>
             <g
               transform={`translate(${view.x} ${view.y}) scale(${view.k})`}
               data-testid="map-transform"
             >
+              {geometry.sphere && (
+                <g aria-hidden="true">
+                  <path className="globe-sphere" d={geometry.sphere} />
+                  <path
+                    className="globe-graticule"
+                    d={geometry.graticule ?? ""}
+                  />
+                </g>
+              )}
               <g className="geography" aria-hidden="true">
                 {geometry.shapes.map((s) => (
                   <path
@@ -869,6 +981,14 @@ function TripMap({
                   </path>
                 ))}
               </g>
+              {geometry.sphere && (
+                <path
+                  className="globe-shade"
+                  d={geometry.sphere}
+                  fill="url(#globe-shade)"
+                  aria-hidden="true"
+                />
+              )}
               {geometry.routes.map(({ leg, reverseLeg, curve }) => {
                 const internal =
                     groupKey(model, leg.from) === groupKey(model, leg.to) &&
