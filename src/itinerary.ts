@@ -69,8 +69,19 @@ export interface Place {
     lon: number;
   };
 }
+/** How you travel; `other` for anything else (cable car, rickshaw). */
+export const travelModes = [
+  "walk",
+  "train",
+  "bus",
+  "flight",
+  "ferry",
+  "car",
+  "other",
+] as const;
+export type TravelMode = (typeof travelModes)[number];
 export interface TravelComponent {
-  mode: string;
+  mode: TravelMode;
   estimatedDurationMinutes?: number;
 }
 export interface CountryBudget {
@@ -91,7 +102,8 @@ export interface TravelBlock {
   start?: string;
   end?: string;
   endDay?: number;
-  mode?: string;
+  /** Omitted when `components` give each part's mode. */
+  mode?: TravelMode;
   estimatedDurationMinutes?: number;
   /** Route length in kilometres, mainly for walks. */
   distanceKm?: number;
@@ -207,6 +219,7 @@ function object(value: unknown, path: string): Record<string, unknown> {
 }
 function coordinates(value: unknown, path: string) {
   const c = object(value, path);
+  only(c, ["lat", "lon"], path);
   if (
     typeof c.lat !== "number" ||
     !Number.isFinite(c.lat) ||
@@ -239,6 +252,15 @@ export function isGoogleMapsUrl(value: unknown): value is string {
       (host === "goo.gl" && path.startsWith("/maps/")))
   );
 }
+function mode(value: unknown, path: string) {
+  if (!travelModes.includes(value as TravelMode))
+    fail(path, `expected one of ${travelModes.join(", ")}`);
+}
+/** Every field has a meaning; anything else is a typo or prose that belongs in a real field. */
+function only(value: Record<string, unknown>, keys: string[], path: string) {
+  for (const key of Object.keys(value))
+    if (!keys.includes(key)) fail(`${path}.${key}`, "unknown field");
+}
 function string(value: unknown, path: string) {
   if (typeof value !== "string" || !value.trim())
     fail(path, "expected a non-empty string");
@@ -266,6 +288,7 @@ function documents(value: unknown, path: string) {
   if (!Array.isArray(value)) fail(path, "expected an array");
   value.forEach((v, i) => {
     const d = object(v, `${path}[${i}]`);
+    only(d, ["label", "path"], `${path}[${i}]`);
     string(d.label, `${path}[${i}].label`);
     if (typeof d.path !== "string" || !safeRelativePath(d.path))
       fail(`${path}[${i}].path`, "expected a safe relative local path");
@@ -293,6 +316,25 @@ function zoneValid(zone: unknown, path: string) {
 }
 export function parseTrip(input: unknown): Trip {
   const t = object(input, "trip");
+  only(
+    t,
+    [
+      "version",
+      "title",
+      "startDate",
+      "initialPlace",
+      "timezone",
+      "currency",
+      "budget",
+      "groups",
+      "places",
+      "days",
+      "bookings",
+      "documents",
+      "prepare",
+    ],
+    "trip",
+  );
   if (!Array.isArray(t.days) || !t.days.length)
     fail("days", "expected at least one day");
 
@@ -323,6 +365,7 @@ export function parseTrip(input: unknown): Trip {
     fail("currency", "expected uppercase ISO3 currency code, e.g. EUR");
   if (t.budget !== undefined) {
     const budget = object(t.budget, "budget");
+    only(budget, ["countries"], "budget");
     const countries = object(budget.countries, "budget.countries");
     for (const [code, value] of Object.entries(countries)) {
       if (!/^[A-Z]{2}$/.test(code))
@@ -331,6 +374,11 @@ export function parseTrip(input: unknown): Trip {
           "expected uppercase ISO2 country code",
         );
       const rates = object(value, `budget.countries.${code}`);
+      only(
+        rates,
+        ["livingPerDay", "accommodationPerNight"],
+        `budget.countries.${code}`,
+      );
       price(
         rates.livingPerDay,
         `budget.countries.${code}.livingPerDay`,
@@ -347,6 +395,7 @@ export function parseTrip(input: unknown): Trip {
   for (const [id, value] of Object.entries(groups)) {
     if (!id.trim()) fail("groups", "empty group ID");
     const g = object(value, `groups.${id}`);
+    only(g, ["name", "color"], `groups.${id}`);
     string(g.name, `groups.${id}.name`);
     if (
       g.color !== undefined &&
@@ -366,6 +415,11 @@ export function parseTrip(input: unknown): Trip {
   Object.entries(places).forEach(([id, v]) => {
     if (!id) fail("places", "empty place ID");
     const p = object(v, `places.${id}`);
+    only(
+      p,
+      ["name", "country", "timezone", "group", "coordinates"],
+      `places.${id}`,
+    );
     if (
       p.group !== undefined &&
       (typeof p.group !== "string" || !Object.hasOwn(groups, p.group))
@@ -391,6 +445,7 @@ export function parseTrip(input: unknown): Trip {
   t.days.forEach((v, i) => {
     const path = `days[${i}]`,
       d = object(v, path);
+    only(d, ["title", "notes", "sights", "documents", "blocks"], path);
     if (d.title !== undefined) string(d.title, path + ".title");
     if (d.notes !== undefined) string(d.notes, path + ".notes");
     if (d.sights !== undefined) {
@@ -398,6 +453,7 @@ export function parseTrip(input: unknown): Trip {
       d.sights.forEach((value, j) => {
         const sightPath = `${path}.sights[${j}]`,
           sight = object(value, sightPath);
+        only(sight, ["name", "mapUrl", "tip"], sightPath);
         string(sight.name, sightPath + ".name");
         if (sight.mapUrl !== undefined && !isGoogleMapsUrl(sight.mapUrl))
           fail(sightPath + ".mapUrl", "expected an https Google Maps link");
@@ -410,8 +466,32 @@ export function parseTrip(input: unknown): Trip {
       d.blocks.forEach((v, j) => {
         const p = `${path}.blocks[${j}]`,
           b = object(v, p);
-        if (b.type === "place") place(b.place, p + ".place");
-        else if (b.type === "travel") {
+        if (b.type === "place") {
+          only(b, ["type", "place"], p);
+          place(b.place, p + ".place");
+        } else if (b.type === "travel") {
+          only(
+            b,
+            [
+              "type",
+              "id",
+              "from",
+              "to",
+              "mode",
+              "components",
+              "start",
+              "end",
+              "endDay",
+              "estimatedDurationMinutes",
+              "estimatedCost",
+              "distanceKm",
+              "ascentMeters",
+              "descentMeters",
+              "notes",
+              "documents",
+            ],
+            p,
+          );
           if (b.id !== undefined) {
             string(b.id, p + ".id");
             if (travelIds.has(b.id as string))
@@ -453,15 +533,22 @@ export function parseTrip(input: unknown): Trip {
               p + ".endDay",
               "expected 1-based arrival day within trip, on or after departure day",
             );
-          for (const k of ["mode", "notes"])
-            if (b[k] !== undefined) string(b[k], p + "." + k);
+          if (b.mode !== undefined) mode(b.mode, p + ".mode");
+          if (b.mode !== undefined && b.components !== undefined)
+            fail(p + ".mode", "omit when components give each part's mode");
+          if (b.notes !== undefined) string(b.notes, p + ".notes");
           duration(b.estimatedDurationMinutes, p + ".estimatedDurationMinutes");
           if (b.components !== undefined) {
             if (!Array.isArray(b.components) || !b.components.length)
               fail(p + ".components", "expected nonempty array");
             b.components.forEach((value, k) => {
               const c = object(value, `${p}.components[${k}]`);
-              string(c.mode, `${p}.components[${k}].mode`);
+              only(
+                c,
+                ["mode", "estimatedDurationMinutes"],
+                `${p}.components[${k}]`,
+              );
+              mode(c.mode, `${p}.components[${k}].mode`);
               duration(
                 c.estimatedDurationMinutes,
                 `${p}.components[${k}].estimatedDurationMinutes`,
@@ -476,6 +563,7 @@ export function parseTrip(input: unknown): Trip {
   documents(t.documents, "documents");
   if (t.prepare !== undefined) {
     const prepare = object(t.prepare, "prepare");
+    only(prepare, ["checklist", "packing"], "prepare");
     for (const key of ["checklist", "packing"] as const) {
       const items = prepare[key];
       if (items === undefined) continue;
@@ -484,6 +572,13 @@ export function parseTrip(input: unknown): Trip {
         const path = `prepare.${key}[${index}]`,
           item = object(value, path),
           status = key === "checklist" ? "done" : "packed";
+        only(
+          item,
+          key === "checklist"
+            ? ["title", "done", "notes"]
+            : ["title", "packed", "notes", "category", "quantity"],
+          path,
+        );
         string(item.title, path + ".title");
         if (item.notes !== undefined) string(item.notes, path + ".notes");
         if (item[status] !== undefined && typeof item[status] !== "boolean")
@@ -515,6 +610,31 @@ export function parseTrip(input: unknown): Trip {
     t.bookings.forEach((value, index) => {
       const path = `bookings[${index}]`,
         b = object(value, path);
+      only(
+        b,
+        [
+          "type",
+          "title",
+          "place",
+          "startDate",
+          "endDate",
+          "startDay",
+          "endDay",
+          "status",
+          "reference",
+          "meals",
+          "checkIn",
+          "checkOut",
+          "baggage",
+          "notes",
+          "important",
+          "coordinates",
+          "mapUrl",
+          "documents",
+          "cost",
+        ],
+        path,
+      );
       string(b.title, path + ".title");
       if (
         !["accommodation", "transport", "activity", "other"].includes(
@@ -564,6 +684,7 @@ export function parseTrip(input: unknown): Trip {
         b.baggage.forEach((value, i) => {
           const bagPath = `${path}.baggage[${i}]`,
             bag = object(value, bagPath);
+          only(bag, ["type", "pieces", "kg"], bagPath);
           if (!["checked", "cabin", "personal"].includes(bag.type as string))
             fail(bagPath + ".type", "expected checked, cabin or personal");
           if (!Number.isSafeInteger(bag.pieces) || (bag.pieces as number) < 0)
@@ -614,6 +735,7 @@ export function parseTrip(input: unknown): Trip {
       if (typeof b.cost === "number") price(b.cost, path + ".cost");
       else if (b.cost !== undefined) {
         const c = object(b.cost, path + ".cost");
+        only(c, ["amount", "status", "allocation"], path + ".cost");
         if (c.amount === undefined)
           fail(
             path + ".cost.amount",

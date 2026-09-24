@@ -9,6 +9,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Writing guidance
 
 - Keep the file short: every later reader, human or LLM, reads all of it. Write only what is specific to this trip and useful on the day — no general travel advice, explanations of how estimates or pins work, disclaimers, sources, or editing history. A one-line note beats a paragraph; no note beats a redundant one.
+- Only the fields listed here exist: the app rejects any other field, so there is nowhere to park prose or extra metadata.
 - Structure first: put facts in their fields (times, durations, distance, climb, meals, check-in/out, coordinates, prices). A fact that keeps recurring without a field is a reason to extend the schema, not to write prose.
 - Notes and tips are rare. Before writing one, ask: would a sensible traveller get this wrong without it, and does it matter? If not, leave it out. Most days, journeys and bookings have none. Never write what anyone would assume or look up anyway ("start early", "bring water", "book ahead", "check opening hours", "enjoy the view"), what a field already shows (times, modes, flight numbers, meals, distance, prices, where you sleep), subjective labels ("hard", "longest day"), or routine host courtesies. One short sentence, no lists, no markdown, no links.
 - Each note has one owner, the thing it is about:
@@ -75,7 +76,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `start` (optional) gives departure-local time as `HH:mm`.
 - `end` (optional) gives destination-local arrival time as `HH:mm`.
 - `endDay` (optional) is the absolute 1-based arrival day within the trip, defaulting to departure day; intervening days must have no blocks.
-- `mode` (optional) names transport such as `flight`, `train`, `bus`, `ferry`, `car`, or `walk`.
+- `mode` (optional) is one of `walk`, `train`, `bus`, `flight`, `ferry`, `car` or `other` (cable car, rickshaw); omit it when `components` give each part's mode. A line or service name ("Narita Express") belongs in the journey's `notes` only when you need it to catch the right one.
 - `estimatedDurationMinutes` (optional) gives positive estimated minutes for the whole journey, with finite millisecond totals, without inventing clock times.
 - `estimatedCost` (optional) gives a finite, nonnegative journey price per person in the trip currency.
 - `components` (optional) is a nonempty list of mixed transport parts whose estimates are summed when no whole-journey estimate is supplied.
@@ -86,7 +87,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 ## Transport component: `components[]`
 
-- `mode` (required) names this part's transport.
+- `mode` (required) is this part's mode, from the same list.
 - `estimatedDurationMinutes` (optional) gives positive estimated minutes for this part, with finite millisecond totals.
 
 ## Place block: `days[].blocks[]`

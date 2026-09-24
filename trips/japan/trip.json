@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "title": "Japan \u00b7 an illustrative journey",
+  "title": "Japan · an illustrative journey",
   "startDate": "2026-12-01",
   "initialPlace": "tokyo",
   "places": {
@@ -52,7 +52,7 @@
   },
   "days": [
     {
-      "notes": "Illustrative itinerary \u2014 replace with your own plans. Nothing here is a booking.",
+      "notes": "Illustrative itinerary — replace with your own plans. Nothing here is a booking.",
       "documents": [
         {
           "label": "Example local document",
@@ -82,9 +82,16 @@
         {
           "type": "travel",
           "to": "kyoto",
+          "components": [
+            {
+              "mode": "bus"
+            },
+            {
+              "mode": "train"
+            }
+          ],
           "start": "10:00",
-          "end": "13:00",
-          "mode": "bus + train"
+          "end": "13:00"
         }
       ]
     },

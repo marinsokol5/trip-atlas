@@ -133,7 +133,7 @@ test("partial prices use plus, unknown countries never borrow a rate, walk price
         {
           type: "travel",
           to: "kyoto",
-          mode: "hike",
+          mode: "walk",
           estimatedDurationMinutes: 90,
         },
       ],
@@ -180,7 +180,7 @@ test("transport timing excludes walking and never adds whole connections to comp
       times({
         components: [
           { mode: "bus", estimatedDurationMinutes: 30 },
-          { mode: "hike", estimatedDurationMinutes: 360 },
+          { mode: "walk", estimatedDurationMinutes: 360 },
         ],
       }).other,
     ),
@@ -206,7 +206,7 @@ test("transport timing excludes walking and never adds whole connections to comp
   });
   assert.equal(timeLabel(partial.other), "~30m+");
   const unknown = times({
-    mode: "flight + bus",
+    components: [{ mode: "flight" }, { mode: "bus" }],
     estimatedDurationMinutes: 120,
   });
   assert.equal(timeLabel(unknown.flights), "?");
@@ -301,31 +301,45 @@ test("ground and walking share cost classification while unsplit modes retain mi
         {
           type: "travel",
           to: "kyoto",
-          mode: "flight + bus",
+          components: [{ mode: "flight" }, { mode: "bus" }],
           estimatedDurationMinutes: 60,
           estimatedCost: 40,
         },
-        { type: "travel", to: "tokyo", mode: "flight + bus" },
+        {
+          type: "travel",
+          to: "tokyo",
+          components: [{ mode: "flight" }, { mode: "bus" }],
+        },
       ],
     },
   ];
   const partial = overview(normalizeTrip(trip));
-  assert.equal(timeLabel(partial.times.unallocated), "~1h+");
+  // The untimed journey's parts are known, so their gaps show in their own categories.
+  assert.equal(timeLabel(partial.times.unallocated), "~1h");
+  assert.equal(timeLabel(partial.times.flights), "?");
   assert.equal(moneyLabel(partial.costs.unallocated, "EUR"), "~€40+");
   trip.days = [
-    { blocks: [{ type: "travel", to: "kyoto", mode: "flight + bus" }] },
+    {
+      blocks: [
+        {
+          type: "travel",
+          to: "kyoto",
+          components: [{ mode: "flight" }, { mode: "bus" }],
+        },
+      ],
+    },
   ];
   const missing = overview(normalizeTrip(trip));
-  assert.equal(timeLabel(missing.times.unallocated), "?");
+  assert.equal(timeLabel(missing.times.unallocated), "0m");
+  assert.equal(timeLabel(missing.times.flights), "?");
   assert.equal(moneyLabel(missing.costs.unallocated, "EUR"), "?");
 });
-test("legacy mixed metro, subway and unknown transport aliases are never allocated to flight or walk", () => {
-  for (const mode of [
-    "flight + metro",
-    "flight + unknown connection",
-    "walk + subway",
-  ]) {
-    const result = times({ mode, estimatedDurationMinutes: 120 });
+test("a whole estimate over flight, walk and other parts is never allocated to flight or walk", () => {
+  for (const first of ["flight", "walk"] as const) {
+    const result = times({
+      components: [{ mode: first }, { mode: "other" }],
+      estimatedDurationMinutes: 120,
+    });
     assert.equal(result.flights.value, 0);
     assert.equal(result.other.value, 0);
     assert.equal(timeLabel(result.unallocated), "~2h");
@@ -453,7 +467,7 @@ test("domestic flight, sea and paid walking costs remain local; missing pure wal
         { type: "travel", to: "kyoto", mode: "flight", estimatedCost: 11.125 },
         { type: "travel", to: "tokyo", mode: "ferry", estimatedCost: 0 },
         { type: "travel", to: "kyoto", mode: "walk" },
-        { type: "travel", to: "tokyo", mode: "hike", estimatedCost: 7 },
+        { type: "travel", to: "tokyo", mode: "walk", estimatedCost: 7 },
         { type: "travel", to: "kyoto", mode: "bus" },
       ],
     },
@@ -561,7 +575,7 @@ test("home days before the first stay country and after the last carry no living
                   {
                     type: "travel" as const,
                     to: "ams",
-                    mode: "taxi",
+                    mode: "car",
                     estimatedCost: 40,
                   },
                 ]

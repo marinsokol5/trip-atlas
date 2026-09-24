@@ -122,7 +122,7 @@ test("rough grouped trails stay colored and transfers stay distinct", async () =
           {
             type: "travel",
             to: "b",
-            mode: "hike",
+            mode: "walk",
             estimatedDurationMinutes: 180,
           },
         ],
@@ -179,7 +179,7 @@ test("mixed components separate approximate walking and transport without invent
             to: "b",
             components: [
               { mode: "bus", estimatedDurationMinutes: 5 },
-              { mode: "hike", estimatedDurationMinutes: 360 },
+              { mode: "walk", estimatedDurationMinutes: 360 },
             ],
           },
         ],
@@ -210,7 +210,7 @@ test("exact mixed duration survives components without fabricated allocation", a
             to: "b",
             start: "10:00",
             end: "12:00",
-            components: [{ mode: "bus" }, { mode: "hike" }],
+            components: [{ mode: "bus" }, { mode: "walk" }],
           },
         ],
       },
@@ -246,15 +246,9 @@ test("map arrows keep screen-pixel clearance while internal trails reach exact G
     }
 });
 
-test("legacy mixed transport aliases stay unallocated instead of inflating walking", async () => {
+test("mixed journeys with only a whole estimate stay unallocated instead of inflating walking", async () => {
   const { durationTotals, modeKind } = await import("./view-model.ts");
-  for (const mode of [
-    "ferry + walk",
-    "Shinkansen + walk",
-    "boat + hike",
-    "coach + trek",
-    "rail + walk",
-  ]) {
+  for (const mode of ["ferry", "train", "bus", "car"] as const) {
     const model = normalizeTrip({
       version: 1,
       places: { a: {}, b: {} },
@@ -262,7 +256,12 @@ test("legacy mixed transport aliases stay unallocated instead of inflating walki
       days: [
         {
           blocks: [
-            { type: "travel", to: "b", mode, estimatedDurationMinutes: 80 },
+            {
+              type: "travel",
+              to: "b",
+              components: [{ mode }, { mode: "walk" }],
+              estimatedDurationMinutes: 80,
+            },
           ],
         },
       ],
@@ -275,6 +274,18 @@ test("legacy mixed transport aliases stay unallocated instead of inflating walki
     );
     assert.equal(modeKind(model.legs[0]), "other");
   }
+  // Free-text modes ("Shinkansen", "hike") are no longer guessed at: they fail.
+  for (const mode of ["Shinkansen", "hike", "ferry + walk"])
+    assert.throws(
+      () =>
+        normalizeTrip({
+          version: 1,
+          places: { a: {}, b: {} },
+          initialPlace: "a",
+          days: [{ blocks: [{ type: "travel", to: "b", mode }] }],
+        }),
+      /mode: expected one of/,
+    );
 });
 
 test("map areas follow visits and scope chronological endpoints and cross-country groups", () => {

@@ -674,19 +674,12 @@ export function placeColor(model: Itinerary, id?: string) {
     "var(--transit)"
   );
 }
-const modePatterns = [
-  ["walk", /walk|hike|trek/],
-  ["train", /train|rail|shinkansen/],
-  ["bus", /bus|coach/],
-  ["flight", /flight|plane|fly/],
-  ["ferry", /ferry|boat/],
-  ["car", /car|taxi|drive/],
-] as const;
+/** The modes a leg uses: its own, or its components'. `other` names no category. */
 function modeCategories(leg: Leg) {
-  const mode = leg.block.mode?.toLowerCase() ?? "";
-  return modePatterns
-    .filter(([, pattern]) => pattern.test(mode))
-    .map(([kind]) => kind);
+  const modes = leg.block.mode
+    ? [leg.block.mode]
+    : (leg.block.components?.map((part) => part.mode) ?? []);
+  return [...new Set(modes)].filter((mode) => mode !== "other");
 }
 export function modeKind(leg: Leg) {
   const kinds = modeCategories(leg);
@@ -800,10 +793,10 @@ export function durationTotals(model: Itinerary) {
               ...(leg.durationMs !== undefined ? parts : []),
               {
                 ...leg,
+                id: `${leg.id}-unallocated`,
                 block: {
                   type: "travel" as const,
                   to: leg.to,
-                  mode: "mixed / unallocated",
                   estimatedDurationMinutes:
                     leg.durationMs === undefined
                       ? leg.block.estimatedDurationMinutes
@@ -814,9 +807,9 @@ export function durationTotals(model: Itinerary) {
           : parts;
       })
       .filter((l) => {
-        const mode = l.block.mode?.toLowerCase() ?? "";
+        // The part of a mixed journey no component accounts for.
         const kind =
-          mode === "mixed / unallocated" ||
+          l.id.endsWith("-unallocated") ||
           (modeCategories(l).includes("walk") &&
             modeCategories(l).some((kind) => kind !== "walk"))
             ? "mixed"

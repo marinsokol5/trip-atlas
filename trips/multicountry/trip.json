@@ -52,7 +52,7 @@
           "to": "hanoi",
           "start": "10:00",
           "end": "13:00",
-          "mode": "Flight"
+          "mode": "flight"
         }
       ]
     },
@@ -64,7 +64,7 @@
           "to": "bangkok",
           "start": "09:00",
           "end": "11:00",
-          "mode": "Flight"
+          "mode": "flight"
         }
       ]
     },
@@ -77,7 +77,7 @@
           "start": "23:00",
           "end": "04:00",
           "endDay": 7,
-          "mode": "Flight",
+          "mode": "flight",
           "notes": "Overnight flight. Departure and arrival clocks are local."
         }
       ]
@@ -91,7 +91,7 @@
           "to": "tokyo",
           "start": "10:00",
           "end": "14:00",
-          "mode": "Flight"
+          "mode": "flight"
         }
       ]
     },

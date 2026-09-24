@@ -152,9 +152,7 @@
         "status": "estimated",
         "allocation": {
           "type": "living",
-          "days": [
-            2
-          ]
+          "days": [2]
         }
       }
     },

@@ -48,7 +48,7 @@ test("vehicle connection spans transfer points and final hiking leg before filte
           {
             type: "travel",
             to: "takahara",
-            mode: "hike",
+            mode: "walk",
             estimatedDurationMinutes: 180,
           },
         ],
@@ -193,7 +193,7 @@ test("missing vehicle shares suppress totals; unknown walking time does not inve
     connection({
       components: [
         { mode: "bus", estimatedDurationMinutes: 85 },
-        { mode: "hike" },
+        { mode: "walk" },
       ],
     }).minutes,
     85,
@@ -202,13 +202,16 @@ test("missing vehicle shares suppress totals; unknown walking time does not inve
     connection({
       components: [
         { mode: "bus" },
-        { mode: "hike", estimatedDurationMinutes: 85 },
+        { mode: "walk", estimatedDurationMinutes: 85 },
       ],
     }).minutes,
     undefined,
   );
   assert.equal(
-    connection({ mode: "train + walk", estimatedDurationMinutes: 85 }).minutes,
+    connection({
+      components: [{ mode: "train" }, { mode: "walk" }],
+      estimatedDurationMinutes: 85,
+    }).minutes,
     undefined,
   );
   assert.equal(
@@ -220,8 +223,7 @@ test("missing vehicle shares suppress totals; unknown walking time does not inve
     0,
   );
   assert.equal(
-    connection({ mode: "Shinkansen or coach", estimatedDurationMinutes: 85 })
-      .minutes,
+    connection({ mode: "bus", estimatedDurationMinutes: 85 }).minutes,
     85,
   );
   const mixed = connection({
@@ -363,7 +365,6 @@ test("unsplit bus and boat estimates survive as total without invented component
             {
               type: "travel",
               to: "b",
-              mode: "other",
               estimatedDurationMinutes: minutes,
               components: [{ mode: "bus" }, { mode: "ferry" }, { mode: "bus" }],
             },

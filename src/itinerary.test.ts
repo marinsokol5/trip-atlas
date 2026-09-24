@@ -273,10 +273,23 @@ test("eastbound arrival before origin midnight carries destination across bounda
   assert.equal(positionAt(n, 30 * 3600000).place, "tokyo");
 });
 
-test("optional visual groups, estimates and components validate without breaking legacy metadata", () => {
+test("optional visual groups, estimates and components validate; unknown fields fail", () => {
+  assert.throws(
+    () =>
+      normalizeTrip({
+        version: 1,
+        customMetadata: true,
+        places: {},
+        days: [{}],
+      }),
+    /trip.customMetadata: unknown field/,
+  );
+  assert.throws(
+    () => normalizeTrip({ version: 1, places: {}, days: [{ summary: "x" }] }),
+    /days\[0\].summary: unknown field/,
+  );
   const base = {
     version: 1,
-    customMetadata: { preserved: true },
     groups: { trail: { name: "Trail", color: "#123abc" } },
     places: { a: { group: "trail" } },
     days: [{}],

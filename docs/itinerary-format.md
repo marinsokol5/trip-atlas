@@ -6,7 +6,7 @@ The compact reference lists every authored field. This guide explains the less o
 
 ## Sparse plans and time
 
-A trip needs `version: 1`, a `places` object and at least one item in `days`. Place IDs are references; names fall back to those IDs. Unknown optional metadata is retained but has no display meaning. Empty days carry the latest known location forward. An omitted origin stays unknown. Dates, coordinates, country codes and clocks are optional.
+A trip needs `version: 1`, a `places` object and at least one item in `days`. Place IDs are references; names fall back to those IDs. Every object accepts only its documented fields; anything else fails with an "unknown field" error. Empty days carry the latest known location forward. An omitted origin stays unknown. Dates, coordinates, country codes and clocks are optional.
 
 Travel blocks need only `type: "travel"` and `to`. Their origin is inferred from the current place unless `from` overrides it. A `{ "type": "place", "place": "kyoto" }` block resets location without claiming a timed journey. Walks can add `distanceKm`, `ascentMeters` and `descentMeters`, shown beside the leg's duration. Place groups simplify map labels without merging the underlying route or overnight stays.
 
@@ -26,7 +26,7 @@ For example, this departure on day 2 arrives on day 3:
 
 To compute instants, provide the trip's `startDate` and a timezone at each endpoint or at trip level. Timezones are IANA names such as `Asia/Tokyo`. Missing date, time or timezone stays unknown. Invalid dates, times, references, overlapping journeys and negative elapsed durations produce field-path errors. Ambiguous or nonexistent daylight-saving clocks are rejected; choose an unambiguous time. Explicit UTC offsets are not supported.
 
-A rough journey can use `estimatedDurationMinutes: 180` with no clock times. Mixed transport uses ordered `components`, such as `[{"mode":"bus","estimatedDurationMinutes":30},{"mode":"walk","estimatedDurationMinutes":90}]`. Estimates do not establish departure or arrival times. Exact whole-leg timing takes precedence; otherwise a whole-leg estimate takes precedence over summed complete component estimates. Incomplete component durations do not invent mode shares.
+A rough journey can use `estimatedDurationMinutes: 180` with no clock times. A `mode` is one of `walk`, `train`, `bus`, `flight`, `ferry`, `car` or `other`. Mixed transport leaves out the journey's `mode` and uses ordered `components`, such as `[{"mode":"bus","estimatedDurationMinutes":30},{"mode":"walk","estimatedDurationMinutes":90}]`. Estimates do not establish departure or arrival times. Exact whole-leg timing takes precedence; otherwise a whole-leg estimate takes precedence over summed complete component estimates. Incomplete component durations do not invent mode shares.
 
 Days use real elapsed time across timezone changes. For display, an in-transit midnight uses the origin zone; the end of the arrival day uses the destination zone. Calendar bars use elapsed durations, not a fixed 24-hour denominator. Unknown timing remains explicitly schematic. Map connections are illustrative curves, not actual roads or tracks.
 

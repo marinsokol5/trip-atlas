@@ -105,7 +105,6 @@
           "type": "travel",
           "id": "nagasaki-kurokawa",
           "to": "kurokawa",
-          "mode": "train + bus",
           "estimatedDurationMinutes": 390,
           "estimatedCost": 80,
           "notes": "Return by rail to Hakata, then take the highway bus to Kurokawa. This long transfer needs coordinated connections; the estimate allows a change in Hakata.",
