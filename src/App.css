@@ -3501,9 +3501,22 @@ main[data-theme="dark"] {
   padding: 0;
   list-style: none;
 }
+/* A bulleted list, lighter than its heading; tips hang under the name. */
 .activities li {
+  position: relative;
   display: grid;
   gap: 2px;
+  padding-left: 14px;
+}
+.activities li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
 }
 .activity-line {
   display: flex;
@@ -3517,7 +3530,7 @@ main[data-theme="dark"] {
   gap: 5px;
   min-width: 0;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--ink);
 }
 a.activity-name {

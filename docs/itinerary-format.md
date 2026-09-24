@@ -1,6 +1,6 @@
 # Itinerary format
 
-[Back to Trip Atlas](../README.md) · [Compact field reference](../skills/update-itinerary/SKILL.md)
+[Back to Trip Atlas](../README.md) · [Compact field reference](../skills/trip-atlas-update-itinerary/SKILL.md)
 
 The compact reference lists every authored field. This guide explains the less obvious behavior: time, overnight location, budget replacement and local documents. Itineraries and manifests are UTF-8 JSON, each limited to 2 MiB. Attachments stream separately. Amounts must remain finite when summed across the trip (including daily/nightly rates); duration estimates must remain finite when converted to milliseconds and summed.
 

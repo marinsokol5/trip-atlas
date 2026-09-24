@@ -1,0 +1,101 @@
+<!doctype html>
+<!-- One-page booking summary. Replace every [bracketed] value, delete rows and sections that don't apply, keep it to one A4 page. -->
+<html lang="en"><head><meta charset="utf-8"><title>[Name] – [Provider] [CODE]</title>
+<style>
+@page { size: A4; margin: 14mm; }
+* { box-sizing: border-box; }
+body { font: 10pt/1.4 -apple-system, "Helvetica Neue", "Hiragino Sans", "Noto Sans", Arial, sans-serif; color: #172b3e; margin: 0; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1a59b8; padding-bottom: 6px; margin-bottom: 12px; }
+.kind { font-size: 20pt; font-weight: 700; color: #1a59b8; letter-spacing: -0.3px; }
+.kind small { font-size: 10pt; font-weight: 400; color: #596b7a; letter-spacing: 0; }
+.conf { text-align: right; font-size: 9pt; color: #596b7a; }
+.conf b { font-size: 14pt; color: #172b3e; letter-spacing: 0.5px; }
+.box { border: 1.5px solid #172b3e; }
+.top { display: grid; grid-template-columns: 1fr 110px 110px 100px; }
+.top > div { padding: 10px 12px; }
+.top > div + div { border-left: 1px solid #d8e0e6; text-align: center; }
+.name { font-size: 12.5pt; font-weight: 700; margin-bottom: 2px; }
+.orig { font-size: 9pt; color: #596b7a; }
+.lbl { font-size: 7.5pt; text-transform: uppercase; color: #596b7a; letter-spacing: .4px; }
+.big { font-size: 26pt; font-weight: 700; line-height: 1.1; }
+.mon { font-weight: 700; font-size: 9pt; }
+.day { font-style: italic; font-size: 9pt; }
+.time { font-size: 9pt; margin-top: 2px; }
+.sec { border-top: 1px solid #d8e0e6; padding: 10px 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #d8e0e6; }
+.grid2 > div { padding: 10px 12px; }
+.grid2 > div + div { border-left: 1px solid #d8e0e6; }
+h3 { font-size: 11pt; margin: 0 0 5px; }
+.price { display: flex; justify-content: space-between; align-items: baseline; }
+.price .amt { font-size: 18pt; font-weight: 700; }
+table { border-collapse: collapse; width: 100%; }
+td { padding: 1px 0; vertical-align: top; }
+td:first-child { color: #596b7a; width: 38%; }
+ul { margin: 2px 0 0; padding-left: 16px; }
+li { margin: 1px 0; }
+.must { background: #fbf1d9; border-top: 1px solid #e7cf94; }
+.warn { color: #b3261e; }
+.cols { columns: 2; column-gap: 20px; }
+.foot { margin-top: 10px; font-size: 8pt; color: #596b7a; text-align: center; }
+</style></head><body>
+
+<div class="head">
+  <div class="kind">[Stay | Flight | Train | Transfer | Activity] <small>via [Provider]</small></div>
+  <div class="conf">Confirmation<br><b>[CODE]</b><br>[PIN: 0000]</div>
+</div>
+
+<div class="box">
+  <div class="top">
+    <div>
+      <div class="name">[Name: property, route or activity]</div>
+      <div class="orig">[Name in the original script, useful to show a driver]</div>
+      <div style="margin-top:6px"><b>Address:</b> [Street, town, region, postcode, country]</div>
+      <div class="orig">[Address in the original script]</div>
+      <div><b>Contact:</b> [Host or operator] · <b>Phone:</b> [+00 000 000 000]</div>
+      <div><b>GPS:</b> [00.00000, 000.00000]</div>
+    </div>
+    <div><div class="lbl">[Check-in | Departs | Starts]</div><div class="big">[12]</div><div class="mon">[MAY]</div><div class="day">[Tuesday]</div><div class="time">[15:00 – 18:00]</div></div>
+    <div><div class="lbl">[Check-out | Arrives | Ends]</div><div class="big">[13]</div><div class="mon">[MAY]</div><div class="day">[Wednesday]</div><div class="time">[before 10:00]</div></div>
+    <div><div class="lbl">[Nights | Duration]</div><div class="big">[1]</div><div class="lbl" style="margin-top:6px">[Guests | Travellers]</div><div>[2 adults]</div></div>
+  </div>
+
+  <div class="sec must">
+    <h3>Must know</h3>
+    <ul>
+      <li>[The real arrival cutoff, meeting point, cash-only payment, or anything that costs money or the booking if missed]</li>
+    </ul>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <h3>Reservation</h3>
+      <table>
+        <tr><td>[Guest | Passenger] names</td><td>[Name One, Name Two]</td></tr>
+        <tr><td>[Room | Seat | Class]</td><td>[Twin room, shared bath | Car 7, seats 12A–12B]</td></tr>
+        <tr><td>Included</td><td>[Dinner and breakfast | 23 kg checked bag | Hotel pickup]</td></tr>
+        <tr><td>[Check-in method | Boarding]</td><td>[Host greets you | Gate closes 20 min before departure]</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Price</h3>
+      <div class="price"><span>Total ([2 guests, 1 night])</span><span class="amt">[€000.00]</span></div>
+      <table style="margin-top:4px">
+        <tr><td>Payment</td><td>[Paid | Charged automatically on 1 May | Cash on arrival]</td></tr>
+      </table>
+      <h3 style="margin-top:8px">Cancellation</h3>
+      <div>Free cancellation before <b>[10 May, 15:00]</b>.</div>
+      <div class="warn">[After that: non-refundable | 50% fee]</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3>Rules</h3>
+    <ul class="cols">
+      <li>[Short English rule]</li>
+      <li>[Short English rule]</li>
+    </ul>
+  </div>
+</div>
+
+<div class="foot">Summary compiled from the [Provider] reservation on [date]. Not an official [Provider] document.</div>
+</body></html>

@@ -18,7 +18,8 @@ Keep changes focused and explain the user-visible behavior and how you checked i
 - `src/App.tsx` and view components: the read-only React interface.
 - `scripts/`: local HTTP server, document boundary and integration tests.
 - `trips/`: public demonstrations; `trips/index.json` is the demo picker manifest.
-- `skills/update-itinerary/SKILL.md`: compact, canonical field reference for agents.
+- `skills/trip-atlas-update-itinerary/SKILL.md`: compact, canonical field reference for agents.
+- `skills/trip-atlas-download-booking/`: agent workflow that saves a reservation as one named PDF and links it from its booking; its template holds placeholders only.
 
 Schema, validation or document path changes must update the README, [format guide](docs/itinerary-format.md), canonical skill and relevant tests together. Keep the skill compact: a two-sentence introduction and one required/optional sentence per authored field. Preserve unknown optional metadata rather than rewriting users' files.
 

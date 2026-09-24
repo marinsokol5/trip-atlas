@@ -1,6 +1,6 @@
 ---
-name: update-itinerary
-description: Create or edit Trip Atlas itinerary JSON; the default is itinerary.json beside trip-visualizer.
+name: trip-atlas-update-itinerary
+description: Create or edit a Trip Atlas itinerary JSON file (places, days, journeys, activities, bookings, costs, documents, checklists). Use for any change to a trip plan; edit the file the user names, else itinerary.json in the working folder.
 ---
 
 Trip Atlas is a local, read-only viewer with a map, calendar, timeline, daily details, cost overview, bookings, and preparation lists.
@@ -18,6 +18,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - Titles short and plain, no numbering or superlatives. Booking titles are the property name; `reference` is a real code.
 - Fill bookings from the confirmation: dates, check-in/out, `meals`, GPS `coordinates`, `status`, per-person `cost.amount`.
 - Add checklist or packing items only once the user agrees to them.
+- After every edit run `npx trip-atlas check <file>` (in a Trip Atlas checkout: `node scripts/cli.mjs check <file>`) and fix everything it reports.
 
 ## Trip
 
@@ -139,7 +140,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Document: any `documents[]`
 
 - `label` (required) names the link shown in the UI.
-- `path` (required) references an existing local file relative to the itinerary folder, without absolute paths, URLs, traversal, backslashes, `:`, `%`, `?`, `#`, or control characters; PDF, raster images, text and JSON open inline, while other types download.
+- `path` (required) references an existing local file relative to the itinerary folder, without absolute paths, URLs, traversal, backslashes, `:`, `%`, `?`, `#`, or control characters; PDF, raster images, text and JSON open inline, while other types download. Booking files live in `documents/<country>/DD-MM-<place>-<what>.pdf`; the trip-atlas-download-booking skill fetches and names them.
 
 ## Preparation: `prepare`
 
