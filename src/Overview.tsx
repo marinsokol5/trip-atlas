@@ -243,10 +243,11 @@ export function Overview({
   const byCountry = countryCosts && costView === "country";
   const [activeCost, setActiveCost] = useState<string>();
   // Breakdown rows light up their donut slice, and the other way round.
+  // The table reads the row under the pointer, so rows without a slice clear it.
   const costHover = (key: string) =>
     byCountry
       ? {
-          onPointerEnter: () => setActiveCost(key),
+          "data-cost-key": key,
           className: activeCost === key ? "is-active" : undefined,
         }
       : {};
@@ -511,6 +512,13 @@ export function Overview({
           <div className="overview-table-scroll">
             <table
               className={`overview-table ${countryCosts ? "overview-country-costs" : ""}`}
+              onPointerOver={(event) => {
+                if (!byCountry) return;
+                const row = (event.target as Element).closest<HTMLElement>(
+                  "tr[data-cost-key]",
+                );
+                setActiveCost(row?.dataset.costKey);
+              }}
               onPointerLeave={() => setActiveCost(undefined)}
             >
               <colgroup>
