@@ -129,14 +129,6 @@ export function MapLabelsMenu({
             </label>
           ))}
         </fieldset>
-        <details className="map-about">
-          <summary>About this map</summary>
-          <p>
-            Routes connect your stops; they do not trace roads. When times are
-            missing, movement and bar widths illustrate the plan, not an exact
-            schedule. ~ marks estimates from your itinerary.
-          </p>
-        </details>
       </div>
     </div>
   );

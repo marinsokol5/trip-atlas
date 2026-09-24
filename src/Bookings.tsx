@@ -493,13 +493,6 @@ export function Bookings({
           </aside>
         )}
       </div>
-      <p className="bookings-footnote">
-        {bookings.some((booking) => booking.cost)
-          ? "Prices are per person; ~ marks an estimate. "
-          : ""}
-        Files open from the itinerary’s folder. Edit the JSON externally, then
-        refresh to see changes.
-      </p>
     </section>
   );
 }

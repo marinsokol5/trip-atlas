@@ -480,13 +480,10 @@ export function Overview({
         <section
           className="overview-unallocated-bookings"
           aria-label="Unallocated booking costs"
+          title="Not in the total until linked to an estimate"
         >
           Unallocated booking costs
           <strong>{moneyLabel(data.unallocatedBookings, currency)}</strong>
-          <p>
-            Excluded from the total and daily average until linked to estimates
-            or explicitly added outside the living budget.
-          </p>
         </section>
       )}
       {showSeparateCosts &&

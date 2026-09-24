@@ -1755,19 +1755,6 @@ main[data-theme="dark"] {
 .map-source a {
   color: inherit;
 }
-.map-about {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-.map-about summary {
-  cursor: pointer;
-  color: var(--muted);
-}
-.map-about p {
-  margin: 8px 0 0;
-  line-height: 1.5;
-}
 @media (max-width: 899px), (max-height: 639px) {
   .map-canvas,
   .app-shell .map-canvas {
@@ -2470,12 +2457,6 @@ main[data-theme="dark"] {
 .booking-document-library .documents {
   margin-top: 0;
 }
-.bookings-footnote {
-  font-size: 11px;
-  color: var(--muted);
-  margin: 32px 0 0;
-  max-width: 640px;
-}
 .day-bookings {
   margin-top: 22px;
 }
@@ -2520,10 +2501,6 @@ main[data-theme="dark"] {
   font-weight: 500;
   color: var(--ink);
   margin-left: 8px;
-}
-.overview-unallocated-bookings p {
-  margin: 5px 0 0;
-  font-size: 11px;
 }
 @media (max-width: 760px) {
   .bookings-view {
