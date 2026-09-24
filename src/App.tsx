@@ -1686,10 +1686,7 @@ function DayDetails({
       <Bands model={model} day={day} />
       {/* Header, then the day's must-know, what to see, how to get around, and the paperwork. */}
       {day.source.notes && (
-        <p className="booking-notes is-important day-must-know">
-          <CircleAlert strokeWidth={1.9} aria-label="Must know" />
-          <span>{day.source.notes}</span>
-        </p>
+        <p className="day-must-know">{day.source.notes}</p>
       )}
       {!!day.source.sights?.length && (
         <section className="day-details" aria-label="Sights">

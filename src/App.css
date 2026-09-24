@@ -3478,6 +3478,9 @@ main[data-theme="dark"] {
 /* Day card: the must-know sits right under the header; sights name a place and its tip. */
 .details > .day-must-know {
   margin: 16px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 .sights {
   display: grid;
