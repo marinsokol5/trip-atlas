@@ -20,6 +20,16 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - Add checklist or packing items only once the user agrees to them.
 - After every edit run `npx trip-atlas check <file>` (in a Trip Atlas checkout: `node scripts/cli.mjs check <file>`) and fix everything it reports.
 
+## Conventions
+
+Follow these so every trip file reads alike, rather than copying whatever file is nearby. When editing, keep the file's existing style.
+
+- Place IDs are lowercase kebab-case names (`hoi-an`, `cat-ba-park`); airports use their lowercase IATA code (`han`) and a name like `Hanoi Noi Bai Airport (HAN)`.
+- An airport is its own place, joined to its city by a transfer journey; flights run airport to airport.
+- Journey `id`s are `<from>-<to>` place IDs (`han-nrt`), added only where a booking references the leg; add a suffix only to tell repeats apart.
+- Day titles are short and say what the day is: "Fly Hanoi → Tokyo", "Day trip to Nara", "Temples and old streets".
+- Estimates are round per-person numbers; set `0` for what a package includes, and omit what nobody knows yet.
+
 ## How the viewer reads it
 
 - To compare alternatives, keep each in its own trip file and open them together.
