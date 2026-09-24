@@ -115,12 +115,9 @@ export function calendarCountryCodes(model: Itinerary, day: NormalizedDay) {
   const carried = activeLegs(model, day).filter(
     (leg) => leg.day < day.index + 1,
   );
-  // On arrival days startPlace may already be the destination: start with the carried journey.
+  // A journey carried over from an earlier day has already left its origin: only where it lands counts.
   if (!carried.length) add(day.startPlace);
-  for (const leg of carried) {
-    add(leg.from);
-    add(leg.to);
-  }
+  for (const leg of carried) add(leg.to);
   for (const [index, block] of (day.source.blocks ?? []).entries()) {
     if (block.type === "place") add(block.place);
     else {

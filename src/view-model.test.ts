@@ -645,7 +645,7 @@ test("calendar country context survives overnight arrivals and absent metadata",
   });
   assert.deepEqual(
     model.days.map((day) => calendarCountries(model, day)),
-    ["Japan → Vietnam", "Japan → Vietnam", "Japan → Vietnam", "Vietnam"],
+    ["Japan → Vietnam", "Vietnam", "Vietnam", "Vietnam"],
   );
   const sparse = normalizeTrip({ version: 1, places: { a: {} }, days: [{}] });
   assert.equal(calendarCountries(sparse, sparse.days[0]), "");
