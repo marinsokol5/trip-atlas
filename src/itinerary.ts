@@ -105,9 +105,19 @@ export interface PlaceBlock {
   type: "place";
   place: string;
 }
+/** A named place worth seeing that day, with an optional insider tip. */
+export interface Sight {
+  name: string;
+  /** A Google Maps link to the place itself. */
+  mapUrl?: string;
+  /** One non-obvious line about this place ("Skip the first deer; there are more further in"). */
+  tip?: string;
+}
 export interface TripDay {
   title?: string;
+  /** A must-know for this day that no booking, sight or journey owns. */
   notes?: string;
+  sights?: Sight[];
   documents?: DocumentLink[];
   blocks?: (TravelBlock | PlaceBlock)[];
 }
@@ -383,6 +393,17 @@ export function parseTrip(input: unknown): Trip {
       d = object(v, path);
     if (d.title !== undefined) string(d.title, path + ".title");
     if (d.notes !== undefined) string(d.notes, path + ".notes");
+    if (d.sights !== undefined) {
+      if (!Array.isArray(d.sights)) fail(path + ".sights", "expected an array");
+      d.sights.forEach((value, j) => {
+        const sightPath = `${path}.sights[${j}]`,
+          sight = object(value, sightPath);
+        string(sight.name, sightPath + ".name");
+        if (sight.mapUrl !== undefined && !isGoogleMapsUrl(sight.mapUrl))
+          fail(sightPath + ".mapUrl", "expected an https Google Maps link");
+        if (sight.tip !== undefined) string(sight.tip, sightPath + ".tip");
+      });
+    }
     documents(d.documents, path + ".documents");
     if (d.blocks !== undefined) {
       if (!Array.isArray(d.blocks)) fail(path + ".blocks", "expected an array");

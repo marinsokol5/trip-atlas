@@ -541,3 +541,29 @@ test("booking baggage validates type, pieces and weight", () => {
     /kg/,
   );
 });
+test("day sights take a name, an optional Google Maps link and an optional tip", () => {
+  const day = (sights: unknown) => ({ ...base(), days: [{ sights }] });
+  const ok = normalizeTrip(
+    day([
+      {
+        name: "Nara Park",
+        tip: "Skip the first deer; there are more further in.",
+      },
+      { name: "Nakatanidou", mapUrl: "https://maps.google.com/?cid=123" },
+    ]),
+  );
+  assert.equal(ok.trip.days[0].sights!.length, 2);
+  assert.throws(() => normalizeTrip(day({ name: "x" })), /sights/);
+  assert.throws(
+    () => normalizeTrip(day([{ tip: "No name" }])),
+    /sights\[0\]\.name/,
+  );
+  assert.throws(
+    () => normalizeTrip(day([{ name: "x", mapUrl: "https://example.com" }])),
+    /sights\[0\]\.mapUrl/,
+  );
+  assert.throws(
+    () => normalizeTrip(day([{ name: "x", tip: " " }])),
+    /sights\[0\]\.tip/,
+  );
+});

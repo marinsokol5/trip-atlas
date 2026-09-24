@@ -400,20 +400,24 @@ export function DayBookings({
   dayNumber,
   folder,
   nightsOnly = false,
+  documents,
 }: {
   model: Itinerary;
   dayNumber: number;
   folder: string;
   /** Calendar days answer "where do we sleep tonight", omitting checkout stays. */
   nightsOnly?: boolean;
+  /** The day's own files, listed above its bookings. */
+  documents?: DocumentLink[];
 }) {
   const bookings = (nightsOnly ? nightBookingsOnDay : bookingsOnDay)(
     model,
     dayNumber,
   );
-  return bookings.length ? (
+  return bookings.length || documents?.length ? (
     <section className="day-bookings" aria-label="Documents for selected day">
       <h3>Documents</h3>
+      <Documents documents={documents} folder={folder} />
       <div className="day-booking-tiles">
         {bookings.map((booking, index) => {
           const countries = bookingCountries(model, booking);

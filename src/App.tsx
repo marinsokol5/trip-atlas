@@ -26,6 +26,7 @@ import {
   Compass,
   Check,
   CircleAlert,
+  MapPin,
 } from "lucide-react";
 import {
   useEffect,
@@ -1683,16 +1684,43 @@ function DayDetails({
           : `Night: ${name(model, day.overnight)}`}
       </span>
       <Bands model={model} day={day} />
-      {(day.source.notes ||
-        legs.length > 0 ||
-        !!day.source.documents?.length) && (
-        <section className="day-details" aria-label="Day details">
-          <h3>Day details</h3>
-          {day.source.notes && <p className="day-note">{day.source.notes}</p>}
-          {legs.length > 0 && (
-            <DayRoute model={model} day={day} legs={legs} folder={folder} />
-          )}
-          <Documents documents={day.source.documents} folder={folder} />
+      {/* Header, then the day's must-know, what to see, how to get around, and the paperwork. */}
+      {day.source.notes && (
+        <p className="booking-notes is-important day-must-know">
+          <CircleAlert strokeWidth={1.9} aria-label="Must know" />
+          <span>{day.source.notes}</span>
+        </p>
+      )}
+      {!!day.source.sights?.length && (
+        <section className="day-details" aria-label="Sights">
+          <h3>Sights</h3>
+          <ul className="sights">
+            {day.source.sights.map((sight, index) => (
+              <li key={index}>
+                {sight.mapUrl ? (
+                  <a
+                    className="sight-name"
+                    href={sight.mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open in Google Maps"
+                  >
+                    {sight.name}
+                    <MapPin strokeWidth={1.75} aria-hidden="true" />
+                  </a>
+                ) : (
+                  <span className="sight-name">{sight.name}</span>
+                )}
+                {sight.tip && <span className="sight-tip">{sight.tip}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {legs.length > 0 && (
+        <section className="day-details" aria-label="Route">
+          <h3>Route</h3>
+          <DayRoute model={model} day={day} legs={legs} folder={folder} />
         </section>
       )}
       <DayBookings
@@ -1700,6 +1728,7 @@ function DayDetails({
         dayNumber={day.index + 1}
         folder={folder}
         nightsOnly={nightsOnly}
+        documents={day.source.documents}
       />
     </section>
   );

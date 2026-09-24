@@ -63,6 +63,17 @@ Use fixed calendar `startDate` / `endDate`, or 1-based `startDay` / `endDay`, ne
 
 A hotel appears during its stay including checkout; the Calendar view shows it only on the nights slept there (never on checkout day), so each calendar day answers where you sleep that night. Explicit cost-linked nights, living days and travel legs can also associate a booking with days; its place alone does not guess a repeated visit. An unassociated booking remains visible in Bookings. Dates in an undated trip remain readable without selecting itinerary days.
 
+A day's card reads top to bottom: the header (date, countries, title, groups, where you sleep), the day's must-know `notes`, its `sights`, the route, then its documents and bookings. Each sight has a `name`, an optional Google Maps `mapUrl` and an optional one-line `tip`:
+
+```json
+"sights": [
+  { "name": "Nara Park", "tip": "Skip the first deer; there are many more further in, with fewer people." },
+  { "name": "Nakatanidou", "mapUrl": "https://maps.google.com/?cid=123", "tip": "Try the freshly pounded mochi." }
+]
+```
+
+Notes and tips are for things a sensible traveller would otherwise get wrong, each on what it is about: a booking, a journey, a sight, or, when none of those owns it, the day.
+
 Booking cards can also show stay details: `meals` (dinner, breakfast and lunch icons in eating order; `true`, `false`, text such as `"18:00, Japanese"` for an included meal shown on hover, or unknown when omitted), `checkIn` (`"15:00-18:00"` or `"15:00"`), a latest `checkOut` (`"10:00"`), a `notes` reminder (a quiet tip, or highlighted with `"important": true`), per-person `baggage` allowances (checked, cabin or personal item, with pieces and optional kg), and exact `coordinates`. Coordinates add a map-pin link that opens Google Maps in a new tab at that point. An optional `mapUrl`, an https Google Maps link such as a `maps.app.goo.gl` share link, opens the place's own listing instead. Google Maps is the only external site Trip Atlas links to, and nothing is fetched until you click it.
 
 ```json

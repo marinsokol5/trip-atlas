@@ -10,7 +10,13 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 - Keep the file short: every later reader, human or LLM, reads all of it. Write only what is specific to this trip and useful on the day — no general travel advice, explanations of how estimates or pins work, disclaimers, sources, or editing history. A one-line note beats a paragraph; no note beats a redundant one.
 - Structure first: put facts in their fields (times, durations, distance, climb, meals, check-in/out, coordinates, prices). A fact that keeps recurring without a field is a reason to extend the schema, not to write prose.
-- Notes are only for out-of-the-ordinary things to act on ("Bring ¥32,000 in cash", "No shops tomorrow; buy food today"), kept short. They never repeat structured fields, add subjective effort labels ("hard", "longest day"), or list routine host courtesies. A reminder tied to one booking goes on that booking.
+- Notes and tips are rare. Before writing one, ask: would a sensible traveller get this wrong without it, and does it matter? If not, leave it out. Most days, journeys and bookings have none. Never write what anyone would assume or look up anyway ("start early", "bring water", "book ahead", "check opening hours", "enjoy the view"), what a field already shows (times, modes, flight numbers, meals, distance, prices, where you sleep), subjective labels ("hard", "longest day"), or routine host courtesies. One short sentence, no lists, no markdown, no links.
+- Each note has one owner, the thing it is about:
+  - A booking's `notes`: doing something with or at that booking, such as paying, a shuttle, holding luggage or a pickup ("Bring ¥32,000 in cash; no cards").
+  - A journey's `notes`: something about that journey you'd otherwise get wrong ("Meet the driver at Terminal 2, Pillar 17").
+  - A sight's `tip`: something about that place that a local would tell you ("Skip the first deer; there are many more further in, with fewer people").
+  - A day's `notes`: a must-know for that day that none of the above owns, usually a consequence you must act on today ("Buy food for tomorrow: no shops between MUI and Hongu").
+- The day's plan is its `sights`, not prose. Name each place; add a verified `mapUrl` and a `tip` only when they earn it. Never describe the plan in a day note.
 - Titles stay short and plain: no series numbering or group names the `group` label already shows (not "Kumano Kodo 3: …"), no superlative tags ("(hardest climb)").
 - Booking titles are the property name only, without the platform ("(Airbnb)"); `reference` holds only a real confirmation code.
 - Fill bookings from the confirmation document: dates, `checkIn`/`checkOut`, `meals` (details such as `"18:00, Japanese"` as text), `coordinates` from its GPS, `status`, and per-person `cost.amount` (total ÷ guests). A price fixed in a foreign currency is still `confirmed`.
@@ -49,9 +55,16 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Day: `days[]`
 
 - `title` (optional) briefly describes the day's purpose.
-- `notes` (optional) adds plain-text details.
+- `notes` (optional) is the day's one must-know no booking, journey or sight owns (see Writing guidance); usually omitted.
+- `sights` (optional) lists the places to see that day, in visiting order.
 - `documents` (optional) lists documents relevant to this day.
 - `blocks` (optional) lists travel or place blocks in order, with location carrying forward afterward.
+
+## Sight: `days[].sights[]`
+
+- `name` (required) is the place's name as a traveller would search for it.
+- `mapUrl` (optional) is a verified Google Maps link as `https://maps.google.com/?cid=<number>`: open the place's coordinates in Google Maps, find the listing among nearby places, and confirm name and address before converting its place ID (the `0x…:0x…` pair; the second half, as a decimal, is the `cid`). Never guess one.
+- `tip` (optional) is one non-obvious sentence about this place (see Writing guidance).
 
 ## Travel block: `days[].blocks[]`
 
@@ -102,7 +115,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `checkIn` (optional) gives the local check-in time as `HH:mm` or a `HH:mm-HH:mm` window.
 - `checkOut` (optional) gives the latest local check-out time as `HH:mm`.
 - `coordinates` (optional) gives the exact property `lat`/`lon`, linked to Google Maps from the booking card.
-- `mapUrl` (optional) is an https Google Maps link to the place itself (a `maps.app.goo.gl` share link or a `google.com/maps/place/…` URL); the map pin opens it instead of the bare coordinates, showing the listing rather than a dropped pin. Take it from the user or the confirmation; never invent one.
+- `mapUrl` (optional) is a verified Google Maps link to the place itself, written as `https://maps.google.com/?cid=<number>` like a sight's; the map pin opens it instead of the bare coordinates, showing the listing rather than a dropped pin. Never invent one.
 - `baggage` (optional) lists per-person bag allowances as `{ "type": "checked" | "cabin" | "personal", "pieces": 1, "kg": 23 }`, with `kg` as the optional limit per piece.
 - `notes` (optional) adds a plain-text reminder shown on the booking card, as a quiet tip by default.
 - `important` (optional) is `true` when the note is a must rather than a tip (e.g. "Bring ¥32,000 in cash"); the card then highlights it.

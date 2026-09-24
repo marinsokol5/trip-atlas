@@ -419,8 +419,7 @@ nav {
 .leg-detail small {
   font-size: 11px;
 }
-.leg-detail p,
-.day-note {
+.leg-detail p {
   font-size: 12px;
   color: var(--muted);
   margin: 6px 0;
@@ -2719,10 +2718,6 @@ main[data-theme="dark"] {
 .day-details {
   margin-top: 22px;
 }
-.day-details > .day-note {
-  margin-top: 0;
-  color: var(--ink);
-}
 .leg-stats {
   color: var(--muted);
 }
@@ -3479,4 +3474,46 @@ main[data-theme="dark"] {
 .calendar-day > .night.is-unbooked .icon,
 .cell-chips .leg-chip.is-unbooked .icon {
   color: var(--note-icon);
+}
+/* Day card: the must-know sits right under the header; sights name a place and its tip. */
+.details > .day-must-know {
+  margin: 16px 0 0;
+}
+.sights {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sights li {
+  display: grid;
+  gap: 2px;
+}
+.sight-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+a.sight-name {
+  text-decoration: none;
+}
+a.sight-name:hover {
+  color: var(--blue);
+}
+.sight-name svg {
+  width: 13px;
+  height: 13px;
+  color: var(--muted);
+}
+.sight-tip {
+  font-size: 12px;
+  color: var(--muted);
+}
+.day-bookings > .documents {
+  margin: 0 0 10px;
 }
