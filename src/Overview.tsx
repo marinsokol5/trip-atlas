@@ -5,11 +5,16 @@ import {
   ArrowUpDown,
   ChevronRight,
   ArrowLeft,
+  CalendarRange,
+  Hourglass,
+  Plane,
+  TrainFront,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { Itinerary } from "./itinerary";
 import type { Amount } from "./overview-model";
 import { CostBreakdown } from "./CostBreakdown";
-import { mapAreas } from "./view-model";
+import { areaDays, dateLabel, mapAreas } from "./view-model";
 import {
   averageLabel,
   combine,
@@ -26,6 +31,31 @@ import {
   parseStaySort,
 } from "./overview-presentation";
 import type { StaySortKey } from "./overview-presentation";
+
+/** One summary figure: an icon says what it is before any label is read. */
+function SummaryTile({
+  icon: Icon,
+  value,
+  label,
+  title,
+}: {
+  icon: LucideIcon;
+  value: string;
+  label: string;
+  title?: string;
+}) {
+  return (
+    <div className="overview-tile" title={title}>
+      <span className="overview-tile-icon" aria-hidden="true">
+        <Icon strokeWidth={1.8} />
+      </span>
+      <span>
+        <strong>{value}</strong>
+        <span>{label}</span>
+      </span>
+    </div>
+  );
+}
 
 export function Overview({
   model,
@@ -169,7 +199,10 @@ export function Overview({
     nights = 0,
   ) => (
     <>
-      <tr {...costHover(key)}>
+      <tr
+        {...costHover(key)}
+        className={`overview-bucket ${costHover(key).className ?? ""}`}
+      >
         <th scope="row">
           <button
             className="overview-place overview-country-link"
@@ -178,6 +211,12 @@ export function Overview({
             aria-controls={`overview-items-${key}`}
             onClick={() => toggleCountry(key)}
           >
+            <i
+              style={{
+                backgroundColor:
+                  key === "between" ? "var(--transit)" : "var(--cost-other)",
+              }}
+            />
             <span className="overview-place-name">{label}</span>
             <ChevronRight aria-hidden="true" />
           </button>
@@ -245,7 +284,7 @@ export function Overview({
       key: "expenses",
       label: "Other expenses",
       cost: data.costs.expenses,
-      color: "var(--coast)",
+      color: "var(--cost-other)",
     },
   ];
   const placeCostLabel = data.costs.activities.known
@@ -312,6 +351,11 @@ export function Overview({
       </th>
     );
   };
+  const scopeDays = areaDays(model, country);
+  const dateRange =
+    scopeDays[0]?.date && scopeDays.at(-1)?.date
+      ? `${dateLabel(scopeDays[0].date)} – ${dateLabel(scopeDays.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}`
+      : undefined;
   const travelItems = [
     ["Flights", data.times.flights],
     ["Other transport", data.times.other],
@@ -347,82 +391,28 @@ export function Overview({
           Whole trip
         </button>
       )}
-      <div className={`overview-headlines ${showCosts ? "has-budget" : ""}`}>
-        <section className="overview-metric">
-          <h3>Duration</h3>
-          <p className="overview-number">
-            {data.days} <span>{data.days === 1 ? "day" : "days"}</span>
-          </p>
-          <p>
-            {hasNights
+      <div className="overview-headlines">
+        {dateRange && (
+          <SummaryTile icon={CalendarRange} value={dateRange} label="Dates" />
+        )}
+        <SummaryTile
+          icon={Hourglass}
+          value={`${data.days} ${data.days === 1 ? "day" : "days"}`}
+          label={
+            hasNights
               ? `${data.nights} ${data.nights === 1 ? "night" : "nights"}`
-              : "No overnight stays"}
-          </p>
-        </section>
-        <section className="overview-metric">
-          <h3>Travel time</h3>
-          {applicableTravel.length ? (
-            <div className="overview-travel">
-              {applicableTravel.map(([label, value]) => (
-                <div key={label}>
-                  <strong title={timeLabel(value)} tabIndex={0}>
-                    {headlineTimeLabel(value)}
-                  </strong>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="overview-empty-metric">No vehicle travel</p>
-          )}
-        </section>
-        {showCosts && (
-          <section className="overview-metric overview-budget">
-            <h3>
-              {country
-                ? "In-country total"
-                : mixedStatuses
-                  ? "Trip cost"
-                  : "Estimated cost"}
-              {currency ? ` · ${currency}` : ""}
-            </h3>
-            <p className="overview-number">
-              {moneyLabel(data.costs.total, currency)}
-            </p>
-            <p className="overview-average">
-              Per person
-              {data.budgetDays > 0 && (
-                <>
-                  {" "}
-                  ·{" "}
-                  <span
-                    title={`Total divided by ${data.budgetDays} ${country ? "days assigned to this country's living budget" : "trip days"}`}
-                  >
-                    <strong>
-                      {averageLabel(
-                        data.costs.total,
-                        data.budgetDays,
-                        currency,
-                      )}
-                    </strong>{" "}
-                    / day
-                  </span>
-                </>
-              )}
-            </p>
-          </section>
-        )}
-        {showCosts && (
-          <p className="overview-summary-note" aria-label="Cost status">
-            {mixedStatuses &&
-              statusTotals.map(([label, amount]) => (
-                <span key={label}>
-                  {label} <strong>{moneyLabel(amount, currency)}</strong>
-                </span>
-              ))}
-            <span>~ estimated · + some prices missing · ? unknown</span>
-          </p>
-        )}
+              : "No overnight stays"
+          }
+        />
+        {applicableTravel.map(([label, value]) => (
+          <SummaryTile
+            key={label}
+            icon={label === "Flights" ? Plane : TrainFront}
+            value={headlineTimeLabel(value)}
+            label={label === "Flights" ? "Flying" : "Other transport"}
+            title={`${timeLabel(value)} ${label.toLowerCase()}`}
+          />
+        ))}
       </div>
       {/* Wide screens fit the Overview to the window: costs on the left, breakdown on the right. */}
       <div className="overview-columns">
@@ -442,9 +432,7 @@ export function Overview({
               aria-labelledby="cost-categories-heading"
             >
               <div className="overview-stay-heading">
-                <h2 id="cost-categories-heading">
-                  {byCountry ? "Cost by country" : "Cost by category"}
-                </h2>
+                <h2 id="cost-categories-heading">Cost</h2>
                 {countryCosts && (
                   <div className="overview-toggle" aria-label="Group costs by">
                     {(["country", "category"] as const).map((option) => (
@@ -518,20 +506,6 @@ export function Overview({
                     ? "Where you’ll stay"
                     : "Places visited"}
               </h2>
-              <p className="overview-stay-caption">
-                {[
-                  hasNights
-                    ? `${data.nights} ${data.nights === 1 ? "night" : "nights"}`
-                    : "Day visits and travel stops",
-                  countryCosts || data.hasStayCosts
-                    ? breakdown === "countries"
-                      ? "in-country costs"
-                      : `${placeCostLabel.toLowerCase()} only`
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
             </div>
           </div>
           <div className="overview-table-scroll">
@@ -654,13 +628,44 @@ export function Overview({
                       data.expenseItems,
                     )}
                   <tr className="overview-grand-total">
-                    <th scope="row">Trip total</th>
+                    <th scope="row">
+                      {mixedStatuses ? (
+                        <button
+                          className="overview-place overview-country-link"
+                          type="button"
+                          aria-expanded={expanded.has("total")}
+                          aria-controls="overview-items-total"
+                          onClick={() => toggleCountry("total")}
+                        >
+                          <span className="overview-place-name">
+                            Trip total
+                          </span>
+                          <ChevronRight aria-hidden="true" />
+                        </button>
+                      ) : (
+                        "Trip total"
+                      )}
+                    </th>
                     {rowCells({
                       cost: data.costs.total,
                       nights: data.nights,
                       days: data.budgetDays,
                     })}
                   </tr>
+                  {mixedStatuses &&
+                    expanded.has("total") &&
+                    statusTotals.map(([label, amount], index) => (
+                      <tr
+                        key={label}
+                        id={index ? undefined : "overview-items-total"}
+                        className="overview-subrow"
+                      >
+                        <th scope="row">
+                          <span className="overview-place-name">{label}</span>
+                        </th>
+                        {rowCells({ cost: amount })}
+                      </tr>
+                    ))}
                 </tfoot>
               )}
             </table>

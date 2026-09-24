@@ -74,7 +74,6 @@ import {
   mapArea,
   componentLegs,
   placeColor,
-  visualGroups,
   groupKey,
   modeKind,
   legDuration,
@@ -1936,7 +1935,7 @@ function App() {
             </h1>
             <p className="meta">
               {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}` : "Dates open"}${activeTab === "overview" ? "" : ` · ${itinerary.days.length} day${itinerary.days.length === 1 ? "" : "s"} · ${visualGroups(itinerary).length} destination${visualGroups(itinerary).length === 1 ? "" : "s"}`}`
+                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}` : "Dates open"}`
                 : "A little perspective, before you go."}
             </p>
           </div>

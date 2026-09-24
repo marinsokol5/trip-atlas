@@ -2184,12 +2184,6 @@ main[data-theme="dark"] {
   margin: 0;
   color: var(--muted);
 }
-.overview-country-costs tfoot th,
-.overview-country-costs tfoot td {
-  font-size: 12px;
-  padding-top: 9px;
-  padding-bottom: 9px;
-}
 .overview-cost-buckets {
   border-top: 1px solid var(--line);
   padding-top: 12px;
@@ -3230,5 +3224,81 @@ main[data-theme="dark"] {
   }
   .overview-night-count strong {
     font-size: 15px;
+  }
+}
+/* Summary tiles: an icon, a figure and a short label each, spread across the card. */
+.overview-headlines,
+.overview-headlines.has-budget {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px 24px;
+  padding: 14px 20px;
+}
+.overview-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.overview-tile-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--wash);
+  color: var(--blue);
+}
+.overview-tile-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.overview-tile strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.overview-tile > span:last-child > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+/* Other expenses: a grey dark enough to see beside the ring's gaps. */
+main {
+  --cost-other: #a2acb4;
+}
+main[data-theme="dark"] {
+  --cost-other: #5f6b74;
+}
+/* Sort arrows show on the sorted column, and on the others only when pointed at. */
+.overview-table th[aria-sort="none"] .overview-sort-icon {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.overview-table th[aria-sort="none"]:hover .overview-sort-icon,
+.overview-table
+  th[aria-sort="none"]
+  .overview-sort:focus-visible
+  .overview-sort-icon {
+  opacity: 0.6;
+}
+@media (max-width: 760px) {
+  .overview-headlines,
+  .overview-headlines.has-budget {
+    grid-template-columns: 1fr 1fr;
+    padding: 14px;
+  }
+  .overview-tile {
+    gap: 9px;
+  }
+  .overview-tile-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .overview-tile strong {
+    font-size: 16px;
   }
 }
