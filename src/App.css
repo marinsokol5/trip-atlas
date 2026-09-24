@@ -1789,8 +1789,8 @@ main[data-theme="dark"] {
 .overview-metric h3 {
   margin: 0 0 12px;
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 15px;
+  font-weight: 500;
 }
 .overview-metric > p:last-child {
   color: var(--muted);
