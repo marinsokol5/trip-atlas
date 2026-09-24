@@ -2255,7 +2255,7 @@ main[data-theme="dark"] {
 
 /* Reservations keep the same quiet, read-only rhythm as Overview. */
 .bookings-view {
-  padding: 24px max(24px, calc((100% - 1200px) / 2));
+  padding: 24px 32px;
   overflow-y: auto;
   min-height: 0;
   scrollbar-gutter: stable;
@@ -3294,51 +3294,101 @@ main[data-theme="dark"] {
   --note-bg: #3a3020;
   --note-icon: #e2b24f;
 }
+/* Documents: country chapters, each a grid of tiles as wide as the screen allows. */
 .booking-list {
   display: grid;
-  gap: 10px;
+  gap: 22px;
   min-width: 0;
 }
 .booking-chapter {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 14px 0 0 78px;
+  margin: 0 0 10px;
   font-size: 14px;
   font-weight: 600;
 }
-.booking-list > .booking-chapter:first-child {
-  margin-top: 0;
-}
-.booking-row {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-.booking-date {
-  display: grid;
-  justify-items: center;
-  padding-top: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.booking-date strong {
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-.booking-date span {
+.booking-chapter.is-quiet {
   color: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500;
+  font-size: 13px;
 }
-.booking-list .booking-card {
-  padding: 14px 16px;
+.booking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+.booking-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--paper);
+}
+.booking-tile-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+.booking-date-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.booking-tile .booking-actions {
+  margin-left: auto;
+}
+.booking-tile .booking-card-heading {
+  gap: 10px;
+}
+.booking-tile .booking-type-icon {
+  width: 18px;
+  height: 18px;
+}
+.booking-tile h3 {
+  font-size: 14px;
+}
+.booking-tile .booking-meta {
+  margin-top: 2px;
+}
+.booking-tile .booking-details {
+  padding-left: 28px;
+}
+.booking-tile .booking-stay {
+  justify-content: flex-start;
+  margin-top: 0;
+  font-size: 12px;
+}
+/* The price row and note sit at the bottom, so tiles in a row line up. */
+.booking-tile-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.booking-tile-money .booking-price {
+  margin-left: 0;
+}
+.booking-tile-money .booking-price strong {
+  font-size: 15px;
+}
+.booking-tile-money .booking-reference {
+  margin-left: auto;
+}
+.booking-tile .booking-notes {
+  margin: 0;
 }
 /* Every card: title, money and buttons on top; stay details below the title. */
 .booking-body {
@@ -3387,13 +3437,6 @@ main[data-theme="dark"] {
   margin-left: 0;
 }
 @media (max-width: 760px) {
-  .booking-row {
-    grid-template-columns: 44px minmax(0, 1fr);
-    gap: 8px;
-  }
-  .booking-chapter {
-    margin-left: 52px;
-  }
   .booking-body {
     padding-left: 0;
   }
@@ -3404,4 +3447,16 @@ main[data-theme="dark"] {
 /* In the narrow day panel the title keeps most of the line; money wraps below it. */
 .day-bookings .booking-identity {
   min-width: 55%;
+}
+.booking-list .booking-tile > .booking-notes,
+.booking-grid .booking-tile > .booking-notes {
+  margin-left: 0;
+}
+.booking-date-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.booking-date-chip .flag {
+  font-size: 12px;
 }

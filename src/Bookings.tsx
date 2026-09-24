@@ -20,7 +20,6 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Flag } from "./Flag";
-import { Fragment } from "react";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
 import { documentUrl } from "./itinerary";
 import {
@@ -31,7 +30,6 @@ import {
   nightBookingsOnDay,
 } from "./booking-model";
 import {
-  countryName,
   dayCountries,
   dayLabel,
   dateLabel,
@@ -219,21 +217,15 @@ function bookingDayIndex(booking: Booking, model: Itinerary) {
   if (allocation?.type === "accommodation") return allocation.nights[0] - 1;
   return undefined;
 }
-/** The date column: "4–7" over "Nov", or "30–2" over "Nov–Dec"; "Day 3" without dates. */
-function bookingDateBlock(booking: Booking, model: Itinerary, index: number) {
+/** The tile's date: "4 Nov", "4–7 Nov", "28 Nov – 1 Dec"; "Day 3" without dates. */
+function bookingDateChip(booking: Booking, model: Itinerary, index: number) {
   const start = booking.startDate ?? model.days[index]?.date;
-  if (!start) return { top: `Day ${index + 1}`, bottom: "" };
+  if (!start) return `Day ${index + 1}`;
   const end = booking.endDate;
-  const day = (date: string) => String(Number(date.slice(8)));
-  const month = (date: string) => dateLabel(date, { month: "short" });
-  const range = end && end !== start;
-  return {
-    top: range ? `${day(start)}–${day(end)}` : day(start),
-    bottom:
-      range && month(end) !== month(start)
-        ? `${month(start)}–${month(end)}`
-        : month(start),
-  };
+  if (!end || end === start) return dateLabel(start);
+  return start.slice(0, 7) === end.slice(0, 7)
+    ? `${Number(start.slice(8))}–${dateLabel(end)}`
+    : `${dateLabel(start)} – ${dateLabel(end)}`;
 }
 const typeLabels = {
   accommodation: "Accommodation",
@@ -246,14 +238,17 @@ export function BookingCard({
   model,
   folder,
   dayNumber,
-  showDates = true,
+  dateChip,
+  country,
 }: {
   booking: Booking;
   model: Itinerary;
   folder: string;
   dayNumber?: number;
-  /** Off where a date column beside the card already gives them. */
-  showDates?: boolean;
+  /** A tile in the Documents grid: dates move into this chip on top. */
+  dateChip?: string;
+  /** The tile's country flag, when the booking sits in one country. */
+  country?: string;
 }) {
   const dates = bookingDates(booking, model),
     count = nights(booking, model),
@@ -287,126 +282,166 @@ export function BookingCard({
         : booking.type === "other"
           ? undefined
           : "Status not specified";
-  return (
-    <article
-      className={`booking-card ${booking.status === "cancelled" ? "booking-cancelled" : ""}`}
+  const identity = (
+    <div className="booking-identity">
+      <h3>{booking.title}</h3>
+      {(dates || booking.place || count !== undefined || flightTime) && (
+        <p className="booking-meta">
+          {[
+            // In a day panel "Night: <place>" already names the place.
+            booking.place &&
+            (dayNumber === undefined ||
+              model.days[dayNumber - 1].overnight !== booking.place)
+              ? model.trip.places[booking.place].name
+              : undefined,
+            dateChip === undefined ? dates : undefined,
+            flightTime,
+            count !== undefined &&
+              `${count} ${count === 1 ? "night" : "nights"}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+  const icon = (
+    <Icon
+      className="booking-type-icon"
+      aria-label={typeLabels[booking.type]}
+      strokeWidth={1.5}
+    />
+  );
+  const checkoutBadge = checkout && (
+    <span className="booking-checkout">Check-out today</span>
+  );
+  const statusBadge = status && (
+    // Confirmed is the norm; only other states earn a badge.
+    <span
+      className={`booking-status booking-status-${booking.status ?? "unspecified"}`}
     >
-      <div className="booking-card-heading">
-        <Icon
-          className="booking-type-icon"
-          aria-label={typeLabels[booking.type]}
-          strokeWidth={1.5}
-        />
-        <div className="booking-identity">
-          <h3>{booking.title}</h3>
-          {(dates || booking.place || count !== undefined || flightTime) && (
-            <p className="booking-meta">
+      {status}
+    </span>
+  );
+  const price = booking.cost && (
+    <span
+      className="booking-price"
+      title={`${costStatus[0].toUpperCase() + costStatus.slice(1)} price per person`}
+    >
+      <strong>
+        {costStatus === "estimated" ? "~" : ""}
+        {money(booking.cost.amount)}
+      </strong>
+      {count !== undefined && count > 1 && (
+        <small>
+          {money(booking.cost.amount / count)}
+          /night
+        </small>
+      )}
+    </span>
+  );
+  const reference = booking.reference && (
+    <span className="booking-reference">
+      Ref <strong>{booking.reference}</strong>
+    </span>
+  );
+  const actions = (
+    <div className="booking-actions">
+      {booking.coordinates && (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${booking.coordinates.lat},${booking.coordinates.lon}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open in Google Maps"
+          aria-label={`Open ${booking.title} in Google Maps`}
+        >
+          <MapPin strokeWidth={1.75} aria-hidden="true" />
+        </a>
+      )}
+      {booking.documents?.map((document, index) => (
+        <a
+          key={index}
+          href={documentUrl(folder, document.path)}
+          target="_blank"
+          rel="noreferrer"
+          title={document.label}
+          aria-label={`Open ${document.label}`}
+        >
+          <FileText strokeWidth={1.75} aria-hidden="true" />
+        </a>
+      ))}
+    </div>
+  );
+  const details = (
+    <div className="booking-details">
+      {(booking.checkIn || booking.checkOut || booking.meals) && (
+        <div className="booking-stay">
+          {(booking.checkIn || booking.checkOut) && (
+            <span className="booking-times">
               {[
-                // In a day panel "Night: <place>" already names the place.
-                booking.place &&
-                (dayNumber === undefined ||
-                  model.days[dayNumber - 1].overnight !== booking.place)
-                  ? model.trip.places[booking.place].name
-                  : undefined,
-                showDates ? dates : undefined,
-                flightTime,
-                count !== undefined &&
-                  `${count} ${count === 1 ? "night" : "nights"}`,
+                booking.checkIn && `In ${booking.checkIn.replace("-", "–")}`,
+                booking.checkOut && `Out by ${booking.checkOut}`,
               ]
                 .filter(Boolean)
                 .join(" · ")}
-            </p>
-          )}
-        </div>
-        {checkout && <span className="booking-checkout">Check-out today</span>}
-        <div className="booking-money">
-          {/* Confirmed is the norm; only other states earn a badge. */}
-          {status && (
-            <span
-              className={`booking-status booking-status-${booking.status ?? "unspecified"}`}
-            >
-              {status}
             </span>
           )}
-          {booking.cost && (
-            <span
-              className="booking-price"
-              title={`${costStatus[0].toUpperCase() + costStatus.slice(1)} price per person`}
-            >
-              <strong>
-                {costStatus === "estimated" ? "~" : ""}
-                {money(booking.cost.amount)}
-              </strong>
-              {count !== undefined && count > 1 && (
-                <small>
-                  {money(booking.cost.amount / count)}
-                  /night
-                </small>
-              )}
-            </span>
-          )}
-          {booking.reference && (
-            <span className="booking-reference">
-              Ref <strong>{booking.reference}</strong>
-            </span>
-          )}
+          {booking.meals && <Meals meals={booking.meals} />}
         </div>
-        <div className="booking-actions">
-          {booking.coordinates && (
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${booking.coordinates.lat},${booking.coordinates.lon}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open in Google Maps"
-              aria-label={`Open ${booking.title} in Google Maps`}
-            >
-              <MapPin strokeWidth={1.75} aria-hidden="true" />
-            </a>
-          )}
-          {booking.documents?.map((document, index) => (
-            <a
-              key={index}
-              href={documentUrl(folder, document.path)}
-              target="_blank"
-              rel="noreferrer"
-              title={document.label}
-              aria-label={`Open ${document.label}`}
-            >
-              <FileText strokeWidth={1.75} aria-hidden="true" />
-            </a>
-          ))}
-        </div>
-      </div>
-      <div className="booking-body">
-        <div className="booking-details">
-          {(booking.checkIn || booking.checkOut || booking.meals) && (
-            <div className="booking-stay">
-              {(booking.checkIn || booking.checkOut) && (
-                <span className="booking-times">
-                  {[
-                    booking.checkIn &&
-                      `In ${booking.checkIn.replace("-", "–")}`,
-                    booking.checkOut && `Out by ${booking.checkOut}`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-              )}
-              {booking.meals && <Meals meals={booking.meals} />}
-            </div>
-          )}
-          {!!booking.baggage?.length && <Baggage bags={booking.baggage} />}
-          {booking.cost && allocation && (
-            <p className="booking-allocation">{allocation}</p>
-          )}
-        </div>
-      </div>
-      {booking.notes && (
-        <p className="booking-notes">
-          <TriangleAlert strokeWidth={1.9} aria-hidden="true" />
-          <span>{booking.notes}</span>
-        </p>
       )}
+      {!!booking.baggage?.length && <Baggage bags={booking.baggage} />}
+      {booking.cost && allocation && (
+        <p className="booking-allocation">{allocation}</p>
+      )}
+    </div>
+  );
+  const notes = booking.notes && (
+    <p className="booking-notes">
+      <TriangleAlert strokeWidth={1.9} aria-hidden="true" />
+      <span>{booking.notes}</span>
+    </p>
+  );
+  const className = `booking-card ${booking.status === "cancelled" ? "booking-cancelled" : ""}`;
+  if (dateChip !== undefined)
+    // Tile: date and buttons on top, the price row and note pinned to the bottom.
+    return (
+      <article className={`${className} booking-tile`}>
+        <div className="booking-tile-top">
+          <span className="booking-date-chip">
+            {country && <Flag code={country} />}
+            {dateChip}
+          </span>
+          {checkoutBadge}
+          {actions}
+        </div>
+        <div className="booking-card-heading">
+          {icon}
+          {identity}
+        </div>
+        {details}
+        <div className="booking-tile-money">
+          {statusBadge}
+          {price}
+          {reference}
+        </div>
+        {notes}
+      </article>
+    );
+  return (
+    <article className={className}>
+      <div className="booking-card-heading">
+        {icon}
+        {identity}
+        {checkoutBadge}
+        <div className="booking-money">
+          {statusBadge}
+          {price}
+          {reference}
+        </div>
+        {actions}
+      </div>
+      <div className="booking-body">{details}</div>
+      {notes}
     </article>
   );
 }
@@ -462,25 +497,28 @@ export function Bookings({
   const tripWide = listed.filter(
     (booking) => bookingDayIndex(booking, model) === undefined,
   );
-  let chapter: string | undefined;
-  const dated = listed
-    .flatMap((booking) => {
-      const index = bookingDayIndex(booking, model);
-      return index === undefined ? [] : [{ booking, index }];
-    })
-    .sort((a, b) => a.index - b.index)
-    .map(({ booking, index }) => {
-      const countries = bookingCountries(model, booking);
-      // A new country opens a chapter; journeys between countries stay in between.
-      const country = countries.length === 1 ? countries[0] : undefined;
-      const opens = country && country !== chapter ? country : undefined;
-      if (country) chapter = country;
-      return {
-        booking,
-        chapter: opens,
-        date: bookingDateBlock(booking, model, index),
-      };
-    });
+  // One grid in trip order, trip-wide items first; each tile's flag says where.
+  const items = [
+    ...tripWide.map((booking) => ({
+      booking,
+      chip: "Whole trip",
+      country: undefined,
+    })),
+    ...listed
+      .flatMap((booking) => {
+        const index = bookingDayIndex(booking, model);
+        return index === undefined ? [] : [{ booking, index }];
+      })
+      .sort((a, b) => a.index - b.index)
+      .map(({ booking, index }) => {
+        const countries = bookingCountries(model, booking);
+        return {
+          booking,
+          chip: bookingDateChip(booking, model, index),
+          country: countries.length === 1 ? countries[0] : undefined,
+        };
+      }),
+  ];
   const days = model.days.filter(
     (day) =>
       day.source.documents?.length &&
@@ -516,37 +554,16 @@ export function Bookings({
         className={`bookings-layout ${listed.length && hasDocuments ? "has-documents" : ""}`}
       >
         {!!listed.length && (
-          <div className="booking-list">
-            {!!tripWide.length && (
-              <h3 className="booking-chapter">Whole trip</h3>
-            )}
-            {tripWide.map((booking, index) => (
-              <div className="booking-row" key={`trip-${index}`}>
-                <span className="booking-date" />
-                <BookingCard booking={booking} model={model} folder={folder} />
-              </div>
-            ))}
-            {dated.map(({ booking, chapter, date }, index) => (
-              <Fragment key={index}>
-                {chapter && (
-                  <h3 className="booking-chapter">
-                    <Flag code={chapter} />
-                    {countryName(chapter)}
-                  </h3>
-                )}
-                <div className="booking-row">
-                  <span className="booking-date">
-                    <strong>{date.top}</strong>
-                    {date.bottom && <span>{date.bottom}</span>}
-                  </span>
-                  <BookingCard
-                    booking={booking}
-                    model={model}
-                    folder={folder}
-                    showDates={false}
-                  />
-                </div>
-              </Fragment>
+          <div className="booking-grid">
+            {items.map(({ booking, chip, country }, index) => (
+              <BookingCard
+                key={index}
+                booking={booking}
+                model={model}
+                folder={folder}
+                dateChip={chip}
+                country={country}
+              />
             ))}
           </div>
         )}
