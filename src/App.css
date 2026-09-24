@@ -1964,29 +1964,16 @@ main[data-theme="dark"] {
 .overview-day-visit .overview-night-count > span {
   visibility: hidden;
 }
-.overview-notes {
+.overview-footnote {
   color: var(--muted);
   font-size: 12px;
   margin-top: 23px;
 }
-.overview-notes summary {
-  cursor: pointer;
+.overview-footnote p {
+  margin: 0 0 8px;
 }
-.overview-notes p {
-  line-height: 1.6;
-}
-.overview-days-touched {
-  max-width: 460px;
-}
-.overview-days-touched > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 4px 0;
-}
-.overview-days-touched dd {
-  margin: 0;
-  text-align: right;
+.overview-footnote .overview-status-amounts {
+  font-size: 13px;
 }
 .heading > div:first-child {
   min-width: 0;
@@ -2510,7 +2497,7 @@ main[data-theme="dark"] {
   flex-wrap: wrap;
   gap: 8px 24px;
   color: var(--muted);
-  margin: 0 0 22px;
+  margin: 0 0 8px;
   font-size: 12px;
 }
 .overview-status-amounts strong {

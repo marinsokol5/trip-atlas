@@ -59,7 +59,6 @@ export function Overview({
     ["Between countries", data.betweenCountries],
     ["Unassigned", data.unassigned],
   ] as const;
-  const unallocatedTime = data.times.unallocated.known > 0;
   const unallocatedCost = data.costs.unallocated.known > 0;
   const [preferredSort, setSort] = useState(() => {
     try {
@@ -165,6 +164,17 @@ export function Overview({
   const mixedStatuses =
     data.costs.total.statuses?.confirmed !== undefined ||
     data.costs.total.statuses?.paid !== undefined;
+  const statuses = costStatusAmounts(data.costs.total);
+  const statusTotals = [
+    [
+      "Estimated",
+      combine(...statuses.filter(([s]) => s === "estimated").map(([, a]) => a)),
+    ],
+    [
+      "Confirmed",
+      combine(...statuses.filter(([s]) => s !== "estimated").map(([, a]) => a)),
+    ],
+  ] as const;
   const countrySubtotal = combine(
     ...[...data.countries]
       .filter(([code]) => code !== "unknown")
@@ -345,19 +355,6 @@ export function Overview({
             currency={currency}
           />
         </section>
-      )}
-      {mixedStatuses && (
-        <div
-          className="overview-status-amounts"
-          aria-label="Cost status breakdown"
-        >
-          {costStatusAmounts(data.costs.total).map(([status, amount]) => (
-            <span key={status}>
-              {status[0].toUpperCase() + status.slice(1)}
-              <strong>{moneyLabel(amount, currency)}</strong>
-            </span>
-          ))}
-        </div>
       )}
       {data.unallocatedBookings.known > 0 && (
         <section
@@ -583,86 +580,25 @@ export function Overview({
           </table>
         </div>
       </section>
-      <details className="overview-notes">
-        <summary>Details &amp; how estimates work</summary>
-        <p>
-          Travel totals before headline rounding: flights{" "}
-          {timeLabel(data.times.flights)}; other transport{" "}
-          {timeLabel(data.times.other)}.
-        </p>
-        <p>
-          Column headings sort the supplied figures; incomplete estimates keep
-          their + marker and unknown values stay last. Country names open that
-          area's overview.
-        </p>
-        <p>
-          Days touched count every listed day spent in a country or place,
-          including crossing days. They can overlap and should not be added
-          together.
-        </p>
-        <dl className="overview-days-touched">
-          {rows.map((row) => (
-            <div key={row.key}>
-              <dt>{row.name}</dt>
-              <dd>
-                {row.days} {row.days === 1 ? "day" : "days"} touched
-                {breakdown === "countries" &&
-                  row.key !== "unknown" &&
-                  row.key !== "transit" &&
-                  ` · ${data.countries.get(row.key)?.budgetDays ?? 0} budgeted days`}
-                {row.nights === 0 ? " · no overnight stay" : ""}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <p>
-          Walking is excluded from travel time. Nights end before the final day.
-          Crossing days can appear in more than one country.
-        </p>
-        <p>
-          All costs are per person. ~ means estimated; + means some values are
-          missing; ? means unknown. No daily budget or travel prices are
-          assumed. Living costs use one country per day, skipping days at home
-          before departure and after return; accommodation excludes nights in
-          transit.
-        </p>
-        <p>
-          Country totals include living, accommodation, additional activities
-          and travel with both endpoints in that country. Between countries
-          contains each international fare once; unknown-country costs are
-          Unassigned. Average/day divides the country total by its living-budget
-          days (including transit fallback), not days touched or hotel nights.
-          Zero budget days show a dash. Travel time still includes arriving and
-          departing journeys. Place rows contain living, stays and explicitly
-          additional activities; transport remains separate.
-        </p>
-        {!!model.trip.bookings?.some((booking) => booking.cost) && (
-          <p>
-            Booking amounts replace only their linked estimates. Accommodation
-            totals are spread across the named nights, excluding checkout;
-            living replacements cover the entire linked daily budget. Additional
-            activities sit outside that budget. Estimated, confirmed and paid
-            are separate authored cost categories, independent of reservation
-            status. Cancelled bookings are excluded and their estimates remain.
-            Unallocated booking amounts are shown separately, outside totals.
-            Other expenses count once in the whole-trip total, outside every
-            country.
+      <footer className="overview-footnote">
+        {mixedStatuses && (
+          <p
+            className="overview-status-amounts"
+            aria-label="Cost status breakdown"
+          >
+            {statusTotals.map(([label, amount]) => (
+              <span key={label}>
+                {label}
+                <strong>{moneyLabel(amount, currency)}</strong>
+              </span>
+            ))}
           </p>
         )}
-        {unallocatedTime && (
-          <p>
-            {timeLabel(data.times.unallocated)} of mixed travel cannot be split
-            between flights, other transport or walking.
-          </p>
-        )}
-        {unallocatedCost && (
-          <p>
-            {moneyLabel(data.costs.unallocated, currency)} of mixed travel is
-            included in the total but cannot be split between the transport
-            categories.
-          </p>
-        )}
-      </details>
+        <p>
+          Per person. ~ estimated · + some prices missing · ? unknown. Days at
+          home before departure and after return are not counted.
+        </p>
+      </footer>
     </section>
   );
 }
