@@ -20,6 +20,20 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - Add checklist or packing items only once the user agrees to them.
 - After every edit run `npx trip-atlas check <file>` (in a Trip Atlas checkout: `node scripts/cli.mjs check <file>`) and fix everything it reports.
 
+## How the viewer reads it
+
+- To compare alternatives, keep each in its own trip file and open them together.
+- Ten listed days are nine nights: the final day adds none. A night is at a place, in transit or unknown.
+- Clocks are local: `start` in the origin's timezone, `end` in the destination's. An earlier arrival clock never implies the next day; set `endDay`. Exact times need `startDate` plus a timezone at each end or trip level; ambiguous daylight-saving clocks are rejected and UTC offsets are not supported.
+- Journey time comes from exact clocks first, then the whole-journey estimate, then the summed component estimates. Walking time is not counted as transport.
+- Every price is per person in the trip `currency`: divide a shared room by its guests; nothing is converted. Zero is free, omission unknown.
+- Living is charged once per day in the country you sleep in; accommodation per known hotel night; a journey's `estimatedCost` once, international ones under Between countries.
+- Bookings never change the route, times or nights. Documents, references and paid amounts do not imply `status: "confirmed"`; set it.
+- An accommodation's end is its checkout day; other booking ranges include both ends. Calendar dates stay fixed if the trip start moves.
+- A stay with a matching place and complete range replaces those nights' estimates automatically, only if it lies entirely inside the trip; otherwise it stays unallocated rather than prorated. Two active bookings cannot replace the same night, journey or activity.
+- Once the trip has any booking, the Calendar marks each night away from home without a stay and each flight without a linked booking as still to book.
+- Store a multi-night confirmation once, on its booking; it appears on every day of the stay.
+
 ## Trip
 
 - `version` (required) is always `1`.

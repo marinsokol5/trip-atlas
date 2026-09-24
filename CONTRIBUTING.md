@@ -21,8 +21,12 @@ Keep changes focused and explain the user-visible behavior and how you checked i
 - `skills/trip-atlas-update-itinerary/SKILL.md`: compact, canonical field reference for agents.
 - `skills/trip-atlas-download-booking/`: agent workflow that saves a reservation as one named PDF and links it from its booking; its template holds placeholders only.
 
-Schema, validation or document path changes must update the README, [format guide](docs/itinerary-format.md), canonical skill and relevant tests together. Keep the skill compact: a two-sentence introduction and one required/optional sentence per authored field. Preserve unknown optional metadata rather than rewriting users' files.
+Schema, validation or document path changes must update the README, canonical skill and relevant tests together. Keep the skill compact: a two-sentence introduction and one required/optional sentence per authored field. Preserve unknown optional metadata rather than rewriting users' files.
 
-The app stays local and read-only. Keep personal itineraries, tickets, confirmation numbers and books outside this repository. Use fictional attachments and public demos in tests and screenshots. Add source attribution for new third-party assets, and retain dependency license notices when upgrading.
+The app stays local and read-only. Keep personal itineraries, tickets, confirmation numbers and books outside this repository. Use fictional attachments and public demos in tests and screenshots. Add source attribution for new third-party assets; the build regenerates bundled dependency licenses, and fails on an unlicensed or non-permissive one.
 
 Report bugs with a minimal fictional JSON example, the command used, Node version and browser. See [SECURITY.md](SECURITY.md) for sensitive reports.
+
+## Releasing
+
+Run `npm run release` from a clean, pushed `main` after `npm login`. It shows the current and published versions, asks which to release, then runs the full check, bumps and tags the version, publishes to npm, pushes the tag and creates the GitHub release. `npm run release -- --dry-run` goes through the same steps without tagging, publishing or pushing.

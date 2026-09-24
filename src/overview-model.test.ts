@@ -558,13 +558,13 @@ test("home days before the first stay country and after the last carry no living
         home: { country: "NL" },
         ams: { country: "NL" },
         hanoi: { country: "VN" },
-        zagreb: { country: "HR" },
+        lisbon: { country: "PT" },
       },
       budget: {
         countries: {
           NL: { livingPerDay: 30 },
           VN: { livingPerDay: 35 },
-          HR: { livingPerDay: 25 },
+          PT: { livingPerDay: 25 },
         },
       },
       days: [
@@ -593,11 +593,11 @@ test("home days before the first stay country and after the last carry no living
         },
         {},
         {},
-        { blocks: [{ type: "travel", to: "zagreb", mode: "flight" }] },
+        { blocks: [{ type: "travel", to: "lisbon", mode: "flight" }] },
       ],
     });
   const plain = overview(trip(), "", "countries");
-  // Day 1 at Schiphol and the final day at home in Zagreb are ordinary life.
+  // Day 1 at the departure airport and the final day back home are ordinary life.
   assert.equal(plain.costs.living.value, 2 * 35);
   assert.equal(plain.costs.living.missing, 0);
   assert.deepEqual(

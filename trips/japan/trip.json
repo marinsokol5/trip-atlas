@@ -1,7 +1,17 @@
 {
   "version": 1,
-  "title": "Japan · an illustrative journey",
-  "startDate": "2026-12-01",
+  "startDate": "2027-05-10",
+  "timezone": "Asia/Tokyo",
+  "currency": "EUR",
+  "budget": {
+    "countries": {
+      "JP": {
+        "livingPerDay": 45,
+        "accommodationPerNight": 60
+      }
+    }
+  },
+  "title": "Japan: The Golden Route",
   "initialPlace": "tokyo",
   "places": {
     "tokyo": {
@@ -13,15 +23,6 @@
         "lon": 139.6503
       }
     },
-    "hakone": {
-      "name": "Hakone",
-      "country": "JP",
-      "timezone": "Asia/Tokyo",
-      "coordinates": {
-        "lat": 35.2324,
-        "lon": 139.1069
-      }
-    },
     "kyoto": {
       "name": "Kyoto",
       "country": "JP",
@@ -29,6 +30,24 @@
       "coordinates": {
         "lat": 35.0116,
         "lon": 135.7681
+      }
+    },
+    "nara": {
+      "name": "Nara",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.6829,
+        "lon": 135.8322
+      }
+    },
+    "himeji": {
+      "name": "Himeji",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.8394,
+        "lon": 134.6939
       }
     },
     "hiroshima": {
@@ -40,106 +59,145 @@
         "lon": 132.4553
       }
     },
-    "osaka": {
-      "name": "Osaka",
+    "miyajima": {
+      "name": "Miyajima",
       "country": "JP",
       "timezone": "Asia/Tokyo",
       "coordinates": {
-        "lat": 34.6937,
-        "lon": 135.5023
+        "lat": 34.2959,
+        "lon": 132.32
       }
     }
   },
   "days": [
     {
-      "notes": "Illustrative itinerary — replace with your own plans. Nothing here is a booking.",
-      "documents": [
-        {
-          "label": "Example local document",
-          "path": "document.txt"
-        }
-      ]
+      "title": "Tokyo at an easy pace",
+      "notes": "Settle in with a short neighborhood walk and an unhurried first meal. Dates, transfer choices, travel times and prices are illustrative; nothing is booked. Per-person inputs: €45/day living, €60/night room share, plus listed transport. Arrival and onward travel are excluded."
     },
-    {},
-    {},
-    {},
-    {},
-    {},
     {
+      "title": "Old streets and the river",
+      "notes": "Explore Asakusa, then follow the Sumida waterfront. Leave time for small shops and an afternoon break."
+    },
+    {
+      "title": "A different side of Tokyo",
+      "notes": "Mix a garden or gallery with the streets around Shibuya. Keep the evening flexible before moving west."
+    },
+    {
+      "title": "West to Kyoto",
+      "notes": "Travel to Kyoto and get to know the lanes near your base. Keep the first afternoon light.",
       "blocks": [
         {
           "type": "travel",
-          "to": "hakone",
-          "start": "10:00",
-          "end": "12:00",
-          "mode": "train"
-        }
-      ]
-    },
-    {},
-    {
-      "blocks": [
-        {
-          "type": "travel",
+          "id": "tokyo-kyoto",
           "to": "kyoto",
+          "mode": "train",
+          "estimatedDurationMinutes": 180,
+          "estimatedCost": 100,
+          "notes": "Shinkansen journey; rounded planning time includes reaching the station and settling into Kyoto."
+        }
+      ]
+    },
+    {
+      "title": "Temple lanes and river paths",
+      "notes": "Spend the morning in Higashiyama, then slow down beside the Kamo River. Choose a few stops and walk between them."
+    },
+    {
+      "title": "Gardens and a free afternoon",
+      "notes": "Give Kyoto a third day for a garden, a craft shop and whichever neighborhood deserves a second look."
+    },
+    {
+      "title": "Nara for the day",
+      "notes": "Visit Todaiji and wander through Nara Park. Return to the same Kyoto base for the night.",
+      "blocks": [
+        {
+          "type": "travel",
+          "id": "kyoto-nara",
+          "to": "nara",
+          "mode": "train",
+          "estimatedDurationMinutes": 60,
+          "estimatedCost": 10,
+          "notes": "Regional train to Nara; allow time to reach the temple and park district."
+        },
+        {
+          "type": "travel",
+          "id": "nara-kyoto",
+          "to": "kyoto",
+          "mode": "train",
+          "estimatedDurationMinutes": 60,
+          "estimatedCost": 10,
+          "notes": "Return to Kyoto after the visit; no hotel change today."
+        }
+      ]
+    },
+    {
+      "title": "Himeji Castle, then Hiroshima",
+      "notes": "Break the westbound journey at Himeji. Leave several hours for the castle before continuing to Hiroshima.",
+      "blocks": [
+        {
+          "type": "travel",
+          "id": "kyoto-himeji",
+          "to": "himeji",
+          "mode": "train",
+          "estimatedDurationMinutes": 105,
+          "estimatedCost": 50,
+          "notes": "Rail journey and local access to the castle; sightseeing time is separate."
+        },
+        {
+          "type": "travel",
+          "id": "himeji-hiroshima",
+          "to": "hiroshima",
+          "mode": "train",
+          "estimatedDurationMinutes": 90,
+          "estimatedCost": 50,
+          "notes": "Continue by shinkansen after the castle visit; Hiroshima is tonight's base."
+        }
+      ]
+    },
+    {
+      "title": "A full day in Hiroshima",
+      "notes": "Give the Peace Memorial Museum and park an unhurried visit. Leave the rest of the day for the riverside and a local meal."
+    },
+    {
+      "title": "Miyajima and the Inland Sea",
+      "notes": "Cross to Miyajima for Itsukushima Shrine and the waterfront. Return to Hiroshima, where this ten-day plan ends.",
+      "blocks": [
+        {
+          "type": "travel",
+          "id": "hiroshima-miyajima",
+          "to": "miyajima",
+          "estimatedDurationMinutes": 75,
+          "estimatedCost": 10,
+          "notes": "Travel via Miyajimaguchi and its short ferry crossing. Estimate includes local connections and boarding.",
           "components": [
             {
-              "mode": "bus"
+              "mode": "train",
+              "estimatedDurationMinutes": 60
             },
             {
-              "mode": "train"
+              "mode": "ferry",
+              "estimatedDurationMinutes": 15
             }
-          ],
-          "start": "10:00",
-          "end": "13:00"
-        }
-      ]
-    },
-    {},
-    {},
-    {},
-    {},
-    {},
-    {},
-    {
-      "blocks": [
+          ]
+        },
         {
           "type": "travel",
+          "id": "miyajima-hiroshima",
           "to": "hiroshima",
-          "start": "09:00",
-          "end": "11:00",
-          "mode": "train"
+          "estimatedDurationMinutes": 75,
+          "estimatedCost": 10,
+          "notes": "Return to Hiroshima after the island visit. Travel home or onward is outside this demo.",
+          "components": [
+            {
+              "mode": "ferry",
+              "estimatedDurationMinutes": 15
+            },
+            {
+              "mode": "train",
+              "estimatedDurationMinutes": 60
+            }
+          ]
         }
       ]
-    },
-    {},
-    {},
-    {
-      "blocks": [
-        {
-          "type": "travel",
-          "to": "osaka",
-          "start": "10:00",
-          "end": "11:30",
-          "mode": "train"
-        }
-      ]
-    },
-    {},
-    {},
-    {},
-    {},
-    {
-      "blocks": [
-        {
-          "type": "travel",
-          "to": "tokyo",
-          "start": "10:00",
-          "end": "12:30",
-          "mode": "train"
-        }
-      ]
-    },
-    {}
+    }
   ]
 }

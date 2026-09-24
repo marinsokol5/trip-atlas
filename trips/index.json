@@ -1,16 +1,8 @@
 {
   "trips": [
     {
-      "path": "japan-classic/trip.json",
-      "label": "Japan: The Classic Route \u00b7 10 days"
-    },
-    {
-      "path": "japan-kyushu/trip.json",
-      "label": "Japan: Kyushu & Yakushima \u00b7 10 days"
-    },
-    {
       "path": "japan/trip.json",
-      "label": "Japan \u00b7 an illustrative journey"
+      "label": "Japan: The Golden Route \u00b7 10 days"
     },
     {
       "path": "undated/trip.json",

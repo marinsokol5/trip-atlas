@@ -27,10 +27,9 @@ test("every public demo and its declared document links are usable", () => {
   }
 });
 
-test("featured Japan comparison matches its published day, night, travel and cost figures", () => {
+test("featured Japan demo matches its published day, night, travel and cost figures", () => {
   for (const [path, bases, travel, fare, total] of [
-    ["japan-classic/trip.json", 3, "~10h 45m", 240, 1230],
-    ["japan-kyushu/trip.json", 6, "~17h 30m", 275, 1265],
+    ["japan/trip.json", 3, "~10h 45m", 240, 1230],
   ] as const) {
     const model = normalizeTrip(read(path));
     const summary = overview(model);

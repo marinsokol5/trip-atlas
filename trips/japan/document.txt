@@ -1,3 +1,0 @@
-Example local trip document
-
-This is an illustrative document, not a reservation. Replace it with your own notes or documents.
