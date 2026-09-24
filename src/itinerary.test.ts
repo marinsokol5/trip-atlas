@@ -441,9 +441,11 @@ test("booking stay details validate meals, times, notes and coordinates", () => 
       checkIn: "15:00-18:00",
       checkOut: "10:00",
       notes: "Pay cash",
+      important: true,
       coordinates: { lat: 33.8, lon: 135.7 },
     }),
   );
+  assert.equal(ok.trip.bookings![0].important, true);
   assert.deepEqual(ok.trip.bookings![0].meals, {
     dinner: "18:00, Japanese",
     breakfast: true,
@@ -471,6 +473,7 @@ test("booking stay details validate meals, times, notes and coordinates", () => 
     /coordinates/,
   );
   assert.throws(() => normalizeTrip(stay({ notes: " " })), /notes/);
+  assert.throws(() => normalizeTrip(stay({ important: "yes" })), /important/);
 });
 test("walk legs validate distance and climb", () => {
   const walk = (extra: Record<string, unknown>) => ({

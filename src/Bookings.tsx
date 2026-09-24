@@ -17,7 +17,8 @@ import {
   Soup,
   Ticket,
   TrainFront,
-  TriangleAlert,
+  CircleAlert,
+  Lightbulb,
 } from "lucide-react";
 import { Flag } from "./Flag";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
@@ -395,9 +396,14 @@ export function BookingCard({
       )}
     </div>
   );
+  // A tip stays quiet; a note marked important stands out.
   const notes = booking.notes && (
-    <p className="booking-notes">
-      <TriangleAlert strokeWidth={1.9} aria-hidden="true" />
+    <p className={`booking-notes${booking.important ? " is-important" : ""}`}>
+      {booking.important ? (
+        <CircleAlert strokeWidth={1.9} aria-label="Important" />
+      ) : (
+        <Lightbulb strokeWidth={1.9} aria-label="Tip" />
+      )}
       <span>{booking.notes}</span>
     </p>
   );

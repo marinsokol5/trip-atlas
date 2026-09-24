@@ -41,6 +41,8 @@ export interface Booking {
   baggage?: BaggageAllowance[];
   /** Plain-text reminder shown on the booking card. */
   notes?: string;
+  /** Marks the note as a must, not a tip (e.g. "Bring ¥32,000 in cash"). */
+  important?: boolean;
   /** Exact property location, linked to an external map. */
   coordinates?: { lat: number; lon: number };
   documents?: DocumentLink[];
@@ -507,6 +509,8 @@ export function parseTrip(input: unknown): Trip {
       if (b.coordinates !== undefined)
         coordinates(b.coordinates, path + ".coordinates");
       if (b.notes !== undefined) string(b.notes, path + ".notes");
+      if (b.important !== undefined && typeof b.important !== "boolean")
+        fail(path + ".important", "expected a boolean");
       if (b.baggage !== undefined) {
         if (!Array.isArray(b.baggage))
           fail(path + ".baggage", "expected an array");

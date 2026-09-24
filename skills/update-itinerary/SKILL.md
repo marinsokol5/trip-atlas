@@ -103,7 +103,8 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `checkOut` (optional) gives the latest local check-out time as `HH:mm`.
 - `coordinates` (optional) gives the exact property `lat`/`lon`, linked to Google Maps from the booking card.
 - `baggage` (optional) lists per-person bag allowances as `{ "type": "checked" | "cabin" | "personal", "pieces": 1, "kg": 23 }`, with `kg` as the optional limit per piece.
-- `notes` (optional) adds a plain-text reminder shown on the booking card.
+- `notes` (optional) adds a plain-text reminder shown on the booking card, as a quiet tip by default.
+- `important` (optional) is `true` when the note is a must rather than a tip (e.g. "Bring ¥32,000 in cash"); the card then highlights it.
 - `documents` (optional) lists attached files, storing a multi-night confirmation once.
 - `cost` (optional) holds the booking price, or a bare number as shorthand for `{ "amount": n }`; omission keeps the existing estimates.
 

@@ -2683,23 +2683,31 @@ main[data-theme="dark"] {
   color: var(--muted);
   border: 1px dashed var(--line);
 }
-/* Notes are things to act on: amber, apart from the blue of status and links. */
+/* Notes are tips by default: quiet text with a bulb. An important one gets an amber box. */
 .booking-notes {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 7px;
   margin: 10px 0 0;
-  padding: 8px 10px;
-  background: var(--note-bg);
-  border-radius: 6px;
   font-size: 12px;
-  color: var(--ink);
+  color: var(--muted);
 }
 .booking-notes svg {
   flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+}
+.booking-notes.is-important {
+  padding: 8px 10px;
+  background: var(--note-bg);
+  border-radius: 6px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.booking-notes.is-important svg {
   width: 15px;
   height: 15px;
-  margin-top: 1px;
   color: var(--note-icon);
 }
 .day-details {
