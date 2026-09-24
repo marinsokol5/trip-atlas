@@ -15,9 +15,10 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - Each note has one owner, the thing it is about:
   - A booking's `notes`: doing something with or at that booking, such as paying, a shuttle, holding luggage or a pickup ("Bring ¥32,000 in cash; no cards").
   - A journey's `notes`: something about that journey you'd otherwise get wrong ("Meet the driver at Terminal 2, Pillar 17").
-  - A sight's `tip`: something about that place that a local would tell you ("Skip the first deer; there are many more further in, with fewer people").
+  - An activity's `tip`: something about that place or experience that a local would tell you ("Skip the first deer; there are many more further in, with fewer people").
   - A day's `notes`: a must-know for that day that none of the above owns, usually a consequence you must act on today ("Buy food for tomorrow: no shops between MUI and Hongu").
-- The day's plan is its `sights`, not prose. Name each place; add a verified `mapUrl` and a `tip` only when they earn it. Never describe the plan in a day note.
+- The day's plan is its `activities`, not prose: anything to see or do, from a temple to a cruise or a bath. Name each one; add a verified `mapUrl`, a `tip` or an `estimatedCost` only when they earn it. Never describe the plan in a day note.
+- Keep money in its place: `livingPerDay` covers food, drinks and small local rides only. Entrance fees, tours, cruises and passes go on the activity as `estimatedCost`, never folded into a living rate.
 - Titles stay short and plain: no series numbering or group names the `group` label already shows (not "Kumano Kodo 3: …"), no superlative tags ("(hardest climb)").
 - Booking titles are the property name only, without the platform ("(Airbnb)"); `reference` holds only a real confirmation code.
 - Fill bookings from the confirmation document: dates, `checkIn`/`checkOut`, `meals` (details such as `"18:00, Japanese"` as text), `coordinates` from its GPS, `status`, and per-person `cost.amount` (total ÷ guests). A price fixed in a foreign currency is still `confirmed`.
@@ -56,16 +57,18 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Day: `days[]`
 
 - `title` (optional) briefly describes the day's purpose.
-- `notes` (optional) is the day's one must-know no booking, journey or sight owns (see Writing guidance); usually omitted.
-- `sights` (optional) lists the places to see that day, in visiting order.
+- `notes` (optional) is the day's one must-know no booking, journey or activity owns (see Writing guidance); usually omitted.
+- `activities` (optional) lists what to see or do that day, in order.
 - `documents` (optional) lists documents relevant to this day.
 - `blocks` (optional) lists travel or place blocks in order, with location carrying forward afterward.
 
-## Sight: `days[].sights[]`
+## Activity: `days[].activities[]`
 
-- `name` (required) is the place's name as a traveller would search for it.
+- `id` (optional) gives the activity a unique stable reference for the booking that replaces its estimate.
+- `name` (required) is the place's or experience's name as a traveller would search for it.
 - `mapUrl` (optional) is a verified Google Maps link as `https://maps.google.com/?cid=<number>`: open the place's coordinates in Google Maps, find the listing among nearby places, and confirm name and address before converting its place ID (the `0x…:0x…` pair; the second half, as a decimal, is the `cid`). Never guess one.
-- `tip` (optional) is one non-obvious sentence about this place (see Writing guidance).
+- `tip` (optional) is one non-obvious sentence about it (see Writing guidance).
+- `estimatedCost` (optional) gives the ticket, pass or tour price per person in the trip currency, counted under Activities; omit it for free activities.
 
 ## Travel block: `days[].blocks[]`
 
@@ -98,7 +101,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Budget: `budget`
 
 - `countries` (required with budget) maps uppercase two-letter country codes to rate objects.
-- `countries[code].livingPerDay` (optional) gives a finite, nonnegative daily living estimate per person, not charged on home days before the first night-stay country or after the last.
+- `countries[code].livingPerDay` (optional) gives a finite, nonnegative daily estimate per person for food, drinks and small local rides, never tickets or tours, not charged on home days before the first night-stay country or after the last.
 - `countries[code].accommodationPerNight` (optional) gives a finite, nonnegative nightly accommodation share per person, excluding transit nights and the final day.
 
 ## Booking: `bookings[]`
@@ -116,7 +119,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `checkIn` (optional) gives the local check-in time as `HH:mm` or a `HH:mm-HH:mm` window.
 - `checkOut` (optional) gives the latest local check-out time as `HH:mm`.
 - `coordinates` (optional) gives the exact property `lat`/`lon`, linked to Google Maps from the booking card.
-- `mapUrl` (optional) is a verified Google Maps link to the place itself, written as `https://maps.google.com/?cid=<number>` like a sight's; the map pin opens it instead of the bare coordinates, showing the listing rather than a dropped pin. Never invent one.
+- `mapUrl` (optional) is a verified Google Maps link to the place itself, written as `https://maps.google.com/?cid=<number>` like an activity's; the map pin opens it instead of the bare coordinates, showing the listing rather than a dropped pin. Never invent one.
 - `baggage` (optional) lists per-person bag allowances as `{ "type": "checked" | "cabin" | "personal", "pieces": 1, "kg": 23 }`, with `kg` as the optional limit per piece.
 - `notes` (optional) adds a plain-text reminder shown on the booking card, as a quiet tip by default.
 - `important` (optional) is `true` when the note is a must rather than a tip (e.g. "Bring ¥32,000 in cash"); the card then highlights it.
@@ -131,11 +134,11 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 ## Cost allocation: `bookings[].cost.allocation`
 
-- `type` (required) is `"accommodation"`, `"transport"`, `"living"`, `"additional"`, or `"unallocated"`; living/additional require an activity, the first two match booking type, `other` bookings take none, and unallocated excludes the price.
+- `type` (required) is `"accommodation"`, `"transport"`, `"activity"`, `"additional"`, or `"unallocated"`. `accommodation` and `transport` need that booking type, `activity` and `additional` need an activity booking, `other` bookings take none, and unallocated excludes the price. No booking replaces the living budget.
 - `nights` (required for accommodation) lists unique 1-based days whose following nights are replaced equally, matching any supplied hotel place/dates and excluding transit and the final day.
 - `leg` (required for transport) references the travel block's authored `id` whose estimate is replaced. It is also how a flight counts as booked: once the trip has any booking, the Calendar marks every flight without a non-planned, non-cancelled booking linked this way, so give booked flights' blocks an `id`.
-- `days` (required for living) lists unique 1-based days whose entire living budgets are replaced equally by the activity price.
-- `day` (required for additional) identifies the 1-based day receiving an activity cost outside its living budget.
+- `activity` (required for activity) references the planned activity's `id` whose `estimatedCost` is replaced; the day card then marks it booked.
+- `day` (required for additional) identifies the 1-based day of an activity cost that no planned activity covers.
 
 ## Document: any `documents[]`
 

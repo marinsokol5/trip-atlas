@@ -24,6 +24,7 @@ import { Flag } from "./Flag";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
 import { documentUrl } from "./itinerary";
 import {
+  activityDay,
   bookingAllocation,
   bookingCountries,
   bookingsOnDay,
@@ -122,8 +123,6 @@ function allocationLabel(
   if (booking.type === "other") return undefined;
   const allocation = bookingAllocation(booking, model.trip);
   if (!allocation) return "Not in totals: unallocated";
-  if (allocation.type === "living") return "Replaces the living budget";
-  if (allocation.type === "additional") return "On top of the living budget";
   return undefined;
 }
 function nights(booking: Booking, model: Itinerary): number | undefined {
@@ -175,7 +174,10 @@ function bookingDayIndex(booking: Booking, model: Itinerary) {
     return leg ? leg.day - 1 : undefined;
   }
   if (allocation?.type === "additional") return allocation.day - 1;
-  if (allocation?.type === "living") return allocation.days[0] - 1;
+  if (allocation?.type === "activity") {
+    const day = activityDay(model, allocation.activity);
+    return day === undefined ? undefined : day - 1;
+  }
   if (allocation?.type === "accommodation") return allocation.nights[0] - 1;
   return undefined;
 }

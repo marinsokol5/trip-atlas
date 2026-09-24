@@ -12,7 +12,7 @@ const safePath = (path) =>
   !/[\\:#?%\u0000-\u001f]/.test(path) &&
   !path.startsWith("/") &&
   path.split("/").every((p) => !!p && p !== "." && p !== "..");
-function documentPaths(source) {
+export function documentPaths(source) {
   const paths = new Set();
   const owners = [
     source,

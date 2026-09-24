@@ -49,7 +49,7 @@ Every price is **per person**, in one trip `currency`. A shared room price must 
 
 These are illustrative inputs, not price recommendations. `livingPerDay` is charged once per day, assigned to the overnight country or the last known/departing country during transit; the final day uses its final location. Days before reaching the first country with a night, and after leaving the last, count as home and carry no living budget; add a taxi leg or a booking for anything spent there. `accommodationPerNight` applies only to known hotel nights before the final day. In-transit nights incur no hotel estimate. Unknown countries do not borrow another country's rates; unused country budgets have no effect.
 
-A travel block's `estimatedCost` covers that entire journey. Domestic travel is assigned to its country. International travel is counted once in **Between countries**; travel with unknown endpoint country goes to **Unassigned**. Country totals + Between countries + Unassigned + Other expenses reconcile with the whole trip. Place rows show living, accommodation and explicitly additional activities; transport remains separate.
+A travel block's `estimatedCost` covers that entire journey. Domestic travel is assigned to its country. International travel is counted once in **Between countries**; travel with unknown endpoint country goes to **Unassigned**. Country totals + Between countries + Unassigned + Other expenses reconcile with the whole trip. Place rows show living, accommodation and activities; transport remains separate.
 
 Average/day divides costs by the days assigned to that country's daily living budget, not hotel nights or overlapping days touched. Calculation retains precision until display. `~` marks estimated amounts, `+` marks missing required estimates, and `?` means no amount is known. Pure walking does not require a price; an explicit walking fee counts. Walking time is excluded from transport time. Unsplit mixed-mode time is not silently assigned to a transport category.
 
@@ -61,18 +61,20 @@ Once a trip has any booking, the Calendar marks what is still to book, and count
 
 Use fixed calendar `startDate` / `endDate`, or 1-based `startDay` / `endDay`, never both systems in one booking. Calendar dates stay fixed when the trip start moves. Day numbers must be inside the trip; calendar dates may be outside it. Accommodation's end is checkout and must follow its start; other date ranges include both endpoints. Either endpoint can be omitted.
 
-A hotel appears during its stay including checkout; the Calendar view shows it only on the nights slept there (never on checkout day), so each calendar day answers where you sleep that night. Explicit cost-linked nights, living days and travel legs can also associate a booking with days; its place alone does not guess a repeated visit. An unassociated booking remains visible in Bookings. Dates in an undated trip remain readable without selecting itinerary days.
+A hotel appears during its stay including checkout; the Calendar view shows it only on the nights slept there (never on checkout day), so each calendar day answers where you sleep that night. Explicit cost-linked nights, activities and travel legs can also associate a booking with days; its place alone does not guess a repeated visit. An unassociated booking remains visible in Bookings. Dates in an undated trip remain readable without selecting itinerary days.
 
-A day's card reads top to bottom: the header (date, countries, title, groups, where you sleep), the day's must-know `notes`, its `sights`, the route, then its documents and bookings. Each sight has a `name`, an optional Google Maps `mapUrl` and an optional one-line `tip`:
+A day's card reads top to bottom: the header (date, countries, title, groups, where you sleep), the day's must-know `notes`, its `activities`, the route, then its documents and bookings. An activity is anything to see or do: a temple, a cruise, a show, a bath. Each has a `name` and optionally a Google Maps `mapUrl`, a one-line `tip`, a per-person `estimatedCost` for its ticket or tour, and an `id` a booking can reference:
 
 ```json
-"sights": [
+"activities": [
   { "name": "Nara Park", "tip": "Skip the first deer; there are many more further in, with fewer people." },
-  { "name": "Nakatanidou", "mapUrl": "https://maps.google.com/?cid=123", "tip": "Try the freshly pounded mochi." }
+  { "id": "nara-mochi", "name": "Nakatanidou", "mapUrl": "https://maps.google.com/?cid=123", "estimatedCost": 2 }
 ]
 ```
 
-Notes and tips are for things a sensible traveller would otherwise get wrong, each on what it is about: a booking, a journey, a sight, or, when none of those owns it, the day.
+Activity prices count under **Activities** in the Overview, in the country where you sleep that night. They never belong in `livingPerDay`, which covers food, drinks and small local rides only. An activity without `estimatedCost` is free or unknown and is never flagged as missing. The day card shows each activity's price, and "Booked" once a booking replaces its estimate.
+
+Notes and tips are for things a sensible traveller would otherwise get wrong, each on what it is about: a booking, a journey, an activity, or, when none of those owns it, the day.
 
 Booking cards can also show stay details: `meals` (dinner, breakfast and lunch icons in eating order; `true`, `false`, text such as `"18:00, Japanese"` for an included meal shown on hover, or unknown when omitted), `checkIn` (`"15:00-18:00"` or `"15:00"`), a latest `checkOut` (`"10:00"`), a `notes` reminder (a quiet tip, or highlighted with `"important": true`), per-person `baggage` allowances (checked, cabin or personal item, with pieces and optional kg), and exact `coordinates`. Coordinates add a map-pin link that opens Google Maps in a new tab at that point. An optional `mapUrl`, an https Google Maps link such as a `maps.app.goo.gl` share link, opens the place's own listing instead. Google Maps is the only external site Trip Atlas links to, and nothing is fetched until you click it.
 
@@ -101,21 +103,21 @@ A complete accommodation range and matching place automatically replace exactly 
 
 Explicit `cost.allocation` can replace or add specific units:
 
-| Allocation                                | Effect                                                                                                                                    |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `{"type":"accommodation","nights":[1,2]}` | Divide the amount over the nights after days 1 and 2. No final-day or transit night. Supplied place and complete dates must match.        |
-| `{"type":"transport","leg":"kyoto-nara"}` | Replace one travel block's estimate, identified by its unique authored `id`.                                                              |
-| `{"type":"living","days":[2]}`            | Replace the **whole daily living allowance** for day 2 with this activity amount. This is not a ticket deduction from a larger allowance. |
-| `{"type":"additional","day":3}`           | Add an activity amount outside the daily living allowance, once on day 3. Keep that expense out of the broad allowance.                   |
-| `{"type":"unallocated"}`                  | Show the amount separately, excluded from totals and automatic hotel replacement.                                                         |
+| Allocation                                    | Effect                                                                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `{"type":"accommodation","nights":[1,2]}`     | Divide the amount over the nights after days 1 and 2. No final-day or transit night. Supplied place and complete dates must match. |
+| `{"type":"transport","leg":"kyoto-nara"}`     | Replace one travel block's estimate, identified by its unique authored `id`.                                                       |
+| `{"type":"activity","activity":"nara-mochi"}` | Replace one activity's `estimatedCost`, identified by its unique `id`. The day card then marks it booked.                          |
+| `{"type":"additional","day":3}`               | Add an activity amount on day 3 that no planned activity covers.                                                                   |
+| `{"type":"unallocated"}`                      | Show the amount separately, excluded from totals and automatic hotel replacement.                                                  |
 
-Accommodation/transport allocations require the corresponding booking type; living/additional require an activity; `other` bookings take none. Day arrays must be nonempty, unique and inside the trip. Two active costs cannot replace the same night, living day or travel leg, even if an amount is zero. Additional activities may coexist because they replace nothing.
+Accommodation/transport allocations require the corresponding booking type; activity/additional require an activity booking; `other` bookings take none. A booking never replaces the daily living allowance. Night arrays must be nonempty, unique and inside the trip. Two active costs cannot replace the same night, activity or travel leg, even if an amount is zero. Additional activities may coexist because they replace nothing.
 
 Cancelled bookings remain readable but their costs and replacements are excluded, restoring the original estimates. Refunds and cancellation charges are not modeled. Structural references remain validated; obsolete cancelled hotel place/date relationships do not block a changed plan.
 
 Unallocated booking costs stay visibly separate from included totals and averages until their association is resolved. They differ from included costs with unknown geography (**Unassigned**). A booking's supplied place determines additional-activity geography; otherwise the day's daily-budget location does.
 
-The [bookings demo](../trips/bookings/trip.json) reconciles to €300 included per person and €40 separately unallocated, with fictional documents and mixed statuses.
+The [bookings demo](../trips/bookings/trip.json) reconciles to €320 included per person and €40 separately unallocated, with fictional documents and mixed statuses.
 
 ## Local documents
 

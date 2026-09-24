@@ -4,8 +4,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readJsonFile } from "./read-json.mjs";
+import { MAX_JSON_BYTES as CLI_LIMIT, readJsonFile } from "./read-json.mjs";
 import { MAX_JSON_BYTES } from "../src/input-limits.ts";
+
+test("the CLI and viewer share one JSON size limit", () => {
+  assert.equal(CLI_LIMIT, MAX_JSON_BYTES);
+});
 
 test("JSON byte boundary accepts exactly 2 MiB and rejects one extra byte", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "trip-json-"));

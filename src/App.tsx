@@ -108,7 +108,8 @@ import { Prepare } from "./Prepare";
 import { activeTripView, availableTripViews, parseTripView } from "./trip-view";
 import type { TripView } from "./trip-view";
 import { ThemedSelect } from "./ThemedSelect";
-import { bookingGaps } from "./booking-model";
+import { activityBooking, bookingGaps } from "./booking-model";
+import { moneyLabel } from "./overview-model";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { Flag, flagsShown } from "./Flag";
 import { Logo } from "./Logo";
@@ -1687,29 +1688,59 @@ function DayDetails({
       <Bands model={model} day={day} />
       {/* Header, then the day's must-know, what to see, how to get around, and the paperwork. */}
       {day.source.notes && <p className="day-must-know">{day.source.notes}</p>}
-      {!!day.source.sights?.length && (
-        <section className="day-details" aria-label="Sights">
-          <h3>Sights</h3>
-          <ul className="sights">
-            {day.source.sights.map((sight, index) => (
-              <li key={index}>
-                {sight.mapUrl ? (
-                  <a
-                    className="sight-name"
-                    href={sight.mapUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Open in Google Maps"
-                  >
-                    {sight.name}
-                    <MapPin strokeWidth={1.75} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <span className="sight-name">{sight.name}</span>
-                )}
-                {sight.tip && <span className="sight-tip">{sight.tip}</span>}
-              </li>
-            ))}
+      {!!day.source.activities?.length && (
+        <section className="day-details" aria-label="Activities">
+          <h3>Activities</h3>
+          <ul className="activities">
+            {day.source.activities.map((activity, index) => {
+              // A booking's price replaces the estimate, as in the Overview.
+              const booking = activityBooking(model, activity.id);
+              const cost = booking?.cost
+                ? {
+                    value: booking.cost.amount,
+                    estimated:
+                      (booking.cost.status ?? "estimated") === "estimated",
+                  }
+                : activity.estimatedCost !== undefined
+                  ? { value: activity.estimatedCost, estimated: true }
+                  : undefined;
+              const price =
+                cost &&
+                moneyLabel(
+                  { ...cost, known: 1, missing: 0 },
+                  model.trip.currency,
+                );
+              return (
+                <li key={index}>
+                  <span className="activity-line">
+                    {activity.mapUrl ? (
+                      <a
+                        className="activity-name"
+                        href={activity.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in Google Maps"
+                      >
+                        {activity.name}
+                        <MapPin strokeWidth={1.75} aria-hidden="true" />
+                      </a>
+                    ) : (
+                      <span className="activity-name">{activity.name}</span>
+                    )}
+                    {booking && (
+                      <span className="activity-booked" title={booking.title}>
+                        <Check strokeWidth={2} aria-hidden="true" />
+                        Booked
+                      </span>
+                    )}
+                    {price && <span className="activity-price">{price}</span>}
+                  </span>
+                  {activity.tip && (
+                    <span className="activity-tip">{activity.tip}</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

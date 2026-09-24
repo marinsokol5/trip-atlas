@@ -1,6 +1,8 @@
 import { open } from "node:fs/promises";
 import { constants } from "node:fs";
-import { MAX_JSON_BYTES } from "../src/input-limits.ts";
+
+// Mirrors src/input-limits.ts (the published CLI cannot import TypeScript); read-json.test.mjs keeps them equal.
+export const MAX_JSON_BYTES = 2 * 1024 * 1024;
 
 /** Read at most one extra byte so a growing or special file cannot exhaust memory. */
 export async function readJsonFile(file) {

@@ -236,7 +236,7 @@ export function overview(
 ) {
   type Override = { value: number; status: CostStatus };
   const nightOverrides = new Map<number, Override>(),
-    livingOverrides = new Map<number, Override>(),
+    activityOverrides = new Map<string, Override>(),
     legOverrides = new Map<string, Override>();
   const additions = new Map<number, { price: Override; place?: string }[]>();
   const unallocatedBookings = amount(),
@@ -263,19 +263,13 @@ export function overview(
       if (!country) addCost(unallocatedBookings, price.value, price.status);
     } else if (allocation.type === "transport")
       legOverrides.set(allocation.leg, price);
-    else if (
-      allocation.type === "accommodation" ||
-      allocation.type === "living"
-    ) {
-      const units =
-        allocation.type === "accommodation"
-          ? allocation.nights
-          : allocation.days;
-      const target =
-        allocation.type === "accommodation" ? nightOverrides : livingOverrides;
+    else if (allocation.type === "activity")
+      activityOverrides.set(allocation.activity, price);
+    else if (allocation.type === "accommodation") {
+      const units = allocation.nights;
       // Equal per-unit shares, with the final residual retained at full precision.
       units.forEach((day, index) =>
-        target.set(day, {
+        nightOverrides.set(day, {
           ...price,
           value:
             index === units.length - 1
@@ -396,19 +390,33 @@ export function overview(
     const rate = livingCountry
       ? model.trip.budget?.countries[livingCountry]
       : undefined;
-    const livingOverride = livingOverrides.get(day.index + 1);
     const home = homeDay(day.index);
-    const livingValue =
-      livingOverride?.value ?? (home ? undefined : rate?.livingPerDay);
-    const livingStatus = livingOverride?.status;
+    const livingValue = home ? undefined : rate?.livingPerDay;
     const budgetBucket = countryBucket(livingCountry);
-    if (!home) budgetBucket.budgetDays++;
-    if (!home || livingOverride)
-      addCost(budgetBucket.total, livingValue, livingStatus);
-    if ((!home || livingOverride) && (!country || livingCountry === country)) {
-      addCost(living, livingValue, livingStatus);
+    if (!home) {
+      budgetBucket.budgetDays++;
+      addCost(budgetBucket.total, livingValue);
+    }
+    if (!home && (!country || livingCountry === country)) {
+      addCost(living, livingValue);
       // During transit, country rows can still show the departing country's daily living cost.
-      addCost(row(livingPlace).cost, livingValue, livingStatus);
+      addCost(row(livingPlace).cost, livingValue);
+    }
+    // Activities count where you sleep that night; a booking replaces the estimate,
+    // and an activity with no price is simply free or unknown, never missing.
+    for (const activity of day.source.activities ?? []) {
+      const price =
+        (activity.id && activityOverrides.get(activity.id)) ||
+        (activity.estimatedCost !== undefined
+          ? { value: activity.estimatedCost, status: "estimated" as const }
+          : undefined);
+      if (!price) continue;
+      const code = countryOf(livingPlace);
+      addCost(countryBucket(code).total, price.value, price.status);
+      if (!country || code === country) {
+        addCost(activities, price.value, price.status);
+        addCost(row(livingPlace).cost, price.value, price.status);
+      }
     }
     if (!country && !dayCountries(model, day).length)
       row(undefined, day.inTransit ? "transit" : "unknown").daySet.add(

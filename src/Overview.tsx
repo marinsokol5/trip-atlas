@@ -377,7 +377,7 @@ export function Overview({
   const costItems = [
     ["living", "Living", data.costs.living],
     ["accommodation", "Accommodation", data.costs.accommodation],
-    ["activities", "Additional activities", data.costs.activities],
+    ["activities", "Activities", data.costs.activities],
     ["flights", country ? "Domestic flights" : "Flights", data.costs.flights],
     [
       "transport",

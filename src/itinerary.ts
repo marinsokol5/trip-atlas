@@ -17,7 +17,7 @@ export type CostStatus = "estimated" | "confirmed" | "paid";
 export type BookingAllocation =
   | { type: "accommodation"; nights: number[] }
   | { type: "transport"; leg: string }
-  | { type: "living"; days: number[] }
+  | { type: "activity"; activity: string }
   | { type: "additional"; day: number }
   | { type: "unallocated" };
 export interface Booking {
@@ -117,19 +117,23 @@ export interface PlaceBlock {
   type: "place";
   place: string;
 }
-/** A named place worth seeing that day, with an optional insider tip. */
-export interface Sight {
+/** Something to see or do that day: a temple, a cruise, a show, a bath. */
+export interface Activity {
+  /** Stable reference for the booking that replaces its estimate. */
+  id?: string;
   name: string;
   /** A Google Maps link to the place itself. */
   mapUrl?: string;
-  /** One non-obvious line about this place ("Skip the first deer; there are more further in"). */
+  /** One non-obvious line about it ("Skip the first deer; there are more further in"). */
   tip?: string;
+  /** Ticket or tour price for one person, in the trip currency; never part of living costs. */
+  estimatedCost?: number;
 }
 export interface TripDay {
   title?: string;
-  /** A must-know for this day that no booking, sight or journey owns. */
+  /** A must-know for this day that no booking, activity or journey owns. */
   notes?: string;
-  sights?: Sight[];
+  activities?: Activity[];
   documents?: DocumentLink[];
   blocks?: (TravelBlock | PlaceBlock)[];
 }
@@ -441,23 +445,32 @@ export function parseTrip(input: unknown): Trip {
       fail(path, "unknown place ID");
   };
   if (t.initialPlace !== undefined) place(t.initialPlace, "initialPlace");
-  const travelIds = new Set<string>();
+  const travelIds = new Set<string>(),
+    activityIds = new Set<string>();
   t.days.forEach((v, i) => {
     const path = `days[${i}]`,
       d = object(v, path);
-    only(d, ["title", "notes", "sights", "documents", "blocks"], path);
+    only(d, ["title", "notes", "activities", "documents", "blocks"], path);
     if (d.title !== undefined) string(d.title, path + ".title");
     if (d.notes !== undefined) string(d.notes, path + ".notes");
-    if (d.sights !== undefined) {
-      if (!Array.isArray(d.sights)) fail(path + ".sights", "expected an array");
-      d.sights.forEach((value, j) => {
-        const sightPath = `${path}.sights[${j}]`,
-          sight = object(value, sightPath);
-        only(sight, ["name", "mapUrl", "tip"], sightPath);
-        string(sight.name, sightPath + ".name");
-        if (sight.mapUrl !== undefined && !isGoogleMapsUrl(sight.mapUrl))
-          fail(sightPath + ".mapUrl", "expected an https Google Maps link");
-        if (sight.tip !== undefined) string(sight.tip, sightPath + ".tip");
+    if (d.activities !== undefined) {
+      if (!Array.isArray(d.activities))
+        fail(path + ".activities", "expected an array");
+      d.activities.forEach((value, j) => {
+        const p = `${path}.activities[${j}]`,
+          activity = object(value, p);
+        only(activity, ["id", "name", "mapUrl", "tip", "estimatedCost"], p);
+        if (activity.id !== undefined) {
+          string(activity.id, p + ".id");
+          if (activityIds.has(activity.id as string))
+            fail(p + ".id", "duplicate activity ID");
+          activityIds.add(activity.id as string);
+        }
+        string(activity.name, p + ".name");
+        if (activity.mapUrl !== undefined && !isGoogleMapsUrl(activity.mapUrl))
+          fail(p + ".mapUrl", "expected an https Google Maps link");
+        if (activity.tip !== undefined) string(activity.tip, p + ".tip");
+        price(activity.estimatedCost, p + ".estimatedCost");
       });
     }
     documents(d.documents, path + ".documents");
@@ -760,8 +773,8 @@ export function parseTrip(input: unknown): Trip {
               ? ["type", "nights"]
               : a.type === "transport"
                 ? ["type", "leg"]
-                : a.type === "living"
-                  ? ["type", "days"]
+                : a.type === "activity"
+                  ? ["type", "activity"]
                   : a.type === "additional"
                     ? ["type", "day"]
                     : a.type === "unallocated"
@@ -770,33 +783,32 @@ export function parseTrip(input: unknown): Trip {
           if (!keys.length)
             fail(
               ap + ".type",
-              "expected accommodation, transport, living, additional or unallocated",
+              "expected accommodation, transport, activity, additional or unallocated",
             );
           if (Object.keys(a).some((key) => !keys.includes(key)))
             fail(ap, "unexpected allocation field");
           if (
             (a.type === "accommodation" && b.type !== "accommodation") ||
             (a.type === "transport" && b.type !== "transport") ||
-            (["living", "additional"].includes(a.type as string) &&
+            (["activity", "additional"].includes(a.type as string) &&
               b.type !== "activity")
           )
             fail(ap + ".type", "allocation must match the booking type");
           if (a.type === "transport") {
             if (typeof a.leg !== "string" || !travelIds.has(a.leg))
               fail(ap + ".leg", "unknown travel block ID");
+          } else if (a.type === "activity") {
+            if (typeof a.activity !== "string" || !activityIds.has(a.activity))
+              fail(ap + ".activity", "unknown activity ID");
           } else if (a.type === "additional") dayNumber(a.day, ap + ".day");
-          else if (a.type !== "unallocated") {
-            const key = a.type === "accommodation" ? "nights" : "days",
-              units = a[key];
+          else if (a.type === "accommodation") {
+            const units = a.nights;
             if (!Array.isArray(units) || !units.length)
-              fail(ap + "." + key, "expected a nonempty array of day numbers");
-            units.forEach((n, i) => dayNumber(n, `${ap}.${key}[${i}]`));
+              fail(ap + ".nights", "expected a nonempty array of day numbers");
+            units.forEach((n, i) => dayNumber(n, `${ap}.nights[${i}]`));
             if (new Set(units).size !== units.length)
-              fail(ap + "." + key, "duplicate day number");
-            if (
-              a.type === "accommodation" &&
-              units.includes((t.days as unknown[]).length)
-            )
+              fail(ap + ".nights", "duplicate day number");
+            if (units.includes((t.days as unknown[]).length))
               fail(
                 ap + ".nights",
                 "the final trip day has no accommodation night",

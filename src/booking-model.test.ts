@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { normalizeTrip, parseTrip } from "./itinerary.ts";
 import type { Booking, Trip, TravelBlock } from "./itinerary.ts";
 import {
+  activityBooking,
   bookingAllocation,
   bookingGaps,
   bookingRange,
@@ -131,6 +132,9 @@ test("reservation dates remain authored across trip date changes and undated tri
 
 test("mixed booking costs replace distinct estimates, reconcile countries, and retain partial budgets", () => {
   const trip = fixture();
+  trip.days[1].activities = [
+    { id: "day-tour", name: "Day tour", estimatedCost: 50 },
+  ];
   trip.bookings = [
     hotel(),
     {
@@ -144,8 +148,11 @@ test("mixed booking costs replace distinct estimates, reconcile countries, and r
     },
     {
       type: "activity",
-      title: "Whole day allowance",
-      cost: { amount: 30, allocation: { type: "living", days: [2] } },
+      title: "Day tour",
+      cost: {
+        amount: 30,
+        allocation: { type: "activity", activity: "day-tour" },
+      },
     },
     {
       type: "activity",
@@ -164,17 +171,21 @@ test("mixed booking costs replace distinct estimates, reconcile countries, and r
   ];
   const model = normalizeTrip(trip),
     data = overview(model);
-  assert.equal(data.costs.total.value, 295);
+  // The tour's booking replaces its €50 estimate and leaves day 2's living budget alone.
+  assert.equal(data.costs.activities.value, 45);
+  assert.equal(activityBooking(model, "day-tour")?.title, "Day tour");
+  assert.equal(activityBooking(model, "unknown"), undefined);
+  assert.equal(data.costs.total.value, 315);
   assert.deepEqual(data.costs.total.statuses, {
-    estimated: 100,
+    estimated: 120,
     paid: 95,
     confirmed: 100,
   });
   assert.equal(data.unallocatedBookings.value, 999);
-  assert.equal(data.countries.get("JP")!.total.value, 130);
+  assert.equal(data.countries.get("JP")!.total.value, 150);
   assert.equal(data.countries.get("VN")!.total.value, 65);
   assert.equal(data.betweenCountries.value, 100);
-  assert.equal(averageLabel(data.countries.get("JP")!.total, 2, "EUR"), "~€65");
+  assert.equal(averageLabel(data.countries.get("JP")!.total, 2, "EUR"), "~€75");
   assert.deepEqual(
     combine(
       ...[...data.countries.values()].map((country) => country.total),
@@ -230,8 +241,11 @@ test("other expenses and bare-number costs count once in the whole-trip total on
 
 test("zero overrides known and unknown estimates; exact status removes approximation", () => {
   const trip = fixture();
-  trip.days = [{}, {}];
-  delete trip.budget;
+  trip.days = [
+    { activities: [{ id: "tour", name: "Tour", estimatedCost: 20 }] },
+    {},
+  ];
+  trip.budget = { countries: { JP: { livingPerDay: 0 } } };
   trip.bookings = [
     {
       type: "accommodation",
@@ -244,33 +258,36 @@ test("zero overrides known and unknown estimates; exact status removes approxima
     },
     {
       type: "activity",
-      title: "Full daily budget",
+      title: "Free tour",
       cost: {
         amount: 0,
         status: "confirmed",
-        allocation: { type: "living", days: [1, 2] },
+        allocation: { type: "activity", activity: "tour" },
       },
     },
   ];
   const data = overview(normalizeTrip(trip));
   assert.equal(data.hasBudget, true);
   assert.equal(data.costs.total.missing, 0);
-  assert.equal(moneyLabel(data.costs.total, "EUR"), "€0");
-  assert.deepEqual(data.costs.total.statuses, { confirmed: 0, paid: 0 });
+  assert.equal(data.costs.total.value, 0);
+  assert.equal(moneyLabel(data.costs.accommodation, "EUR"), "€0");
+  assert.equal(moneyLabel(data.costs.activities, "EUR"), "€0");
+  assert.deepEqual(data.costs.activities.statuses, { confirmed: 0 });
   delete trip.bookings[0].cost!.status;
   const estimated = overview(normalizeTrip(trip));
-  assert.equal(moneyLabel(estimated.costs.total, "EUR"), "~€0");
+  assert.equal(moneyLabel(estimated.costs.accommodation, "EUR"), "~€0");
   assert.equal(normalizeTrip(trip).trip.bookings![0].status, undefined);
 });
 
 test("duplicate overrides fail deterministically; cancelled costs release estimates", () => {
   for (const allocation of [
     { type: "accommodation", nights: [1] },
-    { type: "living", days: [1] },
+    { type: "activity", activity: "tour" },
     { type: "transport", leg: "japan-vietnam" },
   ] as const) {
     const trip = fixture();
-    const type = allocation.type === "living" ? "activity" : allocation.type;
+    trip.days[0].activities = [{ id: "tour", name: "Tour" }];
+    const type = allocation.type;
     const b = {
       type,
       title: "First",
@@ -337,12 +354,17 @@ test("range, allocation, identity, status and new document validation give field
     {
       title: "x",
       type: "activity",
-      cost: { amount: 1, allocation: { type: "living", days: [1, 1] } },
+      cost: { amount: 1, allocation: { type: "living", days: [1] } },
     },
     {
       title: "x",
       type: "activity",
-      cost: { amount: 1, allocation: { type: "living", days: [5] } },
+      cost: { amount: 1, allocation: { type: "activity", activity: "nope" } },
+    },
+    {
+      title: "x",
+      type: "transport",
+      cost: { amount: 1, allocation: { type: "activity", activity: "nope" } },
     },
     {
       title: "x",

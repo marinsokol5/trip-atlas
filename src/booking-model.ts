@@ -85,8 +85,8 @@ export function validateBookingAllocations(model: Itinerary) {
       }
     } else if (allocation.type === "transport")
       keys.push(`leg:${allocation.leg}`);
-    else if (allocation.type === "living")
-      keys.push(...allocation.days.map((n) => `living:${n}`));
+    else if (allocation.type === "activity")
+      keys.push(`activity:${allocation.activity}`);
     for (const key of keys) {
       if (claimed.has(key))
         fail(
@@ -112,8 +112,8 @@ export function bookingsOnDay(model: Itinerary, dayNumber: number): Booking[] {
         allocation.nights.includes(dayNumber) ||
         allocation.nights.includes(dayNumber - 1)
       );
-    if (allocation?.type === "living")
-      return allocation.days.includes(dayNumber);
+    if (allocation?.type === "activity")
+      return activityDay(model, allocation.activity) === dayNumber;
     if (allocation?.type === "additional") return allocation.day === dayNumber;
     if (allocation?.type === "transport") {
       const leg = model.legs.find((leg) => leg.block.id === allocation.leg);
@@ -236,4 +236,26 @@ export function bookingGaps(model: Itinerary) {
       flights.filter((leg) => !leg.block.id || !bookedLegs.has(leg.block.id)),
     ),
   };
+}
+/** The 1-based day an activity is planned on. */
+export function activityDay(model: Itinerary, id: string): number | undefined {
+  const index = model.trip.days.findIndex((day) =>
+    day.activities?.some((activity) => activity.id === id),
+  );
+  return index < 0 ? undefined : index + 1;
+}
+/** The live booking that replaces an activity's estimate, if any. */
+export function activityBooking(
+  model: Itinerary,
+  id?: string,
+): Booking | undefined {
+  if (!id) return undefined;
+  return model.trip.bookings?.find((booking) => {
+    const allocation = booking.cost?.allocation;
+    return (
+      booking.status !== "cancelled" &&
+      allocation?.type === "activity" &&
+      allocation.activity === id
+    );
+  });
 }

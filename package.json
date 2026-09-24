@@ -1,38 +1,64 @@
 {
   "name": "trip-atlas",
-  "private": true,
   "version": "0.1.0",
+  "description": "A local, read-only atlas for comparing travel plans, routes, nights and costs.",
+  "license": "MIT",
   "type": "module",
+  "bin": {
+    "trip-atlas": "scripts/cli.mjs"
+  },
+  "files": [
+    "dist/",
+    "dist-node/",
+    "scripts/*.mjs",
+    "!scripts/*.test.mjs",
+    "skills/",
+    "trips/",
+    "licenses/",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marinsokol5/trip-atlas.git"
+  },
+  "homepage": "https://github.com/marinsokol5/trip-atlas#readme",
+  "bugs": "https://github.com/marinsokol5/trip-atlas/issues",
+  "keywords": [
+    "travel",
+    "itinerary",
+    "trip-planner",
+    "map",
+    "calendar",
+    "cli",
+    "agent-skill"
+  ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.node.config.ts",
     "lint": "oxlint",
     "start": "npm run build && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs",
     "test": "node --test src/*.test.ts scripts/*.test.mjs",
     "pretest": "npm run build",
-    "check": "npm run lint && npm test"
-  },
-  "dependencies": {
-    "d3-geo": "^3.1.1",
-    "lucide-react": "^1.43.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "check": "npm run lint && npm test",
+    "prepublishOnly": "npm run check"
   },
   "devDependencies": {
+    "@types/d3-geo": "^3.1.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "d3-geo": "^3.1.1",
+    "lucide-react": "^1.43.0",
     "oxlint": "^1.79.0",
     "prettier": "^3.9.6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2",
-    "@types/d3-geo": "^3.1.1"
-  },
-  "engines": {
-    "node": ">=24"
-  },
-  "description": "A local, read-only atlas for comparing travel plans, routes, nights and costs.",
-  "license": "MIT"
+    "vite": "^8.2.2"
+  }
 }

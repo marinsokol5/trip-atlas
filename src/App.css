@@ -3494,38 +3494,63 @@ main[data-theme="dark"] {
   line-height: 1.5;
   white-space: pre-wrap;
 }
-.sights {
+.activities {
   display: grid;
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.sights li {
+.activities li {
   display: grid;
   gap: 2px;
 }
-.sight-name {
+.activity-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.activity-name {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  justify-self: start;
+  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   color: var(--ink);
 }
-a.sight-name {
+a.activity-name {
   text-decoration: none;
 }
-a.sight-name:hover {
+a.activity-name:hover {
   color: var(--blue);
 }
-.sight-name svg {
+.activity-name svg {
+  flex: none;
   width: 13px;
   height: 13px;
   color: var(--muted);
 }
-.sight-tip {
+.activity-booked {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--tip);
+}
+.activity-booked svg {
+  width: 12px;
+  height: 12px;
+}
+.activity-price {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.activity-tip {
   font-size: 12px;
   color: var(--muted);
 }
