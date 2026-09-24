@@ -3487,3 +3487,36 @@ main[data-theme="dark"] {
   height: 15px;
   color: var(--tip);
 }
+/* Still to book: nights no stay covers and flights no booking is linked to. Amber, like important notes. */
+.booking-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.month-heading > .booking-status {
+  color: var(--ink);
+}
+.booking-status svg {
+  width: 14px;
+  height: 14px;
+  color: var(--note-icon);
+}
+.booking-status.is-done svg {
+  color: var(--tip);
+}
+.calendar-day > .night.is-unbooked,
+.cell-chips .leg-chip.is-unbooked {
+  align-self: flex-start;
+  padding: 1px 5px;
+  margin-left: -5px;
+  background: var(--note-bg);
+  border-radius: 4px;
+  color: var(--ink);
+}
+.cell-chips .leg-chip.is-unbooked {
+  margin-left: 0;
+}
+.calendar-day > .night.is-unbooked .icon,
+.cell-chips .leg-chip.is-unbooked .icon {
+  color: var(--note-icon);
+}

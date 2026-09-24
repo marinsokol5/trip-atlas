@@ -24,6 +24,8 @@ import {
   Files,
   ListChecks,
   Compass,
+  Check,
+  CircleAlert,
 } from "lucide-react";
 import {
   useEffect,
@@ -105,6 +107,7 @@ import { Prepare } from "./Prepare";
 import { activeTripView, availableTripViews, parseTripView } from "./trip-view";
 import type { TripView } from "./trip-view";
 import { ThemedSelect } from "./ThemedSelect";
+import { bookingGaps } from "./booking-model";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { Flag, flagsShown } from "./Flag";
 import { useMapLabelPreference } from "./use-map-label-preference";
@@ -1341,6 +1344,38 @@ function Calendar({
   const selectedSlot = slots.findIndex(
     (slot) => slot.inScope && slot.day?.index === selectedDay,
   );
+  const gaps = useMemo(() => bookingGaps(model), [model]);
+  const bookingStatus = useMemo(() => {
+    const inScope = new Set(
+      slots.flatMap((slot) =>
+        slot.inScope && slot.day ? [slot.day.index + 1] : [],
+      ),
+    );
+    const nights = gaps.nights.filter((n) => inScope.has(n));
+    const openNights = nights.filter((n) => gaps.unbookedNights.has(n)).length;
+    const openFlights = gaps.flights.filter(
+      (leg) =>
+        gaps.unbookedFlights.has(leg) &&
+        Array.from(
+          { length: leg.endDay - leg.day + 1 },
+          (_, i) => leg.day + i,
+        ).some((n) => inScope.has(n)),
+    ).length;
+    if (!nights.length && !openFlights) return undefined;
+    if (!openNights && !openFlights)
+      return { done: true, text: "All nights and flights booked" };
+    return {
+      done: false,
+      text: [
+        nights.length &&
+          `${nights.length - openNights} of ${nights.length} nights booked`,
+        openFlights &&
+          `${openFlights} ${openFlights === 1 ? "flight" : "flights"} to book`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }, [gaps, slots]);
   const segmentStart = Math.max(
     0,
     slots.findLastIndex(
@@ -1354,6 +1389,8 @@ function Calendar({
       slots[index + 1].gapBefore;
     return selectedSlot >= 0 && index >= selectedSlot && rowEnd;
   });
+  const unbookedFlightOn = (day: NormalizedDay) =>
+    activeLegs(model, day).some((leg) => gaps.unbookedFlights.has(leg));
   const scroller = useRef<HTMLDivElement>(null);
   const selectedCell = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -1384,6 +1421,14 @@ function Calendar({
             ? `${slots.find((slot) => slot.inScope)?.date ? dateLabel(slots.find((slot) => slot.inScope)!.date!) : ""} – ${slots.findLast((slot) => slot.inScope)?.date ? dateLabel(slots.findLast((slot) => slot.inScope)!.date!) : ""}`
             : "Days ahead"}
         </h2>
+        {bookingStatus && (
+          <span
+            className={`booking-status${bookingStatus.done ? " is-done" : ""}`}
+          >
+            {bookingStatus.done ? <Check /> : <CircleAlert />}
+            {bookingStatus.text}
+          </span>
+        )}
       </div>
       <div className="week">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
@@ -1418,7 +1463,9 @@ function Calendar({
                   day,
                 )
                   .map((group) => group.name + ". ")
-                  .join("")}Night: ${name(model, day.overnight)}`}
+                  .join(
+                    "",
+                  )}Night: ${name(model, day.overnight)}${gaps.unbookedNights.has(day.index + 1) ? ", not booked yet" : ""}`}
               >
                 <span className="calendar-date-context">
                   <span className="day-date">
@@ -1449,11 +1496,14 @@ function Calendar({
                   {dayModeDurations(model, day).map((m) => (
                     <span
                       key={m.kind}
-                      className="leg-chip"
+                      className={`leg-chip${m.kind === "flight" && unbookedFlightOn(day) ? " is-unbooked" : ""}`}
                       title={
-                        m.total
+                        (m.total
                           ? `${m.label ? `${m.label} of ` : ""}${m.total} ${m.kind}`
-                          : m.kind
+                          : m.kind) +
+                        (m.kind === "flight" && unbookedFlightOn(day)
+                          ? " · not booked yet"
+                          : "")
                       }
                     >
                       <Icon kind={m.kind} />
@@ -1462,7 +1512,14 @@ function Calendar({
                     </span>
                   ))}
                 </span>
-                <span className="night">
+                <span
+                  className={`night${gaps.unbookedNights.has(day.index + 1) ? " is-unbooked" : ""}`}
+                  title={
+                    gaps.unbookedNights.has(day.index + 1)
+                      ? "Not booked yet"
+                      : undefined
+                  }
+                >
                   <Icon kind="bed" />
                   {day.inTransit ? "In transit" : name(model, day.overnight)}
                 </span>

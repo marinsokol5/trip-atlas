@@ -2,8 +2,10 @@ import type {
   Booking,
   BookingAllocation,
   Itinerary,
+  Leg,
   Trip,
 } from "./itinerary.ts";
+import { componentLegs, mapAreas, modeKind } from "./view-model.ts";
 
 /** Dates remain authored calendar dates; offsets are only a view of this trip. */
 export function bookingRange(booking: Booking, trip: Trip) {
@@ -175,4 +177,55 @@ export function hasBookingContent(model: Itinerary): boolean {
     model.days.some((day) => day.source.documents?.length) ||
     model.legs.some((leg) => leg.block.documents?.length)
   );
+}
+/** A booking that holds a place: planned ones are still to book, cancelled ones hold nothing. */
+const isBooked = (booking: Booking) =>
+  booking.status !== "planned" && booking.status !== "cancelled";
+export function isFlightLeg(leg: Leg): boolean {
+  return componentLegs(leg).some((part) => modeKind(part) === "flight");
+}
+/**
+ * What still needs booking: nights slept away from home that no booked stay covers,
+ * and flights no booking is linked to. Nights on a plane, the last day and the home
+ * days at either end never count; trains, buses and ferries are bought on the spot.
+ */
+export function bookingGaps(model: Itinerary) {
+  const stayCountries = new Set(mapAreas(model).map((area) => area.country));
+  const bedNights = model.days
+    .slice(0, -1)
+    .filter((day) => !day.inTransit && day.overnight)
+    .map((day) => day.index + 1);
+  const away = bedNights.filter((n) =>
+    stayCountries.has(
+      model.trip.places[model.days[n - 1].overnight!].country ?? "",
+    ),
+  );
+  const nights = bedNights.filter((n) => n >= away[0] && n <= away.at(-1)!);
+  const booked = model.trip.bookings?.filter(isBooked) ?? [];
+  const coveredNights = new Set(
+    booked.flatMap((booking) => {
+      if (booking.type !== "accommodation") return [];
+      const allocation = bookingAllocation(booking, model.trip);
+      return (
+        accommodationNights(booking, model.trip) ??
+        (allocation?.type === "accommodation" ? allocation.nights : [])
+      );
+    }),
+  );
+  const bookedLegs = new Set(
+    booked.flatMap((booking) =>
+      booking.cost?.allocation?.type === "transport"
+        ? [booking.cost.allocation.leg]
+        : [],
+    ),
+  );
+  const flights = model.legs.filter(isFlightLeg);
+  return {
+    nights,
+    unbookedNights: new Set(nights.filter((n) => !coveredNights.has(n))),
+    flights,
+    unbookedFlights: new Set(
+      flights.filter((leg) => !leg.block.id || !bookedLegs.has(leg.block.id)),
+    ),
+  };
 }

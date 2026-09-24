@@ -4,6 +4,7 @@ import { normalizeTrip, parseTrip } from "./itinerary.ts";
 import type { Booking, Trip, TravelBlock } from "./itinerary.ts";
 import {
   bookingAllocation,
+  bookingGaps,
   bookingRange,
   bookingsOnDay,
   hasBookingContent,
@@ -221,7 +222,10 @@ test("other expenses and bare-number costs count once in the whole-trip total on
   trip.bookings = [
     { type: "other", title: "eSIM", cost: -1 },
   ] as unknown as Booking[];
-  assert.throws(() => parseTrip(trip), /bookings\[0\]\.cost: expected a finite/);
+  assert.throws(
+    () => parseTrip(trip),
+    /bookings\[0\]\.cost: expected a finite/,
+  );
 });
 
 test("zero overrides known and unknown estimates; exact status removes approximation", () => {
@@ -433,12 +437,96 @@ test("partial/outside dates stay visible as authored without clipping booking am
 });
 
 test("partial accommodation endpoints retain linked nights and checkout relevance", () => {
-  for (const dates of [{ startDate: "2026-11-01" }, { endDate: "2026-11-03" }]) {
+  for (const dates of [
+    { startDate: "2026-11-01" },
+    { endDate: "2026-11-03" },
+  ]) {
     const trip = fixture();
-    trip.bookings = [{ type: "accommodation", title: "Partial dates", ...dates,
-      cost: { amount: 40, allocation: { type: "accommodation", nights: [1, 2] } } }];
+    trip.bookings = [
+      {
+        type: "accommodation",
+        title: "Partial dates",
+        ...dates,
+        cost: {
+          amount: 40,
+          allocation: { type: "accommodation", nights: [1, 2] },
+        },
+      },
+    ];
     const model = normalizeTrip(trip);
-    assert.deepEqual([1, 2, 3, 4].map(day => bookingsOnDay(model, day).length), [1, 1, 1, 0]);
-    assert.deepEqual([1, 2, 3, 4].map(day => nightBookingsOnDay(model, day).length), [1, 1, 0, 0]);
+    assert.deepEqual(
+      [1, 2, 3, 4].map((day) => bookingsOnDay(model, day).length),
+      [1, 1, 1, 0],
+    );
+    assert.deepEqual(
+      [1, 2, 3, 4].map((day) => nightBookingsOnDay(model, day).length),
+      [1, 1, 0, 0],
+    );
   }
+});
+
+test("booking gaps: stay nights no booked stay covers and flights no booking links, never the plane, the last day or trains", () => {
+  const flight = (to: string, id?: string, endDay?: number): TravelBlock => ({
+    type: "travel",
+    to,
+    mode: "flight",
+    ...(id && { id }),
+    ...(endDay && { endDay }),
+  });
+  const trip: Trip = {
+    version: 1,
+    currency: "EUR",
+    startDate: "2026-11-01",
+    initialPlace: "ams",
+    places: {
+      ams: { name: "Amsterdam", country: "NL" },
+      tokyo: { name: "Tokyo", country: "JP" },
+      hanoi: { name: "Hanoi", country: "VN" },
+      hue: { name: "Hue", country: "VN" },
+    },
+    days: [
+      { blocks: [flight("tokyo", "out", 2)] },
+      {},
+      {},
+      { blocks: [flight("hanoi")] },
+      { blocks: [{ type: "travel", to: "hue", mode: "train" }] },
+      { blocks: [flight("ams", "home", 7)] },
+      {},
+    ],
+    bookings: [
+      { ...hotel(), startDate: "2026-11-02", endDate: "2026-11-04" },
+      {
+        type: "accommodation",
+        title: "Hanoi hotel",
+        place: "hanoi",
+        startDate: "2026-11-04",
+        endDate: "2026-11-05",
+        status: "planned",
+      },
+      {
+        type: "transport",
+        title: "Outbound flight",
+        status: "confirmed",
+        cost: { amount: 500, allocation: { type: "transport", leg: "out" } },
+      },
+      {
+        type: "transport",
+        title: "Return flight",
+        status: "cancelled",
+        cost: { amount: 500, allocation: { type: "transport", leg: "home" } },
+      },
+    ],
+  };
+  const model = normalizeTrip(trip),
+    gaps = bookingGaps(model);
+  assert.deepEqual(gaps.nights, [2, 3, 4, 5]);
+  assert.deepEqual([...gaps.unbookedNights], [4, 5]);
+  assert.deepEqual(
+    gaps.flights.map((leg) => leg.to),
+    ["tokyo", "hanoi", "ams"],
+  );
+  assert.deepEqual(
+    [...gaps.unbookedFlights].map((leg) => leg.to),
+    ["hanoi", "ams"],
+  );
 });
