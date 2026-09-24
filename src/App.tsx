@@ -1930,7 +1930,7 @@ function App() {
       <header className="top">
         <div className="heading">
           <div>
-            <p className="kicker">ATLAS / YOUR JOURNEY</p>
+            <p className="kicker">ATLAS</p>
             <h1 title={itinerary?.trip.title}>
               {itinerary?.trip.title ?? "Trip Atlas"}
             </h1>
