@@ -1832,25 +1832,6 @@ main[data-theme="dark"] {
   font-size: 12px;
   margin: 13px 0 0;
 }
-.overview-costs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 30px;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-}
-.overview-costs > div {
-  display: flex;
-  gap: 10px;
-}
-.overview-costs span {
-  color: var(--muted);
-}
-.overview-costs strong {
-  font-weight: 500;
-  white-space: nowrap;
-}
 .overview-stays {
   margin-top: 34px;
 }
@@ -2980,4 +2961,134 @@ main[data-theme="dark"] {
 .overview-subbar {
   background: var(--muted);
   opacity: 0.55;
+}
+.overview-costs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 30px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.overview-costs > div {
+  display: flex;
+  gap: 10px;
+}
+.overview-costs span {
+  color: var(--muted);
+}
+.overview-costs strong {
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* Cost by category: a donut beside its sorted table. Colors are validated per theme. */
+main {
+  --cost-1: #2a78d6;
+  --cost-2: #eb6834;
+  --cost-3: #1baf7a;
+  --cost-4: #eda100;
+  --cost-5: #e87ba4;
+  --cost-6: #008300;
+  --cost-7: var(--transit);
+}
+main[data-theme="dark"] {
+  --cost-1: #3987e5;
+  --cost-2: #d95926;
+  --cost-3: #199e70;
+  --cost-4: #c98500;
+  --cost-5: #d55181;
+  --cost-6: #008300;
+}
+.overview-cost-categories {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.overview-cost-categories h2 {
+  margin: 0 0 16px;
+}
+.cost-breakdown {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+}
+.cost-donut {
+  position: relative;
+  margin: 0;
+  width: 200px;
+}
+.cost-donut svg {
+  display: block;
+  width: 100%;
+}
+.cost-donut path {
+  stroke: var(--bg);
+  stroke-width: 2;
+  transition: opacity 0.15s;
+}
+.cost-donut path.is-muted {
+  opacity: 0.3;
+}
+.cost-donut figcaption {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+.cost-donut figcaption strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 500;
+}
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.cost-table th,
+.cost-table td {
+  padding: 8px 0 8px 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.cost-table th:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.cost-table thead th {
+  color: var(--muted);
+  font-size: 12px;
+}
+.cost-table tbody th i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 9px;
+  vertical-align: -1px;
+}
+.cost-table td:last-child {
+  color: var(--muted);
+  width: 56px;
+}
+.cost-table tbody tr.is-active {
+  background: var(--wash);
+}
+.cost-table tfoot th,
+.cost-table tfoot td {
+  font-weight: 600;
+  border-bottom: 0;
+}
+@media (max-width: 640px) {
+  .cost-breakdown {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    justify-items: center;
+  }
 }

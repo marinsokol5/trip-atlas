@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { Itinerary } from "./itinerary";
 import type { Amount } from "./overview-model";
+import { CostBreakdown } from "./CostBreakdown";
 import { mapAreas } from "./view-model";
 import {
   averageLabel,
@@ -224,16 +225,21 @@ export function Overview({
   const applicableTravel = travelItems.filter(
     ([, value]) => value.known || value.missing,
   );
+  // Fixed order: it sets each category's color and its place around the donut.
   const costItems = [
-    ["Living", data.costs.living],
-    ["Accommodation", data.costs.accommodation],
-    ["Additional activities", data.costs.activities],
-    [country ? "Domestic flights" : "Flights", data.costs.flights],
-    [country ? "In-country transport" : "Other transport", data.costs.other],
+    ["living", "Living", data.costs.living],
+    ["accommodation", "Accommodation", data.costs.accommodation],
+    ["activities", "Additional activities", data.costs.activities],
+    ["flights", country ? "Domestic flights" : "Flights", data.costs.flights],
+    [
+      "transport",
+      country ? "In-country transport" : "Other transport",
+      data.costs.other,
+    ],
+    ["expenses", "Other expenses", data.costs.expenses],
     ...(unallocatedCost
-      ? [["Mixed transport", data.costs.unallocated] as const]
+      ? [["mixed", "Mixed transport", data.costs.unallocated] as const]
       : []),
-    ["Other expenses", data.costs.expenses],
   ] as const;
   return (
     <section className="overview-view" aria-label="Overview view">
@@ -323,16 +329,22 @@ export function Overview({
         </p>
       )}
       {showCosts && (
-        <div className="overview-costs" aria-label="Cost breakdown">
-          {costItems
-            .filter(([, cost]) => cost.known || cost.missing)
-            .map(([label, cost]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong>{moneyLabel(cost, currency)}</strong>
-              </div>
-            ))}
-        </div>
+        <section
+          className="overview-cost-categories"
+          aria-labelledby="cost-categories-heading"
+        >
+          <h2 id="cost-categories-heading">Cost by category</h2>
+          <CostBreakdown
+            categories={costItems.map(([key, label, cost], index) => ({
+              key,
+              label,
+              cost,
+              color: `var(--cost-${index + 1})`,
+            }))}
+            total={data.costs.total}
+            currency={currency}
+          />
+        </section>
       )}
       {mixedStatuses && (
         <div
