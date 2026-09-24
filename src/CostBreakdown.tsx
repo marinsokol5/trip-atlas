@@ -36,8 +36,10 @@ export function CostBreakdown({
   categories,
   total,
   currency,
+  heading = "Category",
 }: {
   categories: CostCategory[];
+  heading?: string;
   total: Amount;
   currency?: string;
 }) {
@@ -63,7 +65,7 @@ export function CostBreakdown({
         <svg
           viewBox={`0 0 ${size} ${size}`}
           role="img"
-          aria-label={`Cost by category: ${rows.map((row) => `${row.label} ${Math.round(share(row.cost))}%`).join(", ")}`}
+          aria-label={`Cost by ${heading.toLowerCase()}: ${rows.map((row) => `${row.label} ${Math.round(share(row.cost))}%`).join(", ")}`}
         >
           {slices.map((s) => (
             <path
@@ -86,7 +88,7 @@ export function CostBreakdown({
       <table className="cost-table">
         <thead>
           <tr>
-            <th>Category</th>
+            <th>{heading}</th>
             <th>Cost</th>
             <th>Share</th>
           </tr>

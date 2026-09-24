@@ -13,6 +13,7 @@ import { mapAreas } from "./view-model";
 import {
   averageLabel,
   combine,
+  countryColor,
   costStatusAmounts,
   headlineTimeLabel,
   moneyLabel,
@@ -39,10 +40,8 @@ export function Overview({
   const areas = mapAreas(model);
   const visitedCountries = new Set(areas.map((area) => area.country));
   const canCompareCountries = !country && areas.length > 1;
-  const [preferredBreakdown, setBreakdown] = useState<"countries" | "places">(
-    "countries",
-  );
-  const breakdown = canCompareCountries ? preferredBreakdown : "places";
+  const breakdown = canCompareCountries ? "countries" : "places";
+  const [costView, setCostView] = useState<"country" | "category">("country");
   const data = overview(model, country, breakdown);
   const currency = model.trip.currency;
   const showCosts = data.hasBudget;
@@ -200,6 +199,44 @@ export function Overview({
           ))}
     </>
   );
+  const byCountry = countryCosts && costView === "country";
+  // Countries in visit order, then what belongs to none; together they make the trip total.
+  const countrySlices = [
+    ...[...data.countries]
+      .filter(([code, value]) => code !== "unknown" && value.total.value > 0)
+      .sort(
+        ([a], [b]) =>
+          areas.findIndex((area) => area.country === a) -
+          areas.findIndex((area) => area.country === b),
+      )
+      .map(([code, value]) => ({
+        key: code,
+        label:
+          areas.find((area) => area.country === code)?.name ??
+          new Intl.DisplayNames(["en"], { type: "region" }).of(code) ??
+          code,
+        cost: value.total,
+        color: countryColor(code),
+      })),
+    {
+      key: "between",
+      label: "Between countries",
+      cost: data.betweenCountries,
+      color: "var(--transit)",
+    },
+    {
+      key: "unassigned",
+      label: "Unassigned",
+      cost: data.unassigned,
+      color: "#96929a",
+    },
+    {
+      key: "expenses",
+      label: "Other expenses",
+      cost: data.costs.expenses,
+      color: "var(--coast)",
+    },
+  ];
   const placeCostLabel = data.costs.activities.known
     ? "Living + stay + activities"
     : hasNights
@@ -403,16 +440,39 @@ export function Overview({
           className="overview-cost-categories"
           aria-labelledby="cost-categories-heading"
         >
-          <h2 id="cost-categories-heading">Cost by category</h2>
+          <div className="overview-stay-heading">
+            <h2 id="cost-categories-heading">
+              {byCountry ? "Cost by country" : "Cost by category"}
+            </h2>
+            {countryCosts && (
+              <div className="overview-toggle" aria-label="Group costs by">
+                {(["country", "category"] as const).map((option) => (
+                  <button
+                    key={option}
+                    aria-pressed={costView === option}
+                    onClick={() => setCostView(option)}
+                  >
+                    {option === "country" ? "Country" : "Category"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <CostBreakdown
-            categories={costItems.map(([key, label, cost], index) => ({
-              key,
-              label,
-              cost,
-              color: `var(--cost-${index + 1})`,
-            }))}
+            key={byCountry ? "country" : "category"}
+            categories={
+              byCountry
+                ? countrySlices
+                : costItems.map(([key, label, cost], index) => ({
+                    key,
+                    label,
+                    cost,
+                    color: `var(--cost-${index + 1})`,
+                  }))
+            }
             total={data.costs.total}
             currency={currency}
+            heading={byCountry ? "Country" : "Category"}
           />
         </section>
       )}
@@ -451,7 +511,7 @@ export function Overview({
           <div>
             <h2 id="stays-heading">
               {countryCosts
-                ? "Country comparison"
+                ? "Breakdown"
                 : hasNights
                   ? "Where you’ll stay"
                   : "Places visited"}
@@ -469,19 +529,6 @@ export function Overview({
               </p>
             )}
           </div>
-          {canCompareCountries && (
-            <div className="overview-toggle" aria-label="Stay breakdown">
-              {(["countries", "places"] as const).map((option) => (
-                <button
-                  key={option}
-                  aria-pressed={breakdown === option}
-                  onClick={() => setBreakdown(option)}
-                >
-                  {option === "countries" ? "Countries" : "Places"}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
         <div className="overview-table-scroll">
           <table
