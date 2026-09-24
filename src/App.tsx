@@ -23,6 +23,7 @@ import {
   RotateCcw,
   Files,
   ListChecks,
+  Compass,
 } from "lucide-react";
 import {
   useEffect,
@@ -44,6 +45,7 @@ import {
   globeProjection,
   globeRouteCurve,
   globeShapes,
+  levelGlobe,
   rotateGlobe,
   zoomGlobe,
 } from "./globe";
@@ -225,6 +227,7 @@ function Icon({ kind }: { kind: string }) {
         play: Play,
         pause: Pause,
         replay: RotateCcw,
+        level: Compass,
       } as Record<string, typeof MapIcon>
     )[kind] ?? ArrowRight;
   return <Component className="icon" aria-hidden="true" strokeWidth={1.6} />;
@@ -827,6 +830,18 @@ function TripMap({
               >
                 <Icon kind="reset" />
               </button>
+              {globe && (
+                <button
+                  aria-label="Level globe, north up"
+                  title="Level globe, north up"
+                  onClick={() => {
+                    setTooltipPlace(null);
+                    setGlobeView(levelGlobe(globeView));
+                  }}
+                >
+                  <Icon kind="level" />
+                </button>
+              )}
             </div>
             <div
               className="map-secondary-controls"

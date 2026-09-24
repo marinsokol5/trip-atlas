@@ -5,6 +5,7 @@ import { geoDistance } from "d3-geo";
 import {
   bowedMidpoint,
   fitGlobe,
+  levelGlobe,
   globeProjection,
   globeRouteCurve,
   globeShapes,
@@ -161,4 +162,11 @@ test("globe outlines thin out as the globe shrinks and while dragging", () => {
     ).reduce((sum, d) => sum + (d?.length ?? 0), 0);
   assert.ok(size(1, 5) < size(1) * 0.75, "a drag draws a lighter draft");
   assert.ok(size(0.5) < size(1), "a smaller globe needs less detail");
+});
+
+test("levelling keeps longitude and zoom and faces the equator", () => {
+  assert.deepEqual(levelGlobe({ center: [72.6, 33], k: 2.5 }), {
+    center: [72.6, 0],
+    k: 2.5,
+  });
 });

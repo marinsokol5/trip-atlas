@@ -85,6 +85,11 @@ export function rotateGlobe(
   };
 }
 
+/** Face the equator at the current longitude and zoom: poles straight up and down, like a desk globe. */
+export function levelGlobe(view: GlobeView): GlobeView {
+  return { ...view, center: [view.center[0], 0] };
+}
+
 /** Zoom the globe, keeping the surface under `anchor` in place when it is on the globe. */
 export function zoomGlobe(
   view: GlobeView,
