@@ -2034,17 +2034,11 @@ function App() {
       <header className="top">
         <div className="heading">
           <div className="brand">
-            <Logo />
-            <div>
-              <p className="kicker">ATLAS</p>
+            <div className="brand-title">
+              <Logo />
               <h1 title={itinerary?.trip.title}>
                 {itinerary?.trip.title ?? "Trip Atlas"}
               </h1>
-              <p className="meta">
-                {itinerary
-                  ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}` : "Dates open"}`
-                  : "A little perspective, before you go."}
-              </p>
             </div>
           </div>
           <div className="header-tools">
