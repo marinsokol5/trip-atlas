@@ -2055,8 +2055,8 @@ function App() {
                     : t === "calendar"
                       ? "Calendar"
                       : t === "bookings"
-                        ? "Bookings & Documents"
-                        : "Trip checklist"}
+                        ? "Documents"
+                        : "Checklist"}
               </button>
             ))}
           </nav>

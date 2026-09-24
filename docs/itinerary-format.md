@@ -122,7 +122,7 @@ PDF, PNG, JPEG, WebP, GIF, AVIF, text and JSON receive inline MIME types, includ
 
 Preparation is trip-wide. Checklist array order supplies priority ranks; completed tasks keep their original rank. Packing groups follow first appearance of category, preserving item order within each group. Missing completion flags display as outstanding. Quantities appear only when supplied and must be positive safe integers. Counts refer to entries, not summed quantities. Edit status flags in JSON and refresh; there are no UI write actions.
 
-Bookings/Documents and Trip checklist tabs appear only when their data is present. A saved unavailable view falls back to Overview without losing the preference. Area belongs to each journey; Trip checklist locks the selector on Whole trip without discarding the choice.
+Documents and Checklist tabs appear only when their data is present. A saved unavailable view falls back to Overview without losing the preference. Area belongs to each journey; Checklist locks the selector on Whole trip without discarding the choice.
 
 The bundled demo manifest is `trips/index.json`:
 

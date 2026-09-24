@@ -405,9 +405,9 @@ export function Bookings({
     legs.length
   );
   return (
-    <section className="bookings-view" aria-label="Bookings & Documents view">
+    <section className="bookings-view" aria-label="Documents view">
       <header className="bookings-heading">
-        <h2>Bookings & Documents</h2>
+        <h2>Documents</h2>
       </header>
       {!bookings.length && !hasDocuments && country && (
         <div className="booking-scope-empty">
