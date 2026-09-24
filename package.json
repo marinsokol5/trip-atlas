@@ -1,6 +1,6 @@
 {
   "name": "trip-atlas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A local, read-only atlas for comparing travel plans, routes, nights and costs.",
   "license": "MIT",
   "type": "module",
