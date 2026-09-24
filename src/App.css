@@ -2953,3 +2953,31 @@ main[data-theme="dark"] {
   stop-color: var(--globe-dark);
   stop-opacity: 0.18;
 }
+/* A country row opens in place into its places. */
+.overview-country-link[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.overview-country-link svg {
+  transition: transform 0.15s;
+}
+.overview-table .overview-subrow th,
+.overview-table .overview-subrow td {
+  padding-block: 8px;
+  font-size: 13px;
+}
+.overview-table .overview-subrow th:first-child {
+  padding-left: 20px;
+}
+.overview-subrow .overview-place {
+  font-size: 13px;
+}
+.overview-subrow .overview-night-count strong {
+  font-size: 15px;
+}
+.overview-subrow .overview-place i:empty:not([style]) {
+  background: var(--line);
+}
+.overview-subbar {
+  background: var(--muted);
+  opacity: 0.55;
+}

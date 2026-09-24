@@ -516,6 +516,7 @@ export function overview(
       activities,
       flights,
       other,
+      transport,
       unallocated,
       expenses,
       total: combine(living, accommodation, transport, activities, expenses),

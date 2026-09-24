@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -7,6 +7,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import type { Itinerary } from "./itinerary";
+import type { Amount } from "./overview-model";
 import { mapAreas } from "./view-model";
 import {
   averageLabel,
@@ -74,6 +75,87 @@ export function Overview({
       : defaultStaySort;
   const rows = orderStayRows(data.stays, data.countries, sort);
   const hasNights = data.nights > 0;
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const toggleCountry = (code: string) =>
+    setExpanded((open) => {
+      const next = new Set(open);
+      if (!next.delete(code)) next.add(code);
+      return next;
+    });
+  // A country opens in place into the places its Area view lists, plus travel within it.
+  const countryPlaces = (code: string) => {
+    const scoped = overview(model, code, "places");
+    // Stops with no night and nothing spent there say nothing about where money goes.
+    const places = scoped.stays.filter(
+      (place) => place.nights > 0 || place.cost.known || place.cost.missing,
+    );
+    const costs = new Map(
+      places.map((place) => [
+        place.key,
+        { total: place.cost, budgetDays: place.days },
+      ]),
+    );
+    const transport = scoped.costs.transport;
+    const nightsCell = (nights?: number) => (
+      <td hidden={!hasNights}>
+        {nights !== undefined && (
+          <div className="overview-night-measure">
+            <span className="overview-bar" aria-hidden="true">
+              <span
+                style={{ width: `${nightShare(nights, data.nights)}%` }}
+                className="overview-subbar"
+              />
+            </span>
+            <span className="overview-night-count">
+              <strong>{nights}</strong>
+              <span>{Math.round(nightShare(nights, data.nights))}%</span>
+            </span>
+          </div>
+        )}
+      </td>
+    );
+    const costCells = (cost?: Amount, days = 0) =>
+      countryCosts ? (
+        <>
+          <td>{cost ? moneyLabel(cost, currency) : "—"}</td>
+          <td>{cost && days ? averageLabel(cost, days, currency) : "—"}</td>
+        </>
+      ) : (
+        data.hasStayCosts && <td>{cost ? moneyLabel(cost, currency) : "—"}</td>
+      );
+    return (
+      <>
+        {orderStayRows(places, costs, sort).map((place, index) => (
+          <tr
+            key={place.key}
+            id={index ? undefined : `overview-places-${code}`}
+            className={`overview-subrow${place.nights === 0 ? " overview-day-visit" : ""}`}
+          >
+            <th scope="row">
+              <span className="overview-place">
+                <i style={{ backgroundColor: place.color }} />
+                <span className="overview-place-name">{place.name}</span>
+              </span>
+            </th>
+            {nightsCell(place.nights)}
+            {costCells(place.cost, place.days)}
+          </tr>
+        ))}
+        {(transport.known > 0 || transport.missing > 0) && (
+          <tr className="overview-subrow overview-day-visit">
+            <th scope="row">
+              <span className="overview-place">
+                <i />
+                <span className="overview-place-name">Getting around</span>
+              </span>
+            </th>
+            {nightsCell()}
+            {costCells(transport)}
+          </tr>
+        )}
+      </>
+    );
+  };
   const placeCostLabel = data.costs.activities.known
     ? "Living + stay + activities"
     : hasNights
@@ -354,91 +436,98 @@ export function Overview({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.key}
-                  className={
-                    row.nights === 0 ? "overview-day-visit" : undefined
-                  }
-                >
-                  <th scope="row">
-                    {canCompareCountries &&
-                    breakdown === "countries" &&
-                    visitedCountries.has(row.key) ? (
-                      <button
-                        className="overview-place overview-country-link"
-                        type="button"
-                        aria-label={`View ${row.name}`}
-                        onClick={() => onSelectCountry(row.key)}
-                      >
-                        <i style={{ backgroundColor: row.color }} />
-                        <span className="overview-place-name">{row.name}</span>
-                        <ChevronRight aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <span className="overview-place">
-                        <i style={{ backgroundColor: row.color }} />
-                        <span className="overview-place-name">{row.name}</span>
-                      </span>
-                    )}
-                  </th>
-                  <td hidden={!hasNights}>
-                    <div className="overview-night-measure">
-                      <span
-                        className="overview-bar"
-                        role="img"
-                        aria-label={`${row.nights} of ${data.nights} nights, ${Math.round(nightShare(row.nights, data.nights))}%`}
-                      >
-                        <span
-                          style={{
-                            width: `${nightShare(row.nights, data.nights)}%`,
-                            backgroundColor: row.color,
-                          }}
-                        />
-                      </span>
-                      <span className="overview-night-count">
-                        <strong>{row.nights}</strong>
-                        <span>
-                          {Math.round(nightShare(row.nights, data.nights))}%
+                <Fragment key={row.key}>
+                  <tr
+                    className={
+                      row.nights === 0 ? "overview-day-visit" : undefined
+                    }
+                  >
+                    <th scope="row">
+                      {canCompareCountries &&
+                      breakdown === "countries" &&
+                      visitedCountries.has(row.key) ? (
+                        <button
+                          className="overview-place overview-country-link"
+                          type="button"
+                          aria-expanded={expanded.has(row.key)}
+                          aria-controls={`overview-places-${row.key}`}
+                          onClick={() => toggleCountry(row.key)}
+                        >
+                          <i style={{ backgroundColor: row.color }} />
+                          <span className="overview-place-name">
+                            {row.name}
+                          </span>
+                          <ChevronRight aria-hidden="true" />
+                        </button>
+                      ) : (
+                        <span className="overview-place">
+                          <i style={{ backgroundColor: row.color }} />
+                          <span className="overview-place-name">
+                            {row.name}
+                          </span>
                         </span>
-                      </span>
-                    </div>
-                  </td>
-                  {countryCosts ? (
-                    <>
-                      <td>
-                        {data.countries.has(row.key) && row.key !== "unknown"
-                          ? moneyLabel(
-                              data.countries.get(row.key)!.total,
-                              currency,
-                            )
-                          : "—"}
-                      </td>
-                      <td
-                        title={
-                          data.countries.get(row.key)?.budgetDays
-                            ? `Total divided by ${data.countries.get(row.key)!.budgetDays} budgeted days`
-                            : undefined
-                        }
-                      >
-                        {row.key !== "unknown" && data.countries.has(row.key)
-                          ? averageLabel(
-                              data.countries.get(row.key)!.total,
-                              data.countries.get(row.key)!.budgetDays,
-                              currency,
-                            )
-                          : "—"}
-                      </td>
-                    </>
-                  ) : (
-                    data.hasStayCosts && (
-                      <td>
-                        {row.key === "transit"
-                          ? "—"
-                          : moneyLabel(row.cost, currency)}
-                      </td>
-                    )
-                  )}
-                </tr>
+                      )}
+                    </th>
+                    <td hidden={!hasNights}>
+                      <div className="overview-night-measure">
+                        <span
+                          className="overview-bar"
+                          role="img"
+                          aria-label={`${row.nights} of ${data.nights} nights, ${Math.round(nightShare(row.nights, data.nights))}%`}
+                        >
+                          <span
+                            style={{
+                              width: `${nightShare(row.nights, data.nights)}%`,
+                              backgroundColor: row.color,
+                            }}
+                          />
+                        </span>
+                        <span className="overview-night-count">
+                          <strong>{row.nights}</strong>
+                          <span>
+                            {Math.round(nightShare(row.nights, data.nights))}%
+                          </span>
+                        </span>
+                      </div>
+                    </td>
+                    {countryCosts ? (
+                      <>
+                        <td>
+                          {data.countries.has(row.key) && row.key !== "unknown"
+                            ? moneyLabel(
+                                data.countries.get(row.key)!.total,
+                                currency,
+                              )
+                            : "—"}
+                        </td>
+                        <td
+                          title={
+                            data.countries.get(row.key)?.budgetDays
+                              ? `Total divided by ${data.countries.get(row.key)!.budgetDays} budgeted days`
+                              : undefined
+                          }
+                        >
+                          {row.key !== "unknown" && data.countries.has(row.key)
+                            ? averageLabel(
+                                data.countries.get(row.key)!.total,
+                                data.countries.get(row.key)!.budgetDays,
+                                currency,
+                              )
+                            : "—"}
+                        </td>
+                      </>
+                    ) : (
+                      data.hasStayCosts && (
+                        <td>
+                          {row.key === "transit"
+                            ? "—"
+                            : moneyLabel(row.cost, currency)}
+                        </td>
+                      )
+                    )}
+                  </tr>
+                  {expanded.has(row.key) && countryPlaces(row.key)}
+                </Fragment>
               ))}
             </tbody>
             {countryCosts && !country && (
