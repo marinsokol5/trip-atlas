@@ -3468,3 +3468,13 @@ main[data-theme="dark"] {
 .booking-date-chip .flag {
   font-size: 12px;
 }
+/* Tips read green: helpful, not urgent. */
+main {
+  --tip: #2f7a4a;
+}
+main[data-theme="dark"] {
+  --tip: #7cc79a;
+}
+.booking-notes:not(.is-important) {
+  color: var(--tip);
+}
