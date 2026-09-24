@@ -1,41 +1,37 @@
 # <img src="https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/public/favicon.svg" alt="" width="36" height="36" align="top"> Trip Atlas
 
-See a travel plan kept in a JSON file as a map, a calendar and a cost overview, on your own machine.
+An LLM-friendly trip planner and visualizer. Your whole trip is one JSON file, and Trip Atlas turns it into up to five views: Overview, Map, Calendar, Documents and Checklist.
 
-## Why
+- See your plan, compare options and understand what it costs.
+- Keep your bookings and documents linked in one place.
+- Give your trip a structure you and an LLM can discuss and edit together.
 
-I was planning seven weeks across five countries with an AI agent. The plan lived in one JSON file the agent kept editing, and I couldn't _see_ it: where I sleep each night, how long the transfers take, what it costs per person, what's still unbooked. Travel apps wanted an account and my data. So Trip Atlas just reads the file, locally, and shows it. You or your agent edit the JSON; refresh the browser to see the change.
+<p>
+  <img src="https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/.github/readme/map.jpg" alt="Map view of a ten-day Japan trip" width="49%">
+  <img src="https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/.github/readme/calendar.jpg" alt="Calendar view of the same trip" width="49%">
+</p>
 
-## Use it
+## Install
 
 Needs [Node.js](https://nodejs.org/) 22 or newer.
 
 ```sh
-npx trip-atlas my-trip.json
-```
-
-This opens your browser on `127.0.0.1:4173`. Pass several files to switch between alternative plans, or none to explore the demo trips. To install it once instead:
-
-```sh
 npm install -g trip-atlas
-trip-atlas my-trip.json
+npx skills add marinsokol5/trip-atlas -g
 ```
 
-`trip-atlas check my-trip.json` validates a file and points at the exact field that's wrong. `--no-open` skips the browser; `PORT=4180` picks another port.
-
-## Let your agent write the file
-
-Two agent skills teach Claude Code, Codex and other agents the format:
+To update later:
 
 ```sh
-npx skills add marinsokol5/trip-atlas
+npm update -g trip-atlas
+npx skills update
 ```
 
-- **trip-atlas-update-itinerary** creates and edits the itinerary, then runs `check`.
-- **trip-atlas-download-booking** saves a booking, ticket or confirmation email as a clean PDF beside the itinerary and links it to the trip. It only reads booking sites; it never pays, cancels or logs in for you.
+## Use
 
-## Private by design
+1. Talk through a rough plan with your agent, then have it write the file: `/trip-atlas-update-itinerary`.
+2. Look at it: `trip-atlas itinerary.json`. Edit the file, refresh the browser.
+3. To compare plans, make another file and open both: `trip-atlas plan-a.json plan-b.json`.
+4. To keep a booking, ticket or confirmation email, use `/trip-atlas-download-booking`. It saves a clean PDF next to your itinerary and links it to the trip.
 
-No account, no upload, no analytics, no map API. It fetches nothing and never changes your files. The server listens only on your own machine and serves only the files you pass plus the documents they link. See [SECURITY.md](SECURITY.md).
-
-[MIT license](LICENSE) · [Contributing](CONTRIBUTING.md)
+Everything stays on your machine: no account, no upload, and your files are never changed. [MIT license](LICENSE)
