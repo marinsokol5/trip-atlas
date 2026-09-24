@@ -1,0 +1,976 @@
+{
+  "version": 1,
+  "title": "Vietnam, Japan, Taiwan – 2026",
+  "startDate": "2026-11-02",
+  "initialPlace": "han",
+  "currency": "EUR",
+  "budget": {
+    "countries": {
+      "VN": {
+        "livingPerDay": 30,
+        "accommodationPerNight": 25
+      },
+      "JP": {
+        "livingPerDay": 50,
+        "accommodationPerNight": 85
+      },
+      "TW": {
+        "livingPerDay": 40,
+        "accommodationPerNight": 55
+      }
+    }
+  },
+  "groups": {
+    "ninh-binh": {
+      "name": "Ninh Binh",
+      "color": "#66865D"
+    },
+    "cat-ba": {
+      "name": "Cat Ba & Lan Ha Bay",
+      "color": "#468B9A"
+    },
+    "pingxi-jiufen": {
+      "name": "Shifen & Jiufen",
+      "color": "#B87976"
+    }
+  },
+  "places": {
+    "han": {
+      "name": "Hanoi Noi Bai Airport (HAN)",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 21.2187,
+        "lon": 105.8042
+      }
+    },
+    "hanoi": {
+      "name": "Hanoi",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 21.034,
+        "lon": 105.85
+      }
+    },
+    "tam-coc": {
+      "name": "Tam Coc",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 20.2152,
+        "lon": 105.9375
+      },
+      "group": "ninh-binh"
+    },
+    "hang-mua": {
+      "name": "Hang Mua",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 20.2301,
+        "lon": 105.936
+      },
+      "group": "ninh-binh"
+    },
+    "trang-an": {
+      "name": "Trang An",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 20.256,
+        "lon": 105.893
+      },
+      "group": "ninh-binh"
+    },
+    "cat-ba": {
+      "name": "Cat Ba",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 20.7236,
+        "lon": 107.048
+      },
+      "group": "cat-ba"
+    },
+    "lan-ha-bay": {
+      "name": "Lan Ha Bay",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 20.76,
+        "lon": 107.11
+      },
+      "group": "cat-ba"
+    },
+    "cat-ba-park": {
+      "name": "Cat Ba National Park",
+      "country": "VN",
+      "timezone": "Asia/Ho_Chi_Minh",
+      "coordinates": {
+        "lat": 20.801,
+        "lon": 107.004
+      },
+      "group": "cat-ba"
+    },
+    "nrt": {
+      "name": "Tokyo Narita Airport (NRT)",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.772,
+        "lon": 140.3929
+      }
+    },
+    "tokyo": {
+      "name": "Tokyo",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.6812,
+        "lon": 139.7671
+      }
+    },
+    "hakone": {
+      "name": "Hakone",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.233,
+        "lon": 139.105
+      }
+    },
+    "kyoto": {
+      "name": "Kyoto",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 35.0116,
+        "lon": 135.7681
+      }
+    },
+    "nara": {
+      "name": "Nara",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.6851,
+        "lon": 135.843
+      }
+    },
+    "osaka": {
+      "name": "Osaka",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.6937,
+        "lon": 135.5023
+      }
+    },
+    "kix": {
+      "name": "Osaka Kansai Airport (KIX)",
+      "country": "JP",
+      "timezone": "Asia/Tokyo",
+      "coordinates": {
+        "lat": 34.432,
+        "lon": 135.2304
+      }
+    },
+    "tpe": {
+      "name": "Taipei Taoyuan Airport (TPE)",
+      "country": "TW",
+      "timezone": "Asia/Taipei",
+      "coordinates": {
+        "lat": 25.0797,
+        "lon": 121.2342
+      }
+    },
+    "taipei": {
+      "name": "Taipei",
+      "country": "TW",
+      "timezone": "Asia/Taipei",
+      "coordinates": {
+        "lat": 25.0478,
+        "lon": 121.517
+      }
+    },
+    "shifen": {
+      "name": "Shifen",
+      "country": "TW",
+      "timezone": "Asia/Taipei",
+      "coordinates": {
+        "lat": 25.041,
+        "lon": 121.775
+      },
+      "group": "pingxi-jiufen"
+    },
+    "jiufen": {
+      "name": "Jiufen",
+      "country": "TW",
+      "timezone": "Asia/Taipei",
+      "coordinates": {
+        "lat": 25.1092,
+        "lon": 121.8445
+      },
+      "group": "pingxi-jiufen"
+    }
+  },
+  "days": [
+    {
+      "title": "Arrive in Hanoi",
+      "activities": [
+        {
+          "name": "Hoan Kiem Lake"
+        },
+        {
+          "name": "Ngoc Son Temple",
+          "estimatedCost": 1
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "hanoi",
+          "mode": "car",
+          "estimatedDurationMinutes": 45,
+          "estimatedCost": 15,
+          "notes": "Pre-book the airport pickup; the driver waits outside arrivals with a name sign."
+        }
+      ]
+    },
+    {
+      "title": "Old Quarter and Temple of Literature",
+      "activities": [
+        {
+          "name": "Temple of Literature",
+          "estimatedCost": 3
+        },
+        {
+          "name": "Hanoi Old Quarter"
+        },
+        {
+          "name": "Thang Long Water Puppet Theatre",
+          "estimatedCost": 7
+        }
+      ]
+    },
+    {
+      "title": "Down to Ninh Binh",
+      "activities": [
+        {
+          "name": "Hang Mua",
+          "tip": "Climb the 500 steps late afternoon for the view over the rice fields.",
+          "estimatedCost": 4
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "tam-coc",
+          "mode": "bus",
+          "estimatedDurationMinutes": 150,
+          "estimatedCost": 10
+        },
+        {
+          "type": "travel",
+          "to": "hang-mua",
+          "mode": "car",
+          "estimatedDurationMinutes": 15,
+          "estimatedCost": 3
+        },
+        {
+          "type": "travel",
+          "to": "tam-coc",
+          "mode": "car",
+          "estimatedDurationMinutes": 15,
+          "estimatedCost": 3
+        }
+      ]
+    },
+    {
+      "title": "Trang An by boat",
+      "activities": [
+        {
+          "name": "Trang An",
+          "estimatedCost": 10
+        },
+        {
+          "name": "Bich Dong Pagoda"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "trang-an",
+          "mode": "car",
+          "estimatedDurationMinutes": 20,
+          "estimatedCost": 4
+        },
+        {
+          "type": "travel",
+          "to": "tam-coc",
+          "mode": "car",
+          "estimatedDurationMinutes": 20,
+          "estimatedCost": 4
+        }
+      ]
+    },
+    {
+      "title": "Across to Cat Ba",
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "cat-ba",
+          "estimatedDurationMinutes": 270,
+          "estimatedCost": 18,
+          "components": [
+            {
+              "mode": "bus"
+            },
+            {
+              "mode": "ferry"
+            },
+            {
+              "mode": "bus"
+            }
+          ],
+          "notes": "Buy one through ticket to Cat Ba town; the boat leg is included."
+        }
+      ]
+    },
+    {
+      "title": "Kayaking Lan Ha Bay",
+      "activities": [
+        {
+          "id": "lan-ha-kayak",
+          "name": "Lan Ha Bay kayak tour",
+          "estimatedCost": 45
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "lan-ha-bay",
+          "components": [
+            {
+              "mode": "car",
+              "estimatedDurationMinutes": 20
+            },
+            {
+              "mode": "ferry",
+              "estimatedDurationMinutes": 60
+            }
+          ],
+          "estimatedCost": 0
+        },
+        {
+          "type": "travel",
+          "to": "cat-ba",
+          "components": [
+            {
+              "mode": "ferry",
+              "estimatedDurationMinutes": 60
+            },
+            {
+              "mode": "car",
+              "estimatedDurationMinutes": 20
+            }
+          ],
+          "estimatedCost": 0
+        }
+      ]
+    },
+    {
+      "title": "Ngu Lam Peak hike",
+      "activities": [
+        {
+          "name": "Ngu Lam Peak",
+          "tip": "The trail gets slippery after rain.",
+          "estimatedCost": 3
+        },
+        {
+          "name": "Trung Trang Cave",
+          "estimatedCost": 2
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "cat-ba-park",
+          "mode": "car",
+          "estimatedDurationMinutes": 30,
+          "estimatedCost": 8
+        },
+        {
+          "type": "travel",
+          "to": "cat-ba",
+          "mode": "car",
+          "estimatedDurationMinutes": 30,
+          "estimatedCost": 8
+        }
+      ]
+    },
+    {
+      "title": "Back to Hanoi",
+      "activities": [
+        {
+          "name": "Hanoi street food walk",
+          "estimatedCost": 20
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "hanoi",
+          "estimatedDurationMinutes": 270,
+          "estimatedCost": 18,
+          "components": [
+            {
+              "mode": "bus"
+            },
+            {
+              "mode": "ferry"
+            },
+            {
+              "mode": "bus"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "West Lake and a night flight",
+      "activities": [
+        {
+          "name": "Ho Chi Minh Mausoleum",
+          "tip": "Open mornings only, closed Mondays and Fridays; cover shoulders and knees."
+        },
+        {
+          "name": "One Pillar Pagoda"
+        },
+        {
+          "name": "Tran Quoc Pagoda"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "han",
+          "mode": "car",
+          "estimatedDurationMinutes": 45,
+          "estimatedCost": 15,
+          "start": "20:30",
+          "end": "21:15"
+        },
+        {
+          "type": "travel",
+          "to": "nrt",
+          "mode": "flight",
+          "id": "han-nrt",
+          "start": "23:50",
+          "end": "07:10",
+          "endDay": 10
+        }
+      ]
+    },
+    {
+      "title": "Arrive in Tokyo",
+      "activities": [
+        {
+          "name": "Senso-ji"
+        },
+        {
+          "name": "Sumida River walk"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "tokyo",
+          "mode": "train",
+          "estimatedDurationMinutes": 75,
+          "estimatedCost": 20,
+          "start": "09:00",
+          "end": "10:15"
+        }
+      ]
+    },
+    {
+      "title": "Meiji Jingu to Shibuya",
+      "activities": [
+        {
+          "name": "Meiji Jingu"
+        },
+        {
+          "name": "Harajuku"
+        },
+        {
+          "name": "Shibuya Sky",
+          "tip": "Book a sunset slot a few days ahead.",
+          "estimatedCost": 17
+        }
+      ]
+    },
+    {
+      "title": "Markets, gardens and teamLab",
+      "activities": [
+        {
+          "name": "Tsukiji Outer Market"
+        },
+        {
+          "name": "Hamarikyu Gardens",
+          "estimatedCost": 2
+        },
+        {
+          "name": "teamLab Planets",
+          "estimatedCost": 22
+        }
+      ]
+    },
+    {
+      "title": "Up into Hakone",
+      "activities": [
+        {
+          "name": "Hakone Open-Air Museum",
+          "estimatedCost": 13
+        },
+        {
+          "name": "Owakudani",
+          "estimatedCost": 10
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "hakone",
+          "mode": "train",
+          "estimatedDurationMinutes": 90,
+          "estimatedCost": 15
+        }
+      ]
+    },
+    {
+      "title": "Lake Ashi, then Kyoto",
+      "activities": [
+        {
+          "name": "Lake Ashi cruise",
+          "estimatedCost": 8
+        },
+        {
+          "name": "Hakone Shrine"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "kyoto",
+          "components": [
+            {
+              "mode": "bus",
+              "estimatedDurationMinutes": 40
+            },
+            {
+              "mode": "train",
+              "estimatedDurationMinutes": 150
+            }
+          ],
+          "estimatedCost": 85
+        }
+      ]
+    },
+    {
+      "title": "Fushimi Inari and Higashiyama",
+      "activities": [
+        {
+          "name": "Fushimi Inari Taisha",
+          "tip": "Start before 8:00; above the Yotsutsuji crossing the crowds thin out."
+        },
+        {
+          "name": "Kiyomizu-dera",
+          "estimatedCost": 3
+        },
+        {
+          "name": "Sannenzaka"
+        }
+      ]
+    },
+    {
+      "title": "Arashiyama",
+      "activities": [
+        {
+          "name": "Arashiyama Bamboo Grove"
+        },
+        {
+          "name": "Tenryu-ji",
+          "estimatedCost": 4
+        },
+        {
+          "name": "Okochi Sanso",
+          "estimatedCost": 7
+        }
+      ]
+    },
+    {
+      "title": "Day trip to Nara",
+      "activities": [
+        {
+          "name": "Todai-ji",
+          "estimatedCost": 5
+        },
+        {
+          "name": "Nara Park"
+        },
+        {
+          "name": "Kasuga Taisha",
+          "estimatedCost": 4
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "nara",
+          "mode": "train",
+          "estimatedDurationMinutes": 45,
+          "estimatedCost": 6
+        },
+        {
+          "type": "travel",
+          "to": "kyoto",
+          "mode": "train",
+          "estimatedDurationMinutes": 45,
+          "estimatedCost": 6
+        }
+      ]
+    },
+    {
+      "title": "Philosopher's Path in autumn",
+      "activities": [
+        {
+          "name": "Ginkaku-ji",
+          "estimatedCost": 3
+        },
+        {
+          "name": "Philosopher's Path"
+        },
+        {
+          "name": "Eikan-do",
+          "tip": "The autumn night illumination queues are long; arrive before it opens.",
+          "estimatedCost": 6
+        }
+      ]
+    },
+    {
+      "title": "On to Osaka",
+      "activities": [
+        {
+          "name": "Osaka Castle",
+          "estimatedCost": 4
+        },
+        {
+          "name": "Dotonbori"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "osaka",
+          "mode": "train",
+          "estimatedDurationMinutes": 30,
+          "estimatedCost": 5
+        }
+      ]
+    },
+    {
+      "title": "Eating through Osaka",
+      "activities": [
+        {
+          "name": "Kuromon Market"
+        },
+        {
+          "name": "Shinsekai"
+        },
+        {
+          "name": "Umeda Sky Building",
+          "estimatedCost": 12
+        }
+      ]
+    },
+    {
+      "title": "Fly to Taipei",
+      "activities": [
+        {
+          "name": "Raohe Night Market"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "kix",
+          "mode": "train",
+          "estimatedDurationMinutes": 50,
+          "estimatedCost": 9,
+          "start": "09:30",
+          "end": "10:20"
+        },
+        {
+          "type": "travel",
+          "to": "tpe",
+          "mode": "flight",
+          "id": "kix-tpe",
+          "start": "13:00",
+          "end": "15:05"
+        },
+        {
+          "type": "travel",
+          "to": "taipei",
+          "mode": "train",
+          "estimatedDurationMinutes": 40,
+          "estimatedCost": 5,
+          "start": "16:15",
+          "end": "16:55"
+        }
+      ]
+    },
+    {
+      "title": "Temples and old Taipei",
+      "activities": [
+        {
+          "name": "Longshan Temple"
+        },
+        {
+          "name": "Chiang Kai-shek Memorial Hall"
+        },
+        {
+          "name": "Dihua Street"
+        }
+      ]
+    },
+    {
+      "title": "Shifen and Jiufen",
+      "activities": [
+        {
+          "name": "Shifen Old Street"
+        },
+        {
+          "name": "Shifen Waterfall"
+        },
+        {
+          "name": "Jiufen Old Street",
+          "tip": "Stay for dusk, when the teahouse lanterns come on."
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "shifen",
+          "mode": "train",
+          "estimatedDurationMinutes": 70,
+          "estimatedCost": 2
+        },
+        {
+          "type": "travel",
+          "to": "jiufen",
+          "mode": "bus",
+          "estimatedDurationMinutes": 40,
+          "estimatedCost": 2
+        },
+        {
+          "type": "travel",
+          "to": "taipei",
+          "mode": "bus",
+          "estimatedDurationMinutes": 80,
+          "estimatedCost": 3
+        }
+      ]
+    },
+    {
+      "title": "Beitou hot springs and Tamsui",
+      "activities": [
+        {
+          "name": "Beitou Hot Spring Museum"
+        },
+        {
+          "name": "Millennium Hot Spring",
+          "tip": "Bring your own towel and swimwear.",
+          "estimatedCost": 2
+        },
+        {
+          "name": "Tamsui Old Street"
+        }
+      ]
+    },
+    {
+      "title": "Taipei 101 and Elephant Mountain",
+      "activities": [
+        {
+          "name": "Taipei 101 Observatory",
+          "estimatedCost": 18
+        },
+        {
+          "name": "Elephant Mountain",
+          "tip": "The stairs are steep; go an hour before sunset."
+        }
+      ]
+    },
+    {
+      "title": "Palace Museum and Shilin",
+      "activities": [
+        {
+          "name": "National Palace Museum",
+          "estimatedCost": 11
+        },
+        {
+          "name": "Shilin Night Market"
+        }
+      ]
+    },
+    {
+      "title": "Last morning in Taipei",
+      "activities": [
+        {
+          "name": "Da'an Forest Park"
+        }
+      ],
+      "blocks": [
+        {
+          "type": "travel",
+          "to": "tpe",
+          "mode": "train",
+          "estimatedDurationMinutes": 40,
+          "estimatedCost": 5
+        }
+      ]
+    }
+  ],
+  "bookings": [
+    {
+      "type": "transport",
+      "title": "Hanoi → Tokyo Narita flight",
+      "status": "confirmed",
+      "startDate": "2026-11-10",
+      "endDate": "2026-11-11",
+      "baggage": [
+        {
+          "type": "checked",
+          "pieces": 1,
+          "kg": 23
+        },
+        {
+          "type": "cabin",
+          "pieces": 1,
+          "kg": 7
+        }
+      ],
+      "cost": {
+        "amount": 260,
+        "status": "paid",
+        "allocation": {
+          "type": "transport",
+          "leg": "han-nrt"
+        }
+      }
+    },
+    {
+      "type": "transport",
+      "title": "Osaka Kansai → Taipei flight",
+      "status": "confirmed",
+      "startDate": "2026-11-22",
+      "baggage": [
+        {
+          "type": "checked",
+          "pieces": 1,
+          "kg": 20
+        },
+        {
+          "type": "cabin",
+          "pieces": 1,
+          "kg": 7
+        }
+      ],
+      "cost": {
+        "amount": 140,
+        "status": "paid",
+        "allocation": {
+          "type": "transport",
+          "leg": "kix-tpe"
+        }
+      }
+    },
+    {
+      "type": "accommodation",
+      "title": "Cat Ba harbour hotel",
+      "place": "cat-ba",
+      "startDate": "2026-11-06",
+      "endDate": "2026-11-09",
+      "status": "confirmed",
+      "meals": {
+        "breakfast": true
+      },
+      "checkIn": "14:00",
+      "checkOut": "12:00",
+      "cost": {
+        "amount": 60,
+        "status": "confirmed"
+      }
+    },
+    {
+      "type": "accommodation",
+      "title": "Hakone ryokan with private onsen",
+      "place": "hakone",
+      "startDate": "2026-11-14",
+      "endDate": "2026-11-15",
+      "status": "confirmed",
+      "meals": {
+        "dinner": "18:30, kaiseki",
+        "breakfast": "08:00, Japanese",
+        "lunch": false
+      },
+      "checkIn": "15:00-18:00",
+      "checkOut": "10:00",
+      "notes": "Dinner is only served if you check in by 18:00.",
+      "important": true,
+      "cost": {
+        "amount": 180,
+        "status": "paid"
+      }
+    },
+    {
+      "type": "accommodation",
+      "title": "Kyoto machiya townhouse",
+      "place": "kyoto",
+      "startDate": "2026-11-15",
+      "endDate": "2026-11-20",
+      "status": "planned",
+      "checkIn": "16:00",
+      "checkOut": "10:00",
+      "cost": {
+        "amount": 300
+      }
+    },
+    {
+      "type": "activity",
+      "title": "Lan Ha Bay kayak tour",
+      "place": "lan-ha-bay",
+      "startDate": "2026-11-07",
+      "status": "confirmed",
+      "notes": "Hotel pickup at 08:00.",
+      "cost": {
+        "amount": 40,
+        "status": "paid",
+        "allocation": {
+          "type": "activity",
+          "activity": "lan-ha-kayak"
+        }
+      }
+    },
+    {
+      "type": "other",
+      "title": "Asia eSIM, 20 GB",
+      "status": "confirmed",
+      "cost": {
+        "amount": 25,
+        "status": "paid"
+      }
+    }
+  ]
+}

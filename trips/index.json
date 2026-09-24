@@ -1,8 +1,12 @@
 {
   "trips": [
     {
+      "path": "asia/trip.json",
+      "label": "Vietnam, Japan & Taiwan · 27 days"
+    },
+    {
       "path": "japan/trip.json",
-      "label": "Japan: The Golden Route \u00b7 10 days"
+      "label": "Japan: The Golden Route · 10 days"
     },
     {
       "path": "undated/trip.json",
@@ -10,15 +14,15 @@
     },
     {
       "path": "multicountry/trip.json",
-      "label": "Four countries \u00b7 illustrative Asia loop"
+      "label": "Four countries · illustrative Asia loop"
     },
     {
       "path": "bookings/trip.json",
-      "label": "Bookings & documents \u00b7 illustrative demo"
+      "label": "Bookings & documents · illustrative demo"
     },
     {
       "path": "prepare/trip.json",
-      "label": "Prepare \u00b7 fictional sketchbook weekend"
+      "label": "Prepare · fictional sketchbook weekend"
     }
   ]
 }
