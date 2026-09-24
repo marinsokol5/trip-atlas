@@ -140,7 +140,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 ## Document: any `documents[]`
 
 - `label` (required) names the link shown in the UI.
-- `path` (required) references an existing local file relative to the itinerary folder, without absolute paths, URLs, traversal, backslashes, `:`, `%`, `?`, `#`, or control characters; PDF, raster images, text and JSON open inline, while other types download. Booking files live in `documents/<country>/DD-MM-<place>-<what>.pdf`; the trip-atlas-download-booking skill fetches and names them.
+- `path` (required) references an existing local file relative to the itinerary folder, without absolute paths, URLs, traversal, backslashes, `:`, `%`, `?`, `#`, or control characters; PDF, raster images, text and JSON open inline, while other types download. Booking files live in `documents/<country>/YYYY-MM-DD-<place>-<what>.pdf`; the trip-atlas-download-booking skill fetches and names them.
 
 ## Preparation: `prepare`
 
