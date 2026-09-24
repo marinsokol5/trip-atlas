@@ -7,6 +7,7 @@ import {
   bookingRange,
   bookingsOnDay,
   hasBookingContent,
+  nightBookingsOnDay,
 } from "./booking-model.ts";
 import {
   averageLabel,
@@ -94,6 +95,11 @@ test("a complete hotel stay replaces each night once and remains visible on chec
   assert.deepEqual(
     [1, 2, 3, 4].map((day) => bookingsOnDay(model, day).length),
     [1, 1, 1, 0],
+  );
+  // Calendar days show where you sleep that night, never the checkout stay.
+  assert.deepEqual(
+    [1, 2, 3, 4].map((day) => nightBookingsOnDay(model, day).length),
+    [1, 1, 0, 0],
   );
   assert.equal(model.days[2].overnight, "hanoi");
   assert.equal(trip.bookings[0].documents!.length, 1);
@@ -185,6 +191,37 @@ test("mixed booking costs replace distinct estimates, reconcile countries, and r
   const partial = overview(normalizeTrip(trip));
   assert.equal(partial.costs.total.missing, 3);
   assert.match(moneyLabel(partial.costs.total, "EUR"), /\+$/);
+});
+
+test("other expenses and bare-number costs count once in the whole-trip total only", () => {
+  const trip = fixture();
+  trip.bookings = [
+    { type: "other", title: "eSIM", cost: 80 },
+    { type: "other", title: "Visa", cost: { amount: 25, status: "paid" } },
+    { type: "other", title: "Dropped plan", status: "cancelled", cost: 999 },
+  ] as unknown as Booking[];
+  const model = normalizeTrip(trip),
+    data = overview(model);
+  assert.deepEqual(model.trip.bookings![0].cost, { amount: 80 });
+  assert.equal(data.costs.expenses.value, 105);
+  assert.deepEqual(data.costs.expenses.statuses, { estimated: 80, paid: 25 });
+  assert.equal(data.costs.total.value, 390 + 105);
+  assert.equal(data.unallocatedBookings.known, 0);
+  assert.equal(overview(model, "JP").costs.expenses.known, 0);
+  assert.equal(overview(model, "JP").costs.total.value, 140);
+  assert.equal(bookingsOnDay(model, 1).length, 0);
+  trip.bookings = [
+    {
+      type: "other",
+      title: "eSIM",
+      cost: { amount: 80, allocation: { type: "additional", day: 1 } },
+    },
+  ];
+  assert.throws(() => parseTrip(trip), /omit allocation/);
+  trip.bookings = [
+    { type: "other", title: "eSIM", cost: -1 },
+  ] as unknown as Booking[];
+  assert.throws(() => parseTrip(trip), /bookings\[0\]\.cost: expected a finite/);
 });
 
 test("zero overrides known and unknown estimates; exact status removes approximation", () => {
@@ -402,5 +439,6 @@ test("partial accommodation endpoints retain linked nights and checkout relevanc
       cost: { amount: 40, allocation: { type: "accommodation", nights: [1, 2] } } }];
     const model = normalizeTrip(trip);
     assert.deepEqual([1, 2, 3, 4].map(day => bookingsOnDay(model, day).length), [1, 1, 1, 0]);
+    assert.deepEqual([1, 2, 3, 4].map(day => nightBookingsOnDay(model, day).length), [1, 1, 0, 0]);
   }
 });

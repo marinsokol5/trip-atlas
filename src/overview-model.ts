@@ -239,7 +239,8 @@ export function overview(
     livingOverrides = new Map<number, Override>(),
     legOverrides = new Map<string, Override>();
   const additions = new Map<number, { price: Override; place?: string }[]>();
-  const unallocatedBookings = amount();
+  const unallocatedBookings = amount(),
+    expenses = amount();
   for (const booking of model.trip.bookings ?? []) {
     if (!booking.cost || booking.status === "cancelled") continue;
     const allocation = bookingAllocation(booking, model.trip);
@@ -247,7 +248,10 @@ export function overview(
       value: booking.cost.amount,
       status: booking.cost.status ?? "estimated",
     };
-    if (!allocation) {
+    // Trip-wide expenses belong to no country, so area views leave them out.
+    if (booking.type === "other") {
+      if (!country) addCost(expenses, price.value, price.status);
+    } else if (!allocation) {
       if (!country) addCost(unallocatedBookings, price.value, price.status);
     } else if (allocation.type === "transport")
       legOverrides.set(allocation.leg, price);
@@ -475,7 +479,8 @@ export function overview(
     ),
     times: travelTimes(legs),
     unallocatedBookings,
-    hasBudget: combine(living, accommodation, transport, activities).known > 0,
+    hasBudget:
+      combine(living, accommodation, transport, activities, expenses).known > 0,
     hasStayCosts: combine(living, accommodation, activities).known > 0,
     costs: {
       living,
@@ -484,7 +489,8 @@ export function overview(
       flights,
       other,
       unallocated,
-      total: combine(living, accommodation, transport, activities),
+      expenses,
+      total: combine(living, accommodation, transport, activities, expenses),
     },
   };
 }

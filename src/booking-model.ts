@@ -120,6 +120,31 @@ export function bookingsOnDay(model: Itinerary, dayNumber: number): Booking[] {
     return false;
   });
 }
+/** An accommodation's checkout day: it is associated with the day but not slept in. */
+export function isCheckoutDay(
+  model: Itinerary,
+  booking: Booking,
+  dayNumber: number,
+): boolean {
+  if (booking.type !== "accommodation") return false;
+  const { end } = bookingRange(booking, model.trip);
+  if (end !== undefined) return end === dayNumber;
+  const allocation = bookingAllocation(booking, model.trip);
+  return (
+    allocation?.type === "accommodation" &&
+    allocation.nights.includes(dayNumber - 1) &&
+    !allocation.nights.includes(dayNumber)
+  );
+}
+/** Bookings for a day, answering "where do we sleep tonight": checkout days excluded. */
+export function nightBookingsOnDay(
+  model: Itinerary,
+  dayNumber: number,
+): Booking[] {
+  return bookingsOnDay(model, dayNumber).filter(
+    (booking) => !isCheckoutDay(model, booking, dayNumber),
+  );
+}
 export function bookingCountries(model: Itinerary, booking: Booking): string[] {
   const places = new Set<string>();
   if (booking.place) places.add(booking.place);

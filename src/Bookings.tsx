@@ -1,7 +1,20 @@
 import {
+  Backpack,
   BedDouble,
+  Briefcase,
+  Bus,
+  Car,
+  Coffee,
   ExternalLink,
   FileText,
+  Luggage,
+  Footprints,
+  MapPin,
+  Plane,
+  Receipt,
+  Sandwich,
+  Ship,
+  Soup,
   Ticket,
   TrainFront,
 } from "lucide-react";
@@ -10,11 +23,65 @@ import { documentUrl } from "./itinerary";
 import {
   bookingAllocation,
   bookingCountries,
-  bookingRange,
   bookingsOnDay,
+  isCheckoutDay,
+  nightBookingsOnDay,
 } from "./booking-model";
-import { dayCountries, dayLabel, dateLabel } from "./view-model";
+import { dayCountries, dayLabel, dateLabel, modeKind } from "./view-model";
 
+/** Meals in the order they happen for one night: dinner, breakfast, lunch box. */
+const mealKinds = [
+  { key: "dinner", label: "Dinner", Icon: Soup },
+  { key: "breakfast", label: "Breakfast", Icon: Coffee },
+  { key: "lunch", label: "Lunch", Icon: Sandwich },
+] as const;
+function Meals({ meals }: { meals: NonNullable<Booking["meals"]> }) {
+  return (
+    <span className="booking-meals">
+      {mealKinds.map(({ key, label, Icon }) => {
+        const meal = meals[key];
+        const state =
+          meal === undefined ? "unknown" : meal ? "included" : "excluded";
+        const text =
+          typeof meal === "string"
+            ? `${label}: ${meal}`
+            : `${label} ${state === "unknown" ? "not specified" : state === "included" ? "included" : "not included"}`;
+        return (
+          <span
+            key={key}
+            className={`booking-meal booking-meal-${state}`}
+            title={text}
+            aria-label={text}
+            role="img"
+          >
+            <Icon strokeWidth={1.75} aria-hidden="true" />
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+const bagKinds = {
+  checked: { label: "checked", Icon: Luggage },
+  cabin: { label: "cabin", Icon: Briefcase },
+  personal: { label: "personal item", Icon: Backpack },
+} as const;
+function Baggage({ bags }: { bags: NonNullable<Booking["baggage"]> }) {
+  return (
+    <ul className="booking-baggage" aria-label="Baggage per person">
+      {bags.map((bag, index) => {
+        const { label, Icon } = bagKinds[bag.type];
+        const text = `${bag.pieces}${bag.kg !== undefined ? ` × ${bag.kg} kg` : ""} ${label}`;
+        return (
+          <li key={index} title={`${text}, per person`}>
+            <Icon strokeWidth={1.75} aria-hidden="true" />
+            {text}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 export function Documents({
   documents,
   folder,
@@ -47,6 +114,17 @@ function bookingDates(booking: Booking, model: Itinerary): string | undefined {
         : undefined;
   const start = label(booking.startDate, booking.startDay),
     end = label(booking.endDate, booking.endDay);
+  if (booking.startDate && booking.endDate && start !== end) {
+    // "4–5 Dec 2026", "30 Nov – 2 Dec 2026": share the parts both ends have.
+    const [a, b] = [booking.startDate, booking.endDate];
+    const from =
+      a.slice(0, 7) === b.slice(0, 7)
+        ? dateLabel(a, { day: "numeric" })
+        : a.slice(0, 4) === b.slice(0, 4)
+          ? dateLabel(a)
+          : start;
+    return `${from}${a.slice(0, 7) === b.slice(0, 7) ? "–" : " – "}${end}`;
+  }
   if (start && end && start !== end) return `${start} – ${end}`;
   if (start)
     return booking.type === "accommodation" ? `Check-in ${start}` : start;
@@ -65,21 +143,56 @@ function bookingDates(booking: Booking, model: Itinerary): string | undefined {
     return `Nights after days ${a.nights.join(", ")}`;
   return undefined;
 }
-function allocationLabel(booking: Booking, model: Itinerary): string {
+/** Only unusual cost handling needs a word; a normal linked booking says nothing. */
+function allocationLabel(
+  booking: Booking,
+  model: Itinerary,
+): string | undefined {
   if (booking.status === "cancelled") return "Excluded from totals";
+  if (booking.type === "other") return undefined;
   const allocation = bookingAllocation(booking, model.trip);
-  if (!allocation) return "Unallocated · excluded from totals";
-  if (allocation.type === "accommodation")
-    return `${allocation.nights.length} ${allocation.nights.length === 1 ? "night" : "nights"} · replaces stay estimates`;
-  if (allocation.type === "living")
-    return "Replaces the whole living budget on the linked days";
-  if (allocation.type === "additional") return "Additional to living budget";
-  return "Replaces the linked journey estimate";
+  if (!allocation) return "Not in totals: unallocated";
+  if (allocation.type === "living") return "Replaces the living budget";
+  if (allocation.type === "additional") return "On top of the living budget";
+  return undefined;
+}
+function nights(booking: Booking, model: Itinerary): number | undefined {
+  if (booking.type !== "accommodation") return undefined;
+  const allocation = bookingAllocation(booking, model.trip);
+  if (allocation?.type === "accommodation") return allocation.nights.length;
+  if (booking.startDate && booking.endDate)
+    return (
+      (Date.parse(booking.endDate) - Date.parse(booking.startDate)) / 864e5
+    );
+  if (booking.startDay !== undefined && booking.endDay !== undefined)
+    return booking.endDay - booking.startDay;
+  return undefined;
+}
+const transportIcons = {
+  train: TrainFront,
+  bus: Bus,
+  walk: Footprints,
+  flight: Plane,
+  ferry: Ship,
+  car: Car,
+} as const;
+/** A transport booking takes the icon of the journey it pays for. */
+function transportIcon(booking: Booking, model: Itinerary) {
+  const allocation = bookingAllocation(booking, model.trip);
+  const leg =
+    allocation?.type === "transport"
+      ? model.legs.find((leg) => leg.block.id === allocation.leg)
+      : undefined;
+  const kind = leg && modeKind(leg);
+  return kind && kind in transportIcons
+    ? transportIcons[kind as keyof typeof transportIcons]
+    : TrainFront;
 }
 const typeLabels = {
   accommodation: "Accommodation",
   transport: "Transport",
   activity: "Activity",
+  other: "Other",
 };
 export function BookingCard({
   booking,
@@ -92,23 +205,26 @@ export function BookingCard({
   folder: string;
   dayNumber?: number;
 }) {
-  const dates = bookingDates(booking, model);
+  const dates = bookingDates(booking, model),
+    count = nights(booking, model),
+    allocation = allocationLabel(booking, model),
+    costStatus = booking.cost?.status ?? "estimated",
+    money = (amount: number) =>
+      new Intl.NumberFormat("en-IE", {
+        style: "currency",
+        currency: model.trip.currency!,
+        maximumFractionDigits: 2,
+      }).format(amount);
   const Icon =
     booking.type === "accommodation"
       ? BedDouble
       : booking.type === "transport"
-        ? TrainFront
-        : Ticket;
-  const { end } = bookingRange(booking, model.trip);
-  const allocation = bookingAllocation(booking, model.trip);
+        ? transportIcon(booking, model)
+        : booking.type === "other"
+          ? Receipt
+          : Ticket;
   const checkout =
-    booking.type === "accommodation" &&
-    dayNumber !== undefined &&
-    (end === dayNumber ||
-      (end === undefined &&
-        allocation?.type === "accommodation" &&
-        allocation.nights.includes(dayNumber - 1) &&
-        !allocation.nights.includes(dayNumber)));
+    dayNumber !== undefined && isCheckoutDay(model, booking, dayNumber);
   return (
     <article
       className={`booking-card ${booking.status === "cancelled" ? "booking-cancelled" : ""}`}
@@ -121,13 +237,18 @@ export function BookingCard({
         />
         <div className="booking-identity">
           <h3>{booking.title}</h3>
-          {(dates || booking.place) && (
+          {(dates || booking.place || count !== undefined) && (
             <p className="booking-meta">
               {[
-                booking.place
+                // In a day panel "Night: <place>" already names the place.
+                booking.place &&
+                (dayNumber === undefined ||
+                  model.days[dayNumber - 1].overnight !== booking.place)
                   ? model.trip.places[booking.place].name
                   : undefined,
                 dates,
+                count !== undefined &&
+                  `${count} ${count === 1 ? "night" : "nights"}`,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -135,36 +256,75 @@ export function BookingCard({
           )}
         </div>
         {checkout && <span className="booking-checkout">Check-out today</span>}
+        {booking.coordinates && (
+          <a
+            className="booking-map-link"
+            href={`https://www.google.com/maps/search/?api=1&query=${booking.coordinates.lat},${booking.coordinates.lon}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open in Google Maps"
+            aria-label={`Open ${booking.title} in Google Maps`}
+          >
+            <MapPin strokeWidth={1.75} aria-hidden="true" />
+          </a>
+        )}
       </div>
+      {(booking.checkIn || booking.checkOut || booking.meals) && (
+        <div className="booking-stay">
+          {(booking.checkIn || booking.checkOut) && (
+            <span className="booking-times">
+              {[
+                booking.checkIn && `In ${booking.checkIn.replace("-", "–")}`,
+                booking.checkOut && `Out by ${booking.checkOut}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          )}
+          {booking.meals && <Meals meals={booking.meals} />}
+        </div>
+      )}
       <div className="booking-facts">
-        <span
-          className={`booking-status booking-status-${booking.status ?? "unspecified"}`}
-        >
-          {booking.status
-            ? booking.status[0].toUpperCase() + booking.status.slice(1)
-            : "Status not specified"}
-        </span>
+        {/* A plain expense has no reservation to confirm. */}
+        {(booking.status || booking.type !== "other") && (
+          <span
+            className={`booking-status booking-status-${booking.status ?? "unspecified"}`}
+          >
+            {booking.status === "confirmed" && costStatus === "paid"
+              ? "Paid"
+              : booking.status
+                ? booking.status[0].toUpperCase() + booking.status.slice(1)
+                : "Status not specified"}
+          </span>
+        )}
         {booking.reference && (
           <span className="booking-reference">
-            Reference <strong>{booking.reference}</strong>
+            Ref <strong>{booking.reference}</strong>
+          </span>
+        )}
+        {booking.cost && (
+          <span
+            className="booking-price"
+            title={`${costStatus[0].toUpperCase() + costStatus.slice(1)} price per person`}
+          >
+            <strong>
+              {costStatus === "estimated" ? "~" : ""}
+              {money(booking.cost.amount)}
+            </strong>
+            {count !== undefined && count > 1 && (
+              <small>
+                {money(booking.cost.amount / count)}
+                /night
+              </small>
+            )}
           </span>
         )}
       </div>
-      {booking.cost && (
-        <div className="booking-cost">
-          <div>
-            <strong>
-              {new Intl.NumberFormat("en-IE", {
-                style: "currency",
-                currency: model.trip.currency!,
-                maximumFractionDigits: 2,
-              }).format(booking.cost.amount)}
-            </strong>
-            <span>{booking.cost.status ?? "estimated"} · per person</span>
-          </div>
-          <p>{allocationLabel(booking, model)}</p>
-        </div>
+      {booking.cost && allocation && (
+        <p className="booking-allocation">{allocation}</p>
       )}
+      {!!booking.baggage?.length && <Baggage bags={booking.baggage} />}
+      {booking.notes && <p className="booking-notes">{booking.notes}</p>}
       <Documents documents={booking.documents} folder={folder} />
     </article>
   );
@@ -173,12 +333,18 @@ export function DayBookings({
   model,
   dayNumber,
   folder,
+  nightsOnly = false,
 }: {
   model: Itinerary;
   dayNumber: number;
   folder: string;
+  /** Calendar days answer "where do we sleep tonight", omitting checkout stays. */
+  nightsOnly?: boolean;
 }) {
-  const bookings = bookingsOnDay(model, dayNumber);
+  const bookings = (nightsOnly ? nightBookingsOnDay : bookingsOnDay)(
+    model,
+    dayNumber,
+  );
   return bookings.length ? (
     <section className="day-bookings" aria-label="Bookings for selected day">
       <h3>Bookings</h3>
@@ -244,7 +410,7 @@ export function Bookings({
       >
         {!!bookings.length && (
           <div className="booking-groups">
-            {(["accommodation", "transport", "activity"] as const).map(
+            {(["accommodation", "transport", "activity", "other"] as const).map(
               (type) => {
                 const group = bookings.filter(
                   (booking) => booking.type === type,
@@ -259,14 +425,16 @@ export function Bookings({
                       {type === "activity" ? "Activities" : typeLabels[type]}{" "}
                       <span>{group.length}</span>
                     </h3>
-                    {group.map((booking, index) => (
-                      <BookingCard
-                        key={index}
-                        booking={booking}
-                        model={model}
-                        folder={folder}
-                      />
-                    ))}
+                    <div className="booking-grid">
+                      {group.map((booking, index) => (
+                        <BookingCard
+                          key={index}
+                          booking={booking}
+                          model={model}
+                          folder={folder}
+                        />
+                      ))}
+                    </div>
                   </section>
                 ) : null;
               },
@@ -314,8 +482,8 @@ export function Bookings({
         )}
       </div>
       <p className="bookings-footnote">
-        {bookings.length
-          ? "Reservation status and cost status are recorded separately. "
+        {bookings.some((booking) => booking.cost)
+          ? "Prices are per person; ~ marks an estimate. "
           : ""}
         Files open from the itinerary’s folder. Edit the JSON externally, then
         refresh to see changes.

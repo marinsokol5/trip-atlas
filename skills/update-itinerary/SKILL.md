@@ -6,6 +6,15 @@ description: Create or edit Trip Atlas itinerary JSON; the default is itinerary.
 Trip Atlas is a local, read-only viewer with a map, calendar, timeline, daily details, cost overview, bookings, and preparation lists.
 Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edit the files and refresh to update the UI.
 
+## Writing guidance
+
+- Keep the file short: every later reader, human or LLM, reads all of it. Write only what is specific to this trip and useful on the day — no general travel advice, explanations of how estimates or pins work, disclaimers, sources, or editing history. A one-line note beats a paragraph; no note beats a redundant one.
+- Structure first: put facts in their fields (times, durations, distance, climb, meals, check-in/out, coordinates, prices). A fact that keeps recurring without a field is a reason to extend the schema, not to write prose.
+- Notes are only for out-of-the-ordinary things to act on ("Bring ¥32,000 in cash", "No shops tomorrow; buy food today"), kept short. They never repeat structured fields, add subjective effort labels ("hard", "longest day"), or list routine host courtesies. A reminder tied to one booking goes on that booking.
+- Titles stay short and plain: no series numbering or group names the `group` label already shows (not "Kumano Kodo 3: …"), no superlative tags ("(hardest climb)").
+- Booking titles are the property name only, without the platform ("(Airbnb)"); `reference` holds only a real confirmation code.
+- Fill bookings from the confirmation document: dates, `checkIn`/`checkOut`, `meals` (details such as `"18:00, Japanese"` as text), `coordinates` from its GPS, `status`, and per-person `cost.amount` (total ÷ guests). A price fixed in a foreign currency is still `confirmed`.
+
 ## Trip
 
 - `version` (required) is always `1`.
@@ -57,6 +66,8 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `estimatedDurationMinutes` (optional) gives positive estimated minutes for the whole journey, with finite millisecond totals, without inventing clock times.
 - `estimatedCost` (optional) gives a finite, nonnegative journey price per person in the trip currency.
 - `components` (optional) is a nonempty list of mixed transport parts whose estimates are summed when no whole-journey estimate is supplied.
+- `distanceKm` (optional) gives the positive route length in kilometres, mainly for walks.
+- `ascentMeters` / `descentMeters` (optional) give nonnegative total climb and descent in metres.
 - `notes` (optional) adds plain-text journey details.
 - `documents` (optional) lists tickets or other journey documents.
 
@@ -78,17 +89,23 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 ## Booking: `bookings[]`
 
-- `type` (required) is `"accommodation"`, `"transport"`, or `"activity"`.
+- `type` (required) is `"accommodation"`, `"transport"`, `"activity"`, or `"other"` for a trip-wide expense (eSIM, visa) counted once in the whole-trip total.
 - `title` (required) names the reservation.
 - `place` (optional) references its place ID without changing the planned route.
 - `startDate` (optional) fixes the start/check-in date as `YYYY-MM-DD`, independently of the trip's start date.
-- `endDate` (optional) fixes the end/checkout date; hotels appear on checkout day without charging another night.
+- `endDate` (optional) fixes the end/checkout date; hotels appear on checkout day without charging another night (the Calendar view lists them only on nights slept).
 - `startDay` (optional) gives a 1-based trip day instead of calendar dates, which cannot be mixed with day numbers.
 - `endDay` (optional) gives the last day or checkout day, after the start for accommodation.
 - `status` (optional) is `"planned"`, `"confirmed"`, or `"cancelled"`; omission confirms nothing, and cancellation excludes its cost.
 - `reference` (optional) stores the confirmation reference.
+- `meals` (optional) marks `dinner`, `breakfast` and `lunch` (shown in that order) as `true`/`false`, or as text for an included meal such as `"18:00, Japanese"`, shown on hover; an omitted meal is unknown. Put meal times and types here, not in notes.
+- `checkIn` (optional) gives the local check-in time as `HH:mm` or a `HH:mm-HH:mm` window.
+- `checkOut` (optional) gives the latest local check-out time as `HH:mm`.
+- `coordinates` (optional) gives the exact property `lat`/`lon`, linked to Google Maps from the booking card.
+- `baggage` (optional) lists per-person bag allowances as `{ "type": "checked" | "cabin" | "personal", "pieces": 1, "kg": 23 }`, with `kg` as the optional limit per piece.
+- `notes` (optional) adds a plain-text reminder shown on the booking card.
 - `documents` (optional) lists attached files, storing a multi-night confirmation once.
-- `cost` (optional) holds the booking price; omission keeps the existing estimates.
+- `cost` (optional) holds the booking price, or a bare number as shorthand for `{ "amount": n }`; omission keeps the existing estimates.
 
 ## Booking cost: `bookings[].cost`
 
@@ -98,7 +115,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 
 ## Cost allocation: `bookings[].cost.allocation`
 
-- `type` (required) is `"accommodation"`, `"transport"`, `"living"`, `"additional"`, or `"unallocated"`; living/additional require an activity, the first two match booking type, and unallocated excludes the price.
+- `type` (required) is `"accommodation"`, `"transport"`, `"living"`, `"additional"`, or `"unallocated"`; living/additional require an activity, the first two match booking type, `other` bookings take none, and unallocated excludes the price.
 - `nights` (required for accommodation) lists unique 1-based days whose following nights are replaced equally, matching any supplied hotel place/dates and excluding transit and the final day.
 - `leg` (required for transport) references the travel block's authored `id` whose estimate is replaced.
 - `days` (required for living) lists unique 1-based days whose entire living budgets are replaced equally by the activity price.

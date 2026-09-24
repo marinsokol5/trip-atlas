@@ -428,3 +428,94 @@ test("rejects estimates whose derived totals overflow", () => {
     /too large to total safely/,
   );
 });
+test("booking stay details validate meals, times, notes and coordinates", () => {
+  const stay = (extra: Record<string, unknown>) => ({
+    ...base(),
+    bookings: [
+      { type: "accommodation", title: "Inn", place: "tokyo", ...extra },
+    ],
+  });
+  const ok = normalizeTrip(
+    stay({
+      meals: { dinner: "18:00, Japanese", breakfast: true, lunch: false },
+      checkIn: "15:00-18:00",
+      checkOut: "10:00",
+      notes: "Pay cash",
+      coordinates: { lat: 33.8, lon: 135.7 },
+    }),
+  );
+  assert.deepEqual(ok.trip.bookings![0].meals, {
+    dinner: "18:00, Japanese",
+    breakfast: true,
+    lunch: false,
+  });
+  assert.throws(
+    () => normalizeTrip(stay({ meals: { supper: true } })),
+    /meals.supper/,
+  );
+  assert.throws(
+    () => normalizeTrip(stay({ meals: { dinner: 1 } })),
+    /meals.dinner/,
+  );
+  assert.throws(
+    () => normalizeTrip(stay({ meals: { lunch: " " } })),
+    /meals.lunch/,
+  );
+  assert.throws(() => normalizeTrip(stay({ checkIn: "3pm" })), /checkIn/);
+  assert.throws(
+    () => normalizeTrip(stay({ checkOut: "09:00-10:00" })),
+    /checkOut/,
+  );
+  assert.throws(
+    () => normalizeTrip(stay({ coordinates: { lat: 91, lon: 0 } })),
+    /coordinates/,
+  );
+  assert.throws(() => normalizeTrip(stay({ notes: " " })), /notes/);
+});
+test("walk legs validate distance and climb", () => {
+  const walk = (extra: Record<string, unknown>) => ({
+    ...base(),
+    days: [
+      { blocks: [{ type: "travel", to: "kyoto", mode: "walk", ...extra }] },
+    ],
+  });
+  const ok = normalizeTrip(
+    walk({ distanceKm: 14, ascentMeters: 800, descentMeters: 0 }),
+  );
+  assert.equal(ok.legs[0].block.distanceKm, 14);
+  assert.throws(() => normalizeTrip(walk({ distanceKm: 0 })), /distanceKm/);
+  assert.throws(
+    () => normalizeTrip(walk({ ascentMeters: -5 })),
+    /ascentMeters/,
+  );
+  assert.throws(
+    () => normalizeTrip(walk({ descentMeters: "650" })),
+    /descentMeters/,
+  );
+});
+test("booking baggage validates type, pieces and weight", () => {
+  const flight = (baggage: unknown) => ({
+    ...base(),
+    bookings: [{ type: "transport", title: "Flight", baggage }],
+  });
+  const ok = normalizeTrip(
+    flight([
+      { type: "checked", pieces: 1, kg: 23 },
+      { type: "personal", pieces: 1 },
+    ]),
+  );
+  assert.equal(ok.trip.bookings![0].baggage![0].kg, 23);
+  assert.throws(() => normalizeTrip(flight({})), /baggage/);
+  assert.throws(
+    () => normalizeTrip(flight([{ type: "hold", pieces: 1 }])),
+    /baggage\[0\].type/,
+  );
+  assert.throws(
+    () => normalizeTrip(flight([{ type: "cabin", pieces: 1.5 }])),
+    /pieces/,
+  );
+  assert.throws(
+    () => normalizeTrip(flight([{ type: "cabin", pieces: 1, kg: 0 }])),
+    /kg/,
+  );
+});

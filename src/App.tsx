@@ -65,6 +65,7 @@ import {
   modeKind,
   legDuration,
   dayBands,
+  modeDurations,
   mapRoute,
   mapPointStyle,
   transferPlaces,
@@ -199,36 +200,18 @@ function Icon({ kind }: { kind: string }) {
     )[kind] ?? ArrowRight;
   return <Component className="icon" aria-hidden="true" strokeWidth={1.6} />;
 }
-function LegChip({ leg }: { leg: Leg }) {
-  if (leg.block.components)
-    return (
-      <>
-        {componentLegs(leg).map((c) => (
-          <LegChip key={c.id} leg={c} />
-        ))}
-        {legDuration(leg) && (
-          <span
-            className="leg-chip"
-            title={
-              leg.block.components.every(
-                (part) => part.estimatedDurationMinutes !== undefined,
-              )
-                ? "Whole connection total; component estimates shown separately"
-                : "Whole connection; missing mode durations are not allocated"
-            }
-          >
-            {legDuration(leg)} total
-          </span>
-        )}
-      </>
-    );
-  return (
-    <span className="leg-chip" title={leg.block.mode ?? "Travel"}>
-      <Icon kind={modeKind(leg)} />
-      <span>{legDuration(leg)}</span>
-      <span className="sr-only">{modeKind(leg)}</span>
-    </span>
-  );
+/** Distance and climb for a leg, e.g. "14 km · ↑800 m ↓650 m". */
+function legStats(block: Leg["block"]): string | undefined {
+  const parts = [
+    block.distanceKm !== undefined && `${block.distanceKm} km`,
+    [
+      block.ascentMeters !== undefined && `↑${block.ascentMeters} m`,
+      block.descentMeters !== undefined && `↓${block.descentMeters} m`,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : undefined;
 }
 function Bands({ model, day }: { model: Itinerary; day: NormalizedDay }) {
   return (
@@ -1303,8 +1286,12 @@ function Calendar({
                 )}
                 <GroupLabels model={model} day={day} />
                 <span className="cell-chips">
-                  {activeLegs(model, day).map((l) => (
-                    <LegChip key={l.id} leg={l} />
+                  {modeDurations(activeLegs(model, day)).map((m) => (
+                    <span key={m.kind} className="leg-chip" title={m.kind}>
+                      <Icon kind={m.kind} />
+                      <span>{m.label}</span>
+                      <span className="sr-only">{m.kind}</span>
+                    </span>
                   ))}
                 </span>
                 <span className="night">
@@ -1331,6 +1318,7 @@ function Calendar({
                   model={model}
                   day={model.days[selectedDay]}
                   folder={folder}
+                  nightsOnly
                 />
               </div>
             )}
@@ -1352,14 +1340,98 @@ function GroupLabels({ model, day }: { model: Itinerary; day: NormalizedDay }) {
     </span>
   );
 }
-function DayDetails({
+type RouteStop = { place?: string; arrives?: string; departs?: string };
+/** A day's legs as one connected route: stop, leg, stop, leg, stop… */
+function DayRoute({
   model,
   day,
+  legs,
   folder,
 }: {
   model: Itinerary;
   day: NormalizedDay;
+  legs: Leg[];
   folder: string;
+}) {
+  const items: ({ stop: RouteStop } | { leg: Leg })[] = [];
+  let last: RouteStop | undefined;
+  for (const leg of legs) {
+    if (!last || last.place !== leg.from) {
+      last = { place: leg.from };
+      items.push({ stop: last });
+    }
+    // An overnight arrival started on an earlier day departs "yesterday".
+    if (leg.block.start && leg.day === day.index + 1)
+      last.departs = leg.block.start;
+    items.push({ leg });
+    last = {
+      place: leg.to,
+      arrives:
+        leg.block.end && leg.endDay === day.index + 1
+          ? leg.block.end
+          : undefined,
+    };
+    items.push({ stop: last });
+  }
+  const zone = (id?: string) =>
+    model.trip.places[id ?? ""]?.timezone ?? model.trip.timezone;
+  return (
+    <ol className="day-route" aria-label="Route">
+      {items.map((item, index) =>
+        "stop" in item ? (
+          <li className="route-stop" key={index}>
+            <span className="route-dot" aria-hidden="true" />
+            <strong>{name(model, item.stop.place)}</strong>
+            {(item.stop.arrives || item.stop.departs) && (
+              <small>
+                {[
+                  item.stop.arrives && `arr ${item.stop.arrives}`,
+                  item.stop.departs && `dep ${item.stop.departs}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </small>
+            )}
+          </li>
+        ) : (
+          <li className="route-leg" key={index}>
+            {componentLegs(item.leg).map((part) => (
+              <span className="route-part" key={part.id}>
+                <Icon kind={modeKind(part)} />
+                {legDuration(part)} {part.block.mode ?? "travel"}
+              </span>
+            ))}
+            {legStats(item.leg.block) && (
+              <span className="route-stats">{legStats(item.leg.block)}</span>
+            )}
+            {item.leg.endDay !== item.leg.day && (
+              <span className="route-stats">
+                Day {item.leg.day} → Day {item.leg.endDay}
+                {item.leg.block.start &&
+                item.leg.block.end &&
+                zone(item.leg.from) !== zone(item.leg.to)
+                  ? ` · ${zone(item.leg.from)} → ${zone(item.leg.to)}`
+                  : ""}
+              </span>
+            )}
+            {item.leg.block.notes && <p>{item.leg.block.notes}</p>}
+            <Documents documents={item.leg.block.documents} folder={folder} />
+          </li>
+        ),
+      )}
+    </ol>
+  );
+}
+function DayDetails({
+  model,
+  day,
+  folder,
+  nightsOnly = false,
+}: {
+  model: Itinerary;
+  day: NormalizedDay;
+  folder: string;
+  nightsOnly?: boolean;
 }) {
   const legs = activeLegs(model, day);
   return (
@@ -1369,11 +1441,6 @@ function DayDetails({
       </p>
       <h2>{dayTitle(model, day)}</h2>
       <GroupLabels model={model} day={day} />
-      <div className="day-chips">
-        {legs.map((l) => (
-          <LegChip key={l.id} leg={l} />
-        ))}
-      </div>
       <span className="night">
         <Icon kind="bed" />
         {day.inTransit
@@ -1381,35 +1448,24 @@ function DayDetails({
           : `Night: ${name(model, day.overnight)}`}
       </span>
       <Bands model={model} day={day} />
-      <DayBookings model={model} dayNumber={day.index + 1} folder={folder} />
-      <details key={day.index}>
-        <summary>Day details · notes & documents</summary>
-        {legs.map((l) => (
-          <details className="leg-detail" key={l.id}>
-            <summary>
-              {name(model, l.from)} → {name(model, l.to)} ·{" "}
-              {l.block.mode ?? "Travel"} {legDuration(l)}
-            </summary>
-            {(l.block.start || l.block.end) && (
-              <p>
-                {l.block.start && `Departs ${l.block.start}`}{" "}
-                {l.block.end && `· arrives ${l.block.end}`}
-                {l.endDay > l.day ? ` · Day ${l.endDay}` : ""}
-                {l.block.start &&
-                l.block.end &&
-                model.trip.places[l.from ?? ""]?.timezone !==
-                  model.trip.places[l.to]?.timezone
-                  ? ` · ${model.trip.places[l.from ?? ""]?.timezone ?? model.trip.timezone} → ${model.trip.places[l.to]?.timezone ?? model.trip.timezone}`
-                  : ""}
-              </p>
-            )}
-            {l.block.notes && <p>{l.block.notes}</p>}
-            <Documents documents={l.block.documents} folder={folder} />
-          </details>
-        ))}
-        {day.source.notes && <p className="day-note">{day.source.notes}</p>}
-        <Documents documents={day.source.documents} folder={folder} />
-      </details>
+      {(day.source.notes ||
+        legs.length > 0 ||
+        !!day.source.documents?.length) && (
+        <section className="day-details" aria-label="Day details">
+          <h3>Day details</h3>
+          {day.source.notes && <p className="day-note">{day.source.notes}</p>}
+          {legs.length > 0 && (
+            <DayRoute model={model} day={day} legs={legs} folder={folder} />
+          )}
+          <Documents documents={day.source.documents} folder={folder} />
+        </section>
+      )}
+      <DayBookings
+        model={model}
+        dayNumber={day.index + 1}
+        folder={folder}
+        nightsOnly={nightsOnly}
+      />
     </section>
   );
 }
@@ -1677,6 +1733,38 @@ function App() {
     activeTab === "overview" ||
     activeTab === "bookings" ||
     activeTab === "prepare";
+  // ← / → step through the timeline's days in Map and Calendar, like the day-step buttons.
+  const stepDay = useRef<(offset: number) => void>(() => {});
+  stepDay.current = (offset) => {
+    const next = days[scopeIndex + offset];
+    if (next) selectPosition(next.index + 0.5);
+  };
+  useEffect(() => {
+    if (fullView) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        (event.key !== "ArrowLeft" && event.key !== "ArrowRight") ||
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return;
+      const target = event.target as HTMLElement | null;
+      // Leave arrows alone where they already mean something (the slider, fields, menus).
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable], [role=menu], [role=listbox]",
+        )
+      )
+        return;
+      event.preventDefault();
+      stepDay.current(event.key === "ArrowLeft" ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullView]);
   return (
     <main
       className={`app-shell ${fullView ? "overview-shell" : ""}`}
@@ -1692,7 +1780,7 @@ function App() {
             </h1>
             <p className="meta">
               {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "long", year: "numeric" })}` : "Dates open"}${activeTab === "overview" ? "" : ` · ${itinerary.days.length} day${itinerary.days.length === 1 ? "" : "s"} · ${visualGroups(itinerary).length} destination${visualGroups(itinerary).length === 1 ? "" : "s"}`}`
+                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}` : "Dates open"}${activeTab === "overview" ? "" : ` · ${itinerary.days.length} day${itinerary.days.length === 1 ? "" : "s"} · ${visualGroups(itinerary).length} destination${visualGroups(itinerary).length === 1 ? "" : "s"}`}`
                 : "A little perspective, before you go."}
             </p>
           </div>
@@ -1859,6 +1947,7 @@ function App() {
               model={itinerary}
               day={day}
               folder={selected.slice(0, selected.lastIndexOf("/"))}
+              nightsOnly={activeTab === "calendar"}
             />
           </div>
           <footer className="scrubber" hidden={fullView}>
@@ -1907,6 +1996,7 @@ function App() {
             <div className="day-step">
               <button
                 aria-label="Previous day"
+                title="Previous day (←)"
                 disabled={scopeIndex <= 0}
                 onClick={() => selectPosition(days[scopeIndex - 1].index + 0.5)}
               >
@@ -1915,6 +2005,7 @@ function App() {
               <strong>{dayLabel(day)}</strong>
               <button
                 aria-label="Next day"
+                title="Next day (→)"
                 disabled={scopeIndex === days.length - 1}
                 onClick={() => selectPosition(days[scopeIndex + 1].index + 0.5)}
               >

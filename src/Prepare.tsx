@@ -2,7 +2,15 @@ import { Check } from "lucide-react";
 import type { TripPreparation } from "./itinerary";
 import { preparationLists } from "./prepare-model";
 
-function Completion({
+function Checkbox({ complete }: { complete: boolean }) {
+  return (
+    <span className="prepare-checkbox" aria-hidden="true">
+      {complete && <Check size={12} strokeWidth={2.4} />}
+    </span>
+  );
+}
+
+function Status({
   complete,
   packing = false,
 }: {
@@ -10,15 +18,14 @@ function Completion({
   packing?: boolean;
 }) {
   return (
-    <span className="prepare-status">
-      {complete && <Check aria-hidden="true" size={13} strokeWidth={1.8} />}
+    <span className="sr-only">
       {packing
         ? complete
-          ? "Packed"
-          : "To pack"
+          ? "Packed: "
+          : "To pack: "
         : complete
-          ? "Done"
-          : "To do"}
+          ? "Done: "
+          : "To do: "}
     </span>
   );
 }
@@ -46,7 +53,7 @@ export function Prepare({ prepare }: { prepare: TripPreparation }) {
             aria-labelledby="prepare-checklist-heading"
           >
             <header className="prepare-section-heading">
-              <h3 id="prepare-checklist-heading">Before you go</h3>
+              <h3 id="prepare-checklist-heading">Before</h3>
               <span>
                 {checklistRemaining
                   ? `${checklistRemaining} remaining`
@@ -63,19 +70,17 @@ export function Prepare({ prepare }: { prepare: TripPreparation }) {
                   key={rank}
                   className={`prepare-task${item.done ? " is-complete" : ""}`}
                 >
-                  <span className="prepare-rank" aria-hidden="true">
-                    {rank}
-                  </span>
+                  <Checkbox complete={item.done === true} />
                   <div className="prepare-item-copy">
                     <p className="prepare-item-title">
                       <span className="sr-only">Priority {rank}: </span>
+                      <Status complete={item.done === true} />
                       {item.title}
                     </p>
                     {item.notes && (
                       <p className="prepare-item-notes">{item.notes}</p>
                     )}
                   </div>
-                  <Completion complete={item.done === true} />
                 </li>
               ))}
             </ol>
@@ -110,8 +115,10 @@ export function Prepare({ prepare }: { prepare: TripPreparation }) {
                       key={index}
                       className={`prepare-packing-item${item.packed ? " is-complete" : ""}`}
                     >
+                      <Checkbox complete={item.packed === true} />
                       <div className="prepare-item-copy">
                         <p className="prepare-item-title">
+                          <Status complete={item.packed === true} packing />
                           {item.title}
                           {item.quantity !== undefined && (
                             <span className="prepare-quantity">
@@ -125,7 +132,6 @@ export function Prepare({ prepare }: { prepare: TripPreparation }) {
                           <p className="prepare-item-notes">{item.notes}</p>
                         )}
                       </div>
-                      <Completion complete={item.packed === true} packing />
                     </li>
                   ))}
                 </ul>

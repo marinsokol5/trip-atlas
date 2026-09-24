@@ -656,6 +656,36 @@ export function legDuration(leg: Leg) {
       ? `~${duration(estimatedMinutes(leg)! * 60000)}`
       : "";
 }
+/** One entry per travel mode, summing every leg and component part, e.g. walk "~55m". */
+export function modeDurations(legs: Leg[]) {
+  const totals = new Map<
+    string,
+    { kind: string; ms: number; approximate: boolean; timed: boolean }
+  >();
+  for (const part of legs.flatMap(componentLegs)) {
+    const kind = modeKind(part),
+      entry = totals.get(kind) ?? {
+        kind,
+        ms: 0,
+        approximate: false,
+        timed: false,
+      },
+      minutes = estimatedMinutes(part);
+    if (part.durationMs !== undefined) {
+      entry.ms += part.durationMs;
+      entry.timed = true;
+    } else if (minutes !== undefined) {
+      entry.ms += minutes * 60000;
+      entry.timed = true;
+      entry.approximate = true;
+    } else entry.approximate = true;
+    totals.set(kind, entry);
+  }
+  return [...totals.values()].map(({ kind, ms, approximate, timed }) => ({
+    kind,
+    label: timed ? `${approximate ? "~" : ""}${duration(ms)}` : "",
+  }));
+}
 export function durationTotals(model: Itinerary) {
   return (["transport", "walking", "mixed"] as const).map((category) => {
     const legs = model.legs
@@ -720,10 +750,16 @@ export interface DisplayBand {
   weight: number;
 }
 export function dayBands(model: Itinerary, day: NormalizedDay): DisplayBand[] {
+  // Days that end where they started (day trips, local walks) have no transfer.
+  const roundTrip =
+    !!day.startPlace &&
+    !day.inTransit &&
+    groupKey(model, day.startPlace) === groupKey(model, day.overnight);
   const internal = (leg: Leg) =>
-    modeKind(leg) === "walk" &&
-    !!leg.from &&
-    groupKey(model, leg.from) === groupKey(model, leg.to);
+    roundTrip ||
+    (modeKind(leg) === "walk" &&
+      !!leg.from &&
+      groupKey(model, leg.from) === groupKey(model, leg.to));
   if (!day.hasUnknownTiming)
     return day.segments.map((s) => ({
       place: s.leg && internal(s.leg) ? s.leg.to : s.place,

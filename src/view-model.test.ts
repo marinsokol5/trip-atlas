@@ -635,3 +635,54 @@ test("first scoped calendar week is never labeled a later visit", () => {
   assert.equal(scopedCalendarSlots(model, "JP")[0].date, "2027-01-04");
   assert.equal(scopedCalendarSlots(model, "JP")[0].gapBefore, false);
 });
+
+test("calendar chips merge legs by mode; round trips have no transfer bands", async () => {
+  const { modeDurations, dayBands } = await import("./view-model.ts");
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "home",
+    places: { home: {}, pagoda: {}, street: {}, park: {}, city: {} },
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "pagoda",
+            mode: "walk",
+            estimatedDurationMinutes: 40,
+          },
+          {
+            type: "travel",
+            to: "street",
+            mode: "walk",
+            estimatedDurationMinutes: 15,
+          },
+          {
+            type: "travel",
+            to: "park",
+            components: [
+              { mode: "train", estimatedDurationMinutes: 15 },
+              { mode: "bus", estimatedDurationMinutes: 25 },
+            ],
+          },
+          {
+            type: "travel",
+            to: "home",
+            mode: "bus",
+            estimatedDurationMinutes: 25,
+          },
+        ],
+      },
+      { blocks: [{ type: "travel", to: "city", mode: "train" }] },
+    ],
+  });
+  const legs = (day: number) => model.legs.filter((l) => l.day === day);
+  assert.deepEqual(modeDurations(legs(1)), [
+    { kind: "walk", label: "~55m" },
+    { kind: "train", label: "~15m" },
+    { kind: "bus", label: "~50m" },
+  ]);
+  assert.deepEqual(modeDurations(legs(2)), [{ kind: "train", label: "" }]);
+  assert.ok(dayBands(model, model.days[0]).every((b) => !b.transfer));
+  assert.ok(dayBands(model, model.days[1]).some((b) => b.transfer));
+});

@@ -1,8 +1,17 @@
 import { validateBookingAllocations } from "./booking-model.ts";
 
+const clock = "([01]\\d|2[0-3]):[0-5]\\d";
+
 export interface DocumentLink {
   label: string;
   path: string;
+}
+export type Meal = boolean | string;
+export interface BaggageAllowance {
+  type: "checked" | "cabin" | "personal";
+  pieces: number;
+  /** Weight limit per piece. */
+  kg?: number;
 }
 export type CostStatus = "estimated" | "confirmed" | "paid";
 export type BookingAllocation =
@@ -12,7 +21,8 @@ export type BookingAllocation =
   | { type: "additional"; day: number }
   | { type: "unallocated" };
 export interface Booking {
-  type: "accommodation" | "transport" | "activity";
+  /** `other` is a trip-wide expense (eSIM, visa) counted once in the whole-trip total. */
+  type: "accommodation" | "transport" | "activity" | "other";
   title: string;
   place?: string;
   startDate?: string;
@@ -21,6 +31,18 @@ export interface Booking {
   endDay?: number;
   status?: "planned" | "confirmed" | "cancelled";
   reference?: string;
+  /** Meals with a stay: true/false, or text (e.g. "18:00, Japanese") for an included meal; omission means unknown. */
+  meals?: { dinner?: Meal; breakfast?: Meal; lunch?: Meal };
+  /** Local check-in time as `HH:mm` or a `HH:mm-HH:mm` window. */
+  checkIn?: string;
+  /** Latest local check-out time as `HH:mm`. */
+  checkOut?: string;
+  /** Bags each person may carry, e.g. on a flight. */
+  baggage?: BaggageAllowance[];
+  /** Plain-text reminder shown on the booking card. */
+  notes?: string;
+  /** Exact property location, linked to an external map. */
+  coordinates?: { lat: number; lon: number };
   documents?: DocumentLink[];
   cost?: {
     /** Whole booking amount for one person, in the trip currency. */
@@ -67,6 +89,11 @@ export interface TravelBlock {
   endDay?: number;
   mode?: string;
   estimatedDurationMinutes?: number;
+  /** Route length in kilometres, mainly for walks. */
+  distanceKm?: number;
+  /** Total climb and descent in metres. */
+  ascentMeters?: number;
+  descentMeters?: number;
   notes?: string;
   documents?: DocumentLink[];
 }
@@ -163,6 +190,18 @@ function object(value: unknown, path: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value))
     fail(path, "expected an object");
   return value as Record<string, unknown>;
+}
+function coordinates(value: unknown, path: string) {
+  const c = object(value, path);
+  if (
+    typeof c.lat !== "number" ||
+    !Number.isFinite(c.lat) ||
+    Math.abs(c.lat) > 90 ||
+    typeof c.lon !== "number" ||
+    !Number.isFinite(c.lon) ||
+    Math.abs(c.lon) > 180
+  )
+    fail(path, "invalid latitude/longitude");
 }
 function string(value: unknown, path: string) {
   if (typeof value !== "string" || !value.trim())
@@ -304,18 +343,8 @@ export function parseTrip(input: unknown): Trip {
       fail(`places.${id}.country`, "expected uppercase ISO2");
     if (p.timezone !== undefined)
       zoneValid(p.timezone, `places.${id}.timezone`);
-    if (p.coordinates !== undefined) {
-      const c = object(p.coordinates, `places.${id}.coordinates`);
-      if (
-        typeof c.lat !== "number" ||
-        !Number.isFinite(c.lat) ||
-        Math.abs(c.lat) > 90 ||
-        typeof c.lon !== "number" ||
-        !Number.isFinite(c.lon) ||
-        Math.abs(c.lon) > 180
-      )
-        fail(`places.${id}.coordinates`, "invalid latitude/longitude");
-    }
+    if (p.coordinates !== undefined)
+      coordinates(p.coordinates, `places.${id}.coordinates`);
   });
   const place = (v: unknown, path: string) => {
     if (typeof v !== "string" || !Object.hasOwn(places, v))
@@ -352,6 +381,21 @@ export function parseTrip(input: unknown): Trip {
                 !/^([01]\d|2[0-3]):[0-5]\d$/.test(b[k] as string))
             )
               fail(p + "." + k, "expected HH:mm");
+          if (
+            b.distanceKm !== undefined &&
+            (typeof b.distanceKm !== "number" ||
+              !Number.isFinite(b.distanceKm) ||
+              b.distanceKm <= 0)
+          )
+            fail(p + ".distanceKm", "expected positive finite kilometres");
+          for (const k of ["ascentMeters", "descentMeters"])
+            if (
+              b[k] !== undefined &&
+              (typeof b[k] !== "number" ||
+                !Number.isFinite(b[k]) ||
+                (b[k] as number) < 0)
+            )
+              fail(p + "." + k, "expected nonnegative finite metres");
           if (
             b.endDay !== undefined &&
             (!Number.isInteger(b.endDay) ||
@@ -426,11 +470,62 @@ export function parseTrip(input: unknown): Trip {
         b = object(value, path);
       string(b.title, path + ".title");
       if (
-        !["accommodation", "transport", "activity"].includes(b.type as string)
+        !["accommodation", "transport", "activity", "other"].includes(
+          b.type as string,
+        )
       )
-        fail(path + ".type", "expected accommodation, transport or activity");
+        fail(
+          path + ".type",
+          "expected accommodation, transport, activity or other",
+        );
       if (b.place !== undefined) place(b.place, path + ".place");
       if (b.reference !== undefined) string(b.reference, path + ".reference");
+      if (b.meals !== undefined) {
+        const meals = object(b.meals, path + ".meals");
+        for (const [key, value] of Object.entries(meals)) {
+          if (!["dinner", "breakfast", "lunch"].includes(key))
+            fail(path + ".meals." + key, "expected dinner, breakfast or lunch");
+          if (
+            typeof value !== "boolean" &&
+            (typeof value !== "string" || !value.trim())
+          )
+            fail(path + ".meals." + key, "expected a boolean or text");
+        }
+      }
+      if (
+        b.checkIn !== undefined &&
+        (typeof b.checkIn !== "string" ||
+          !new RegExp(`^${clock}(-${clock})?$`).test(b.checkIn))
+      )
+        fail(path + ".checkIn", "expected HH:mm or HH:mm-HH:mm");
+      if (
+        b.checkOut !== undefined &&
+        (typeof b.checkOut !== "string" ||
+          !new RegExp(`^${clock}$`).test(b.checkOut))
+      )
+        fail(path + ".checkOut", "expected HH:mm");
+      if (b.coordinates !== undefined)
+        coordinates(b.coordinates, path + ".coordinates");
+      if (b.notes !== undefined) string(b.notes, path + ".notes");
+      if (b.baggage !== undefined) {
+        if (!Array.isArray(b.baggage))
+          fail(path + ".baggage", "expected an array");
+        b.baggage.forEach((value, i) => {
+          const bagPath = `${path}.baggage[${i}]`,
+            bag = object(value, bagPath);
+          if (!["checked", "cabin", "personal"].includes(bag.type as string))
+            fail(bagPath + ".type", "expected checked, cabin or personal");
+          if (!Number.isSafeInteger(bag.pieces) || (bag.pieces as number) < 0)
+            fail(bagPath + ".pieces", "expected a nonnegative whole number");
+          if (
+            bag.kg !== undefined &&
+            (typeof bag.kg !== "number" ||
+              !Number.isFinite(bag.kg) ||
+              bag.kg <= 0)
+          )
+            fail(bagPath + ".kg", "expected positive finite kilograms");
+        });
+      }
       if (
         b.status !== undefined &&
         !["planned", "confirmed", "cancelled"].includes(b.status as string)
@@ -464,7 +559,9 @@ export function parseTrip(input: unknown): Trip {
             path + "." + end,
             "must follow the start (accommodation needs at least one night)",
           );
-      if (b.cost !== undefined) {
+      // A bare number is shorthand for `{ "amount": n }`.
+      if (typeof b.cost === "number") price(b.cost, path + ".cost");
+      else if (b.cost !== undefined) {
         const c = object(b.cost, path + ".cost");
         if (c.amount === undefined)
           fail(
@@ -477,6 +574,11 @@ export function parseTrip(input: unknown): Trip {
           !["estimated", "confirmed", "paid"].includes(c.status as string)
         )
           fail(path + ".cost.status", "expected estimated, confirmed or paid");
+        if (c.allocation !== undefined && b.type === "other")
+          fail(
+            path + ".cost.allocation",
+            "other bookings count once in the trip total; omit allocation",
+          );
         if (c.allocation !== undefined) {
           const a = object(c.allocation, path + ".cost.allocation"),
             ap = path + ".cost.allocation";
@@ -539,6 +641,11 @@ export function parseTrip(input: unknown): Trip {
   return {
     ...t,
     title: t.title ?? "Untitled journey",
+    ...(Array.isArray(t.bookings) && {
+      bookings: t.bookings.map((b: Record<string, unknown>) =>
+        typeof b.cost === "number" ? { ...b, cost: { amount: b.cost } } : b,
+      ),
+    }),
     places: Object.fromEntries(
       Object.entries(places).map(([id, p]) => [
         id,

@@ -87,9 +87,10 @@ export function Overview({
       .filter(([code]) => code !== "unknown")
       .map(([, value]) => value.total),
   );
-  const hasExtraAmounts = extraBuckets.some(
-    ([, value]) => value.value > 0 || value.missing > 0,
-  );
+  const hasExpenses = data.costs.expenses.known > 0;
+  const hasExtraAmounts =
+    hasExpenses ||
+    extraBuckets.some(([, value]) => value.value > 0 || value.missing > 0);
   const sortColumn = (key: StaySortKey) => {
     const next = {
       key,
@@ -150,6 +151,7 @@ export function Overview({
     ...(unallocatedCost
       ? [["Mixed transport", data.costs.unallocated] as const]
       : []),
+    ["Other expenses", data.costs.expenses],
   ] as const;
   return (
     <section className="overview-view" aria-label="Overview view">
@@ -287,7 +289,7 @@ export function Overview({
               .filter(([, cost]) => cost.known || cost.missing)
               .map(([label, cost]) => (
                 <div key={label}>
-                  <span>{label} · per person</span>
+                  <span>{label}</span>
                   <strong>{moneyLabel(cost, currency)}</strong>
                 </div>
               ))}
@@ -311,8 +313,8 @@ export function Overview({
             {(countryCosts || data.hasStayCosts) && (
               <p className="overview-stay-caption">
                 {breakdown === "countries"
-                  ? "In-country costs · per person"
-                  : `${placeCostLabel} only · per person`}
+                  ? "In-country costs"
+                  : `${placeCostLabel} only`}
               </p>
             )}
           </div>
@@ -459,6 +461,14 @@ export function Overview({
                       <td>—</td>
                     </tr>
                   ))}
+                {hasExpenses && (
+                  <tr>
+                    <th scope="row">Other expenses</th>
+                    <td hidden={!hasNights}>—</td>
+                    <td>{moneyLabel(data.costs.expenses, currency)}</td>
+                    <td>—</td>
+                  </tr>
+                )}
                 <tr className="overview-grand-total">
                   <th scope="row">Trip total</th>
                   <td hidden={!hasNights}>—</td>
@@ -533,6 +543,8 @@ export function Overview({
             are separate authored cost categories, independent of reservation
             status. Cancelled bookings are excluded and their estimates remain.
             Unallocated booking amounts are shown separately, outside totals.
+            Other expenses count once in the whole-trip total, outside every
+            country.
           </p>
         )}
         {unallocatedTime && (

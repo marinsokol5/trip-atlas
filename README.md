@@ -75,7 +75,7 @@ A complete minimal itinerary:
 
 Empty days continue the current location. Dates, coordinates, times, costs, bookings and preparation lists are optional; unknown information stays unknown. **Area** filters countries across Overview, Map, Calendar and Bookings. Prepare stays trip-wide. The map and calendar share a timeline; map lines and untimed animation are schematic.
 
-Use the [compact field reference / agent skill](skills/update-itinerary/SKILL.md) to author JSON, and the [format guide](docs/itinerary-format.md) for timezone, cost-replacement and document examples. Trip and manifest JSON are limited to **2 MiB of UTF-8 each**, and numeric totals must remain finite. PDF, raster images, text and JSON documents open inline; other types download. The server is for direct localhost use; see [security and privacy](SECURITY.md).
+Booking cards can show meals, check-in/check-out times, baggage allowances, a reminder note and a Google Maps pin for exact coordinates. Trip-wide expenses such as an eSIM are bookings of type `other`, counted once in the whole-trip total. Use the [compact field reference / agent skill](skills/update-itinerary/SKILL.md) to author JSON, and the [format guide](docs/itinerary-format.md) for timezone, cost-replacement and document examples. Trip and manifest JSON are limited to **2 MiB of UTF-8 each**, and numeric totals must remain finite. PDF, raster images, text and JSON documents open inline; other types download. The server is for direct localhost use; see [security and privacy](SECURITY.md).
 
 ## Development
 

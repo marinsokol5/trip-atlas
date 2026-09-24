@@ -8,7 +8,7 @@ The compact reference lists every authored field. This guide explains the less o
 
 A trip needs `version: 1`, a `places` object and at least one item in `days`. Place IDs are references; names fall back to those IDs. Unknown optional metadata is retained but has no display meaning. Empty days carry the latest known location forward. An omitted origin stays unknown. Dates, coordinates, country codes and clocks are optional.
 
-Travel blocks need only `type: "travel"` and `to`. Their origin is inferred from the current place unless `from` overrides it. A `{ "type": "place", "place": "kyoto" }` block resets location without claiming a timed journey. Place groups simplify map labels without merging the underlying route or overnight stays.
+Travel blocks need only `type: "travel"` and `to`. Their origin is inferred from the current place unless `from` overrides it. A `{ "type": "place", "place": "kyoto" }` block resets location without claiming a timed journey. Walks can add `distanceKm`, `ascentMeters` and `descentMeters`, shown beside the leg's duration. Place groups simplify map labels without merging the underlying route or overnight stays.
 
 `start` is departure-local time; `end` is destination-local time. `endDay` is an absolute, 1-based arrival day in the listed trip, defaulting to the departure day. An earlier arrival clock does not imply tomorrow. Intermediate days of an overnight journey cannot contain blocks, and their nights stay in transit.
 
@@ -49,7 +49,7 @@ Every price is **per person**, in one trip `currency`. A shared room price must 
 
 These are illustrative inputs, not price recommendations. `livingPerDay` is charged once per day, assigned to the overnight country or the last known/departing country during transit; the final day uses its final location. `accommodationPerNight` applies only to known hotel nights before the final day. In-transit nights incur no hotel estimate. Unknown countries do not borrow another country's rates; unused country budgets have no effect.
 
-A travel block's `estimatedCost` covers that entire journey. Domestic travel is assigned to its country. International travel is counted once in **Between countries**; travel with unknown endpoint country goes to **Unassigned**. Country totals + Between countries + Unassigned reconcile with the whole trip. Place rows show living, accommodation and explicitly additional activities; transport remains separate.
+A travel block's `estimatedCost` covers that entire journey. Domestic travel is assigned to its country. International travel is counted once in **Between countries**; travel with unknown endpoint country goes to **Unassigned**. Country totals + Between countries + Unassigned + Other expenses reconcile with the whole trip. Place rows show living, accommodation and explicitly additional activities; transport remains separate.
 
 Average/day divides costs by the days assigned to that country's daily living budget, not hotel nights or overlapping days touched. Calculation retains precision until display. `~` marks estimated amounts, `+` marks missing required estimates, and `?` means no amount is known. Pure walking does not require a price; an explicit walking fee counts. Walking time is excluded from transport time. Unsplit mixed-mode time is not silently assigned to a transport category.
 
@@ -59,7 +59,9 @@ Bookings are separate from the route. They never change travel times, destinatio
 
 Use fixed calendar `startDate` / `endDate`, or 1-based `startDay` / `endDay`, never both systems in one booking. Calendar dates stay fixed when the trip start moves. Day numbers must be inside the trip; calendar dates may be outside it. Accommodation's end is checkout and must follow its start; other date ranges include both endpoints. Either endpoint can be omitted.
 
-A hotel appears during its stay including checkout. Explicit cost-linked nights, living days and travel legs can also associate a booking with days; its place alone does not guess a repeated visit. An unassociated booking remains visible in Bookings. Dates in an undated trip remain readable without selecting itinerary days.
+A hotel appears during its stay including checkout; the Calendar view shows it only on the nights slept there (never on checkout day), so each calendar day answers where you sleep that night. Explicit cost-linked nights, living days and travel legs can also associate a booking with days; its place alone does not guess a repeated visit. An unassociated booking remains visible in Bookings. Dates in an undated trip remain readable without selecting itinerary days.
+
+Booking cards can also show stay details: `meals` (dinner, breakfast and lunch icons in eating order; `true`, `false`, text such as `"18:00, Japanese"` for an included meal shown on hover, or unknown when omitted), `checkIn` (`"15:00-18:00"` or `"15:00"`), a latest `checkOut` (`"10:00"`), a `notes` reminder, per-person `baggage` allowances (checked, cabin or personal item, with pieces and optional kg), and exact `coordinates`. Coordinates add a map-pin link that opens Google Maps in a new tab; it is the only external link Trip Atlas renders, and nothing is fetched until you click it.
 
 ```json
 {
@@ -74,7 +76,13 @@ A hotel appears during its stay including checkout. Explicit cost-linked nights,
 
 In a trip whose nights 1 and 2 are both Kyoto, this replaces their nightly estimates with a total of €120 per person, divided equally. It is a whole-booking amount, not a nightly rate. No reservation status is inferred.
 
-Cost status is estimated, confirmed or paid; omission means estimated. These are mutually exclusive categories of the included amount, not payments to add together. Missing `cost` preserves the original estimates.
+Cost status is estimated, confirmed or paid; omission means estimated. These are mutually exclusive categories of the included amount, not payments to add together. Missing `cost` preserves the original estimates. A bare number is shorthand for an amount alone: `"cost": 80` equals `"cost": { "amount": 80 }`.
+
+A booking of type `other` is a trip-wide expense such as an eSIM or visa. Its cost takes no allocation and counts once in the whole-trip total as **Other expenses**, outside every country:
+
+```json
+{ "type": "other", "title": "Travel eSIM", "cost": 80 }
+```
 
 A complete accommodation range and matching place automatically replace exactly those planned nights once. Its entire stay must fit within the trip at that place. A place mismatch is an error. A partially/outside trip stay, or a calendar stay in an undated trip, remains unallocated as a whole; the viewer never silently clips or prorates it.
 
@@ -88,7 +96,7 @@ Explicit `cost.allocation` can replace or add specific units:
 | `{"type":"additional","day":3}` | Add an activity amount outside the daily living allowance, once on day 3. Keep that expense out of the broad allowance. |
 | `{"type":"unallocated"}` | Show the amount separately, excluded from totals and automatic hotel replacement. |
 
-Accommodation/transport allocations require the corresponding booking type; living/additional require an activity. Day arrays must be nonempty, unique and inside the trip. Two active costs cannot replace the same night, living day or travel leg, even if an amount is zero. Additional activities may coexist because they replace nothing.
+Accommodation/transport allocations require the corresponding booking type; living/additional require an activity; `other` bookings take none. Day arrays must be nonempty, unique and inside the trip. Two active costs cannot replace the same night, living day or travel leg, even if an amount is zero. Additional activities may coexist because they replace nothing.
 
 Cancelled bookings remain readable but their costs and replacements are excluded, restoring the original estimates. Refunds and cancellation charges are not modeled. Structural references remain validated; obsolete cancelled hotel place/date relationships do not block a changed plan.
 
