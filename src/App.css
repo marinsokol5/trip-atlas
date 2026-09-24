@@ -3169,7 +3169,7 @@ main[data-theme="dark"] {
     flex: 0 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr);
+    grid-template-columns: 290px minmax(0, 1fr);
     gap: 32px;
   }
   .overview-column,
@@ -3207,6 +3207,7 @@ main[data-theme="dark"] {
   .cost-table td {
     padding-top: 6px;
     padding-bottom: 6px;
+    padding-left: 10px;
   }
   .overview-stay-caption {
     margin: 2px 0 0;
@@ -3301,4 +3302,18 @@ main[data-theme="dark"] {
   .overview-tile strong {
     font-size: 16px;
   }
+}
+/* Country flags: emoji, named on hover. */
+.flag {
+  font-size: 15px;
+  line-height: 1;
+  cursor: default;
+}
+.calendar-country .flag {
+  font-size: 13px;
+}
+.day-countries {
+  margin: 2px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
 }

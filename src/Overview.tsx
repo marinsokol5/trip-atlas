@@ -14,6 +14,7 @@ import type { LucideIcon } from "lucide-react";
 import type { Itinerary } from "./itinerary";
 import type { Amount } from "./overview-model";
 import { CostBreakdown } from "./CostBreakdown";
+import { Flag } from "./Flag";
 import { areaDays, dateLabel, mapAreas } from "./view-model";
 import {
   averageLabel,
@@ -101,7 +102,15 @@ export function Overview({
     countryCosts || preferredSort.key === "nights"
       ? preferredSort
       : defaultStaySort;
-  const rows = orderStayRows(data.stays, data.countries, sort);
+  const rows = orderStayRows(
+    data.nights > 0
+      ? data.stays.filter(
+          (row) => row.nights > 0 || row.cost.known || row.cost.missing,
+        )
+      : data.stays,
+    data.countries,
+    sort,
+  );
   const hasNights = data.nights > 0;
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const toggleCountry = (code: string) =>
@@ -480,7 +489,8 @@ export function Overview({
             </section>
           )}
           {showSeparateCosts &&
-            (country || !countryCosts) &&
+            !country &&
+            !countryCosts &&
             extraBuckets.some(([, cost]) => cost.known || cost.missing) && (
               <div
                 className="overview-costs overview-cost-buckets"
@@ -571,6 +581,7 @@ export function Overview({
                             onClick={() => toggleCountry(row.key)}
                           >
                             <i style={{ backgroundColor: row.color }} />
+                            <Flag code={row.key} />
                             <span className="overview-place-name">
                               {row.name}
                             </span>

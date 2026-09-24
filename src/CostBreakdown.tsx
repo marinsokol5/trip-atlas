@@ -87,9 +87,7 @@ export function CostBreakdown({
               fill={s.color}
               className={active && active !== s.key ? "is-muted" : undefined}
               onPointerEnter={() => setActive(s.key)}
-            >
-              <title>{`${s.label} · ${moneyLabel(s.cost, currency)} · ${Math.round(share(s.cost))}%`}</title>
-            </path>
+            />
           ))}
         </svg>
         <figcaption aria-live="polite">

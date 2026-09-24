@@ -106,7 +106,7 @@ export function dayCountries(model: Itinerary, day: NormalizedDay) {
   ];
 }
 /** Calendar context follows actual block order; excursions retain their return country. */
-export function calendarCountries(model: Itinerary, day: NormalizedDay) {
+export function calendarCountryCodes(model: Itinerary, day: NormalizedDay) {
   const countries: string[] = [];
   const add = (id?: string) => {
     const country = id ? model.trip.places[id]?.country : undefined;
@@ -132,8 +132,20 @@ export function calendarCountries(model: Itinerary, day: NormalizedDay) {
     }
   }
   add(day.overnight);
-  const names = new Intl.DisplayNames(["en"], { type: "region" });
-  return countries.map((country) => names.of(country) ?? country).join(" → ");
+  return countries;
+}
+export function countryName(code: string) {
+  return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
+}
+export function calendarCountries(model: Itinerary, day: NormalizedDay) {
+  return calendarCountryCodes(model, day).map(countryName).join(" → ");
+}
+/** A two-letter country code as its flag emoji, built from regional indicator letters. */
+export function countryFlag(code?: string) {
+  if (!code || !/^[A-Z]{2}$/.test(code)) return undefined;
+  return String.fromCodePoint(
+    ...[...code].map((letter) => 0x1f1e6 + letter.charCodeAt(0) - 65),
+  );
 }
 export function areaDays(model: Itinerary, country = "") {
   return model.days.filter(

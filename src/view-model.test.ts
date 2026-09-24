@@ -847,3 +847,21 @@ test("overnight journeys split chips by day and arrive before the start place", 
   // Returning home overnight is still a transfer, not a round trip.
   assert.ok(dayBands(model, model.days[5])[0].transfer);
 });
+
+test("country codes become flag emoji, names and calendar context", async () => {
+  const { countryFlag, countryName, calendarCountryCodes } =
+    await import("./view-model.ts");
+  assert.equal(countryFlag("JP"), "🇯🇵");
+  assert.equal(countryFlag("VN"), "🇻🇳");
+  assert.equal(countryFlag("jp"), undefined);
+  assert.equal(countryFlag(undefined), undefined);
+  assert.equal(countryName("TW"), "Taiwan");
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "bangkok",
+    places: { bangkok: { country: "TH" }, tokyo: { country: "JP" } },
+    days: [{ blocks: [{ type: "travel", to: "tokyo", mode: "flight" }] }],
+  });
+  assert.deepEqual(calendarCountryCodes(model, model.days[0]), ["TH", "JP"]);
+  assert.equal(calendarCountries(model, model.days[0]), "Thailand → Japan");
+});

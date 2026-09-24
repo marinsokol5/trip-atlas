@@ -89,6 +89,9 @@ import {
   wheelZoomFactor,
   scopedCalendarSlots,
   calendarCountries,
+  calendarCountryCodes,
+  countryFlag,
+  countryName,
   routeCurve,
   spanCenter,
   mapDurationFilters,
@@ -103,6 +106,7 @@ import { activeTripView, availableTripViews, parseTripView } from "./trip-view";
 import type { TripView } from "./trip-view";
 import { ThemedSelect } from "./ThemedSelect";
 import { MapLabelsMenu } from "./MapLabelsMenu";
+import { Flag, flagsShown } from "./Flag";
 import { useMapLabelPreference } from "./use-map-label-preference";
 
 type Entry = TripEntry;
@@ -1422,9 +1426,18 @@ function Calendar({
                       ? dateLabel(day.date, { day: "numeric", month: "short" })
                       : `Day ${day.index + 1}`}
                   </span>
-                  {calendarCountries(model, day) && (
+                  {calendarCountryCodes(model, day).length > 0 && (
                     <span className="calendar-country">
-                      {calendarCountries(model, day)}
+                      {flagsShown
+                        ? calendarCountryCodes(model, day).map(
+                            (code, index) => (
+                              <Fragment key={index}>
+                                {index > 0 && " → "}
+                                <Flag code={code} />
+                              </Fragment>
+                            ),
+                          )
+                        : calendarCountries(model, day)}
                     </span>
                   )}
                 </span>
@@ -1594,6 +1607,16 @@ function DayDetails({
       <p className="selected-date">
         {dayLabel(day)} · Day {day.index + 1} of {model.days.length}
       </p>
+      {calendarCountryCodes(model, day).length > 0 && (
+        <p className="day-countries">
+          {calendarCountryCodes(model, day).map((code, index) => (
+            <Fragment key={index}>
+              {index > 0 && " → "}
+              <Flag code={code} /> {countryName(code)}
+            </Fragment>
+          ))}
+        </p>
+      )}
       <h2>{dayTitle(model, day)}</h2>
       <GroupLabels model={model} day={day} />
       <span className="night">
@@ -1998,7 +2021,10 @@ function App() {
                   { value: "", label: "Whole trip" },
                   ...mapAreas(itinerary).map((area) => ({
                     value: area.country,
-                    label: area.name,
+                    label:
+                      flagsShown && countryFlag(area.country)
+                        ? `${countryFlag(area.country)} ${area.name}`
+                        : area.name,
                   })),
                 ]}
                 onChange={changeArea}
