@@ -1964,16 +1964,13 @@ main[data-theme="dark"] {
 .overview-day-visit .overview-night-count > span {
   visibility: hidden;
 }
-.overview-footnote {
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 23px;
+.overview-budget .overview-status-amounts {
+  margin: 10px 0 0;
+  gap: 4px 18px;
 }
-.overview-footnote p {
-  margin: 0 0 8px;
-}
-.overview-footnote .overview-status-amounts {
-  font-size: 13px;
+.overview-metric > p.overview-cost-legend {
+  margin-top: 6px;
+  font-size: 11px;
 }
 .heading > div:first-child {
   min-width: 0;

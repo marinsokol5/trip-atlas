@@ -370,6 +370,22 @@ export function Overview({
                 </>
               )}
             </p>
+            {mixedStatuses && (
+              <p
+                className="overview-status-amounts"
+                aria-label="Cost status breakdown"
+              >
+                {statusTotals.map(([label, amount]) => (
+                  <span key={label}>
+                    {label}
+                    <strong>{moneyLabel(amount, currency)}</strong>
+                  </span>
+                ))}
+              </p>
+            )}
+            <p className="overview-cost-legend">
+              ~ estimated · + some prices missing · ? unknown
+            </p>
           </section>
         )}
       </div>
@@ -635,25 +651,6 @@ export function Overview({
           </table>
         </div>
       </section>
-      <footer className="overview-footnote">
-        {mixedStatuses && (
-          <p
-            className="overview-status-amounts"
-            aria-label="Cost status breakdown"
-          >
-            {statusTotals.map(([label, amount]) => (
-              <span key={label}>
-                {label}
-                <strong>{moneyLabel(amount, currency)}</strong>
-              </span>
-            ))}
-          </p>
-        )}
-        <p>
-          Per person. ~ estimated · + some prices missing · ? unknown. Days at
-          home before departure and after return are not counted.
-        </p>
-      </footer>
     </section>
   );
 }
