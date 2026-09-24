@@ -37,13 +37,23 @@ export function CostBreakdown({
   total,
   currency,
   heading = "Category",
+  table = true,
+  active: sharedActive,
+  onActive,
 }: {
   categories: CostCategory[];
   heading?: string;
+  /** Off when another table on the page already lists these amounts as the legend. */
+  table?: boolean;
+  /** With `onActive`, the highlighted slice is shared with that other table. */
+  active?: string;
+  onActive?: (key: string | undefined) => void;
   total: Amount;
   currency?: string;
 }) {
-  const [active, setActive] = useState<string>();
+  const [ownActive, setOwnActive] = useState<string>();
+  const active = onActive ? sharedActive : ownActive;
+  const setActive = onActive ?? setOwnActive;
   const shown = categories.filter(({ cost }) => cost.known || cost.missing);
   const sum = shown.reduce((s, { cost }) => s + Math.max(0, cost.value), 0);
   const share = (cost: Amount) => (sum > 0 ? (cost.value / sum) * 100 : 0);
@@ -60,7 +70,10 @@ export function CostBreakdown({
   const focus = shown.find((category) => category.key === active);
   const rows = [...shown].sort((a, b) => b.cost.value - a.cost.value);
   return (
-    <div className="cost-breakdown" onPointerLeave={() => setActive(undefined)}>
+    <div
+      className={`cost-breakdown${table ? "" : " donut-only"}`}
+      onPointerLeave={() => setActive(undefined)}
+    >
       <figure className="cost-donut">
         <svg
           viewBox={`0 0 ${size} ${size}`}
@@ -85,40 +98,42 @@ export function CostBreakdown({
           {focus && <span>{Math.round(share(focus.cost))}%</span>}
         </figcaption>
       </figure>
-      <table className="cost-table">
-        <thead>
-          <tr>
-            <th>{heading}</th>
-            <th>Cost</th>
-            <th>Share</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.key}
-              className={active === row.key ? "is-active" : undefined}
-              onPointerEnter={() => setActive(row.key)}
-            >
-              <th scope="row">
-                <i style={{ backgroundColor: row.color }} />
-                {row.label}
-              </th>
-              <td>{moneyLabel(row.cost, currency)}</td>
-              <td>
-                {row.cost.value > 0 ? `${Math.round(share(row.cost))}%` : "—"}
-              </td>
+      {table && (
+        <table className="cost-table">
+          <thead>
+            <tr>
+              <th>{heading}</th>
+              <th>Cost</th>
+              <th>Share</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th scope="row">Total</th>
-            <td>{moneyLabel(total, currency)}</td>
-            <td />
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.key}
+                className={active === row.key ? "is-active" : undefined}
+                onPointerEnter={() => setActive(row.key)}
+              >
+                <th scope="row">
+                  <i style={{ backgroundColor: row.color }} />
+                  {row.label}
+                </th>
+                <td>{moneyLabel(row.cost, currency)}</td>
+                <td>
+                  {row.cost.value > 0 ? `${Math.round(share(row.cost))}%` : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              <td>{moneyLabel(total, currency)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      )}
     </div>
   );
 }

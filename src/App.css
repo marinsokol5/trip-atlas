@@ -3065,26 +3065,74 @@ main[data-theme="dark"] {
   opacity: 0.55;
   cursor: not-allowed;
 }
-/* Wide screens: the Overview fits the window like Map and Calendar. Headlines on top,
-   costs left and breakdown right, each scrolling on its own when it runs long. */
+/* Summary: the three headline figures sit together on one card, with one note line. */
+.overview-headlines,
+.overview-headlines.has-budget {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 56px;
+  padding: 16px 22px 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.overview-summary-note {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+.overview-summary-note strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+/* Costs and breakdown share one card: the donut is the breakdown's picture. */
+.overview-columns {
+  margin-top: 14px;
+  padding: 18px 22px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.overview-columns .overview-stays {
+  margin-top: 28px;
+}
+.cost-breakdown.donut-only {
+  grid-template-columns: 200px;
+  justify-content: center;
+}
+.overview-table tbody tr.is-active,
+.overview-table tfoot tr.is-active {
+  background: var(--wash);
+}
+/* Keep night counts beside a short bar instead of across the table. */
+.overview-stays .overview-bar {
+  max-width: 200px;
+}
+.overview-stays .overview-night-measure {
+  justify-content: flex-start;
+}
+/* Wide screens: the Overview fits the window like Map and Calendar. */
 @media (min-width: 1100px) and (min-height: 640px) {
   .overview-view {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    padding: 16px max(24px, calc((100% - 1440px) / 2)) 12px;
+    padding: 16px max(24px, calc((100% - 1200px) / 2)) 14px;
   }
   .overview-view > * {
     flex: none;
   }
-  .overview-headlines {
-    padding-bottom: 12px;
-    gap: 24px;
-  }
   .overview-metric h3 {
     margin-bottom: 4px;
-    font-size: 14px;
+    font-size: 13px;
   }
   .overview-number {
     font-size: 26px;
@@ -3092,22 +3140,21 @@ main[data-theme="dark"] {
   .overview-number span {
     font-size: 16px;
   }
+  .overview-travel {
+    gap: 20px;
+  }
   .overview-travel strong {
-    font-size: 22px;
+    font-size: 26px;
   }
   .overview-travel > div {
-    gap: 4px;
-  }
-  .overview-budget .overview-status-amounts {
-    margin-top: 6px;
+    gap: 2px;
   }
   .overview-view > .overview-columns {
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(400px, 0.85fr) minmax(0, 1.35fr);
-    gap: 40px;
-    margin-top: 14px;
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 32px;
   }
   .overview-column,
   .overview-columns > .overview-stays {
@@ -3119,31 +3166,31 @@ main[data-theme="dark"] {
     font-size: 17px;
     margin: 0;
   }
+  .overview-columns .overview-stays {
+    margin-top: 0;
+  }
   .overview-cost-categories {
-    padding: 0 0 12px;
+    padding: 0;
     border-bottom: 0;
   }
   .overview-cost-categories .overview-stay-heading {
+    flex-direction: column;
     align-items: flex-start;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 16px;
   }
   .overview-cost-categories .cost-breakdown {
-    grid-template-columns: 150px minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 14px;
   }
   .overview-cost-categories .cost-donut {
-    width: 150px;
-  }
-  .cost-donut figcaption strong {
-    font-size: 16px;
+    width: 190px;
   }
   .cost-table th,
   .cost-table td {
     padding-top: 6px;
     padding-bottom: 6px;
-  }
-  .overview-stays {
-    margin-top: 0;
   }
   .overview-stay-caption {
     margin: 2px 0 0;
@@ -3156,8 +3203,11 @@ main[data-theme="dark"] {
     padding-top: 8px;
     padding-bottom: 8px;
   }
-  .overview-table th:first-child {
-    width: 150px;
+  .overview-stays .overview-table th:first-child {
+    width: auto;
+  }
+  .overview-stays .overview-table th:nth-child(2) {
+    width: 300px;
   }
   .overview-night-count strong {
     font-size: 15px;

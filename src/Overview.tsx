@@ -164,7 +164,7 @@ export function Overview({
     nights = 0,
   ) => (
     <>
-      <tr>
+      <tr {...costHover(key)}>
         <th scope="row">
           <button
             className="overview-place overview-country-link"
@@ -200,6 +200,15 @@ export function Overview({
     </>
   );
   const byCountry = countryCosts && costView === "country";
+  const [activeCost, setActiveCost] = useState<string>();
+  // Breakdown rows light up their donut slice, and the other way round.
+  const costHover = (key: string) =>
+    byCountry
+      ? {
+          onPointerEnter: () => setActiveCost(key),
+          className: activeCost === key ? "is-active" : undefined,
+        }
+      : {};
   // Countries in visit order, then what belongs to none; together they make the trip total.
   const countrySlices = [
     ...[...data.countries]
@@ -407,23 +416,18 @@ export function Overview({
                 </>
               )}
             </p>
-            {mixedStatuses && (
-              <p
-                className="overview-status-amounts"
-                aria-label="Cost status breakdown"
-              >
-                {statusTotals.map(([label, amount]) => (
-                  <span key={label}>
-                    {label}
-                    <strong>{moneyLabel(amount, currency)}</strong>
-                  </span>
-                ))}
-              </p>
-            )}
-            <p className="overview-cost-legend">
-              ~ estimated · + some prices missing · ? unknown
-            </p>
           </section>
+        )}
+        {showCosts && (
+          <p className="overview-summary-note" aria-label="Cost status">
+            {mixedStatuses &&
+              statusTotals.map(([label, amount]) => (
+                <span key={label}>
+                  {label} <strong>{moneyLabel(amount, currency)}</strong>
+                </span>
+              ))}
+            <span>~ estimated · + some prices missing · ? unknown</span>
+          </p>
         )}
       </div>
       {/* Wide screens fit the Overview to the window: costs on the left, breakdown on the right. */}
@@ -476,6 +480,9 @@ export function Overview({
                 total={data.costs.total}
                 currency={currency}
                 heading={byCountry ? "Country" : "Category"}
+                table={!byCountry}
+                active={byCountry ? activeCost : undefined}
+                onActive={byCountry ? setActiveCost : undefined}
               />
             </section>
           )}
@@ -518,22 +525,25 @@ export function Overview({
                     : "Places visited"}
               </h2>
               <p className="overview-stay-caption">
-                {hasNights
-                  ? `Share of ${data.nights} ${data.nights === 1 ? "night" : "nights"}`
-                  : "Day visits and travel stops"}
+                {[
+                  hasNights
+                    ? `${data.nights} ${data.nights === 1 ? "night" : "nights"}`
+                    : "Day visits and travel stops",
+                  countryCosts || data.hasStayCosts
+                    ? breakdown === "countries"
+                      ? "in-country costs"
+                      : `${placeCostLabel.toLowerCase()} only`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
-              {(countryCosts || data.hasStayCosts) && (
-                <p className="overview-stay-caption">
-                  {breakdown === "countries"
-                    ? "In-country costs"
-                    : `${placeCostLabel} only`}
-                </p>
-              )}
             </div>
           </div>
           <div className="overview-table-scroll">
             <table
               className={`overview-table ${countryCosts ? "overview-country-costs" : ""}`}
+              onPointerLeave={() => setActiveCost(undefined)}
             >
               <thead>
                 <tr>
@@ -555,8 +565,16 @@ export function Overview({
                 {rows.map((row) => (
                   <Fragment key={row.key}>
                     <tr
+                      {...costHover(row.key)}
                       className={
-                        row.nights === 0 ? "overview-day-visit" : undefined
+                        [
+                          row.nights === 0 ? "overview-day-visit" : "",
+                          byCountry && activeCost === row.key
+                            ? "is-active"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || undefined
                       }
                     >
                       <th scope="row">
