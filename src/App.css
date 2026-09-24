@@ -3060,10 +3060,6 @@ main[data-theme="dark"] {
     justify-items: center;
   }
 }
-.prepare-heading p {
-  margin: 4px 0 0;
-  color: var(--muted);
-}
 /* Locked Area on the trip-wide checklist: still in place, visibly not changeable. */
 .select-trigger:disabled {
   opacity: 0.55;
