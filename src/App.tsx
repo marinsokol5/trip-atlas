@@ -111,6 +111,7 @@ import { ThemedSelect } from "./ThemedSelect";
 import { bookingGaps } from "./booking-model";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { Flag, flagsShown } from "./Flag";
+import { Logo } from "./Logo";
 import { useMapLabelPreference } from "./use-map-label-preference";
 
 type Entry = TripEntry;
@@ -1685,9 +1686,7 @@ function DayDetails({
       </span>
       <Bands model={model} day={day} />
       {/* Header, then the day's must-know, what to see, how to get around, and the paperwork. */}
-      {day.source.notes && (
-        <p className="day-must-know">{day.source.notes}</p>
-      )}
+      {day.source.notes && <p className="day-must-know">{day.source.notes}</p>}
       {!!day.source.sights?.length && (
         <section className="day-details" aria-label="Sights">
           <h3>Sights</h3>
@@ -2034,16 +2033,19 @@ function App() {
     >
       <header className="top">
         <div className="heading">
-          <div>
-            <p className="kicker">ATLAS</p>
-            <h1 title={itinerary?.trip.title}>
-              {itinerary?.trip.title ?? "Trip Atlas"}
-            </h1>
-            <p className="meta">
-              {itinerary
-                ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}` : "Dates open"}`
-                : "A little perspective, before you go."}
-            </p>
+          <div className="brand">
+            <Logo />
+            <div>
+              <p className="kicker">ATLAS</p>
+              <h1 title={itinerary?.trip.title}>
+                {itinerary?.trip.title ?? "Trip Atlas"}
+              </h1>
+              <p className="meta">
+                {itinerary
+                  ? `${itinerary.trip.startDate ? `${dayLabel(itinerary.days[0])} – ${dateLabel(itinerary.days.at(-1)!.date!, { day: "numeric", month: "short", year: "numeric" })}` : "Dates open"}`
+                  : "A little perspective, before you go."}
+              </p>
+            </div>
           </div>
           <div className="header-tools">
             {entries.length > 1 && (

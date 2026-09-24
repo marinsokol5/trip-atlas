@@ -5,6 +5,7 @@ main {
   --muted: #596b7a;
   --line: #d8e0e6;
   --blue: #1a59b8;
+  --logo: #1a59b8;
   --wash: #e9f0fb;
   --water: #d6e7ef;
   --land: #c8d8bd;
@@ -27,6 +28,7 @@ main[data-theme="dark"] {
   --muted: #a6b6c5;
   --line: #364856;
   --blue: #8ab5ff;
+  --logo: #2f6fd6;
   --wash: #263c5a;
   --water: #142c3c;
   --land: #304334;
@@ -42,6 +44,19 @@ main[data-theme="dark"] {
   justify-content: space-between;
   gap: 24px;
   align-items: center;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.brand > div {
+  min-width: 0;
+}
+.logo {
+  width: 44px;
+  height: 44px;
+  flex: none;
 }
 .kicker {
   font-size: 11px;

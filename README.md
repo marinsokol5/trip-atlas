@@ -1,4 +1,4 @@
-# Trip Atlas
+# <img src="public/favicon.svg" alt="" width="36" height="36" align="top"> Trip Atlas
 
 Turn a travel plan into a map, calendar and clear picture of where your time and money go. Open a few JSON itineraries, switch between them, and compare routes, nights, travel time and per-person costs.
 
