@@ -70,7 +70,16 @@ test("per-person budgets preserve day and night allocation across repeat visits"
   assert.equal(jp.nights, 2);
   assert.equal(vn.days, 3);
   assert.equal(vn.nights, 1);
-  assert.equal(whole.stays.find((r) => r.key === "transit")!.nights, 1);
+  // The overnight flight crosses a border, so its night sits between countries.
+  assert.equal(
+    whole.stays.find((r) => r.key === "transit"),
+    undefined,
+  );
+  assert.equal(whole.betweenNights, 1);
+  assert.equal(
+    overview(m, "", "places").stays.find((r) => r.key === "transit")!.nights,
+    1,
+  );
   assert.equal(whole.stays.find((r) => r.key === "JP")!.nights, 2);
   assert.equal(whole.costs.living.value, 310);
   assert.equal(whole.costs.accommodation.value, 330);
@@ -579,8 +588,9 @@ test("home days before the first stay country and after the last carry no living
   assert.equal(plain.costs.living.missing, 0);
   assert.deepEqual(
     plain.stays.map((row) => row.key),
-    ["VN", "transit"],
+    ["VN"],
   );
+  assert.equal(plain.betweenNights, 1);
   assert.equal(plain.countries.get("VN")!.budgetDays, 2);
   // Something spent at home brings the country back as a row.
   const taxi = overview(trip(true), "", "countries");
@@ -599,4 +609,65 @@ test("a trip that starts at its destination counts its first day", () => {
     days: [{}, {}, {}],
   });
   assert.equal(overview(model).costs.living.value, 3 * 40);
+});
+
+test("country comparison gives each overnight journey's night to its country or to between countries", () => {
+  const model = normalizeTrip({
+    version: 1,
+    currency: "EUR",
+    initialPlace: "hanoi",
+    places: {
+      hanoi: { country: "VN", name: "Hanoi" },
+      hue: { country: "VN", name: "Hue" },
+      bangkok: { country: "TH", name: "Bangkok" },
+    },
+    bookings: [
+      { type: "other", title: "eSIM", cost: { amount: 20, status: "paid" } },
+    ],
+    days: [
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "hue",
+            mode: "train",
+            start: "22:00",
+            end: "08:00",
+            endDay: 2,
+          },
+        ],
+      },
+      {
+        blocks: [
+          {
+            type: "travel",
+            to: "bangkok",
+            mode: "bus",
+            estimatedCost: 30,
+            start: "20:00",
+            end: "10:00",
+            endDay: 3,
+          },
+        ],
+      },
+      {},
+      {},
+    ],
+  });
+  const data = overview(model, "", "countries");
+  assert.equal(data.stays.find((r) => r.key === "VN")!.nights, 1);
+  assert.equal(
+    data.stays.find((r) => r.key === "transit"),
+    undefined,
+  );
+  assert.equal(data.betweenNights, 1);
+  assert.equal(data.nights, 3);
+  assert.deepEqual(
+    data.betweenItems.map((item) => [item.label, item.cost.value]),
+    [["Hue → Bangkok", 30]],
+  );
+  assert.deepEqual(
+    data.expenseItems.map((item) => [item.label, item.cost.value]),
+    [["eSIM", 20]],
+  );
 });

@@ -241,6 +241,9 @@ export function overview(
   const additions = new Map<number, { price: Override; place?: string }[]>();
   const unallocatedBookings = amount(),
     expenses = amount();
+  const expenseItems: { label: string; cost: Amount }[] = [],
+    betweenItems: { label: string; cost: Amount }[] = [];
+  let betweenNights = 0;
   for (const booking of model.trip.bookings ?? []) {
     if (!booking.cost || booking.status === "cancelled") continue;
     const allocation = bookingAllocation(booking, model.trip);
@@ -250,7 +253,12 @@ export function overview(
     };
     // Trip-wide expenses belong to no country, so area views leave them out.
     if (booking.type === "other") {
-      if (!country) addCost(expenses, price.value, price.status);
+      if (!country) {
+        addCost(expenses, price.value, price.status);
+        const cost = amount();
+        addCost(cost, price.value, price.status);
+        expenseItems.push({ label: booking.title, cost });
+      }
     } else if (!allocation) {
       if (!country) addCost(unallocatedBookings, price.value, price.status);
     } else if (allocation.type === "transport")
@@ -417,7 +425,18 @@ export function overview(
     }
     if (day.index === model.days.length - 1) continue;
     if (day.inTransit) {
-      if (!country) {
+      if (country) continue;
+      // Compared by country, a night aboard a domestic journey is spent in that
+      // country and one crossing a border sits between countries.
+      const leg = activeLegs(model, day).find(
+        (leg) => leg.endDay > day.index + 1,
+      );
+      const from = countryOf(leg?.from),
+        to = countryOf(leg?.to);
+      if (breakdown === "countries" && from && from === to)
+        row(leg!.from).nights++;
+      else if (breakdown === "countries" && from && to) betweenNights++;
+      else {
         const r = row(undefined, "transit");
         r.nights++;
         r.daySet.add(day.index);
@@ -457,8 +476,15 @@ export function overview(
       if (!country || from === country || to === country)
         addCost(unassignedTravel, legValue, legStatus);
     } else if (from !== to) {
-      if (!country || from === country || to === country)
+      if (!country || from === country || to === country) {
         addCost(betweenCountries, legValue, legStatus);
+        const cost = amount();
+        addCost(cost, legValue, legStatus);
+        betweenItems.push({
+          label: `${model.trip.places[leg.from!].name ?? leg.from} → ${model.trip.places[leg.to].name ?? leg.to}`,
+          cost,
+        });
+      }
     } else addCost(countryBucket(from).total, legValue, legStatus);
     // Country cost categories have the same domestic scope as the country total.
     if (country && (from !== country || to !== country)) continue;
@@ -494,7 +520,10 @@ export function overview(
     .sort((a, b) => b.nights - a.nights || b.days - a.days);
   return {
     days: areaDays(model, country).length,
-    nights: stays.reduce((sum, r) => sum + r.nights, 0),
+    nights: stays.reduce((sum, r) => sum + r.nights, 0) + betweenNights,
+    betweenNights,
+    betweenItems,
+    expenseItems,
     stays,
     countries,
     budgetDays: country

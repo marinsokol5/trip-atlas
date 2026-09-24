@@ -82,6 +82,24 @@ export function Overview({
       if (!next.delete(code)) next.add(code);
       return next;
     });
+  const nightsCell = (nights?: number) => (
+    <td hidden={!hasNights}>
+      {nights !== undefined && (
+        <div className="overview-night-measure">
+          <span className="overview-bar" aria-hidden="true">
+            <span
+              style={{ width: `${nightShare(nights, data.nights)}%` }}
+              className="overview-subbar"
+            />
+          </span>
+          <span className="overview-night-count">
+            <strong>{nights}</strong>
+            <span>{Math.round(nightShare(nights, data.nights))}%</span>
+          </span>
+        </div>
+      )}
+    </td>
+  );
   // A country opens in place into the places its Area view lists, plus travel within it.
   const countryPlaces = (code: string) => {
     const scoped = overview(model, code, "places");
@@ -96,24 +114,6 @@ export function Overview({
       ]),
     );
     const transport = scoped.costs.transport;
-    const nightsCell = (nights?: number) => (
-      <td hidden={!hasNights}>
-        {nights !== undefined && (
-          <div className="overview-night-measure">
-            <span className="overview-bar" aria-hidden="true">
-              <span
-                style={{ width: `${nightShare(nights, data.nights)}%` }}
-                className="overview-subbar"
-              />
-            </span>
-            <span className="overview-night-count">
-              <strong>{nights}</strong>
-              <span>{Math.round(nightShare(nights, data.nights))}%</span>
-            </span>
-          </div>
-        )}
-      </td>
-    );
     const costCells = (cost?: Amount, days = 0) =>
       countryCosts ? (
         <>
@@ -156,6 +156,50 @@ export function Overview({
       </>
     );
   };
+  // A footer total that opens in place into the journeys or expenses it adds up.
+  const bucketRow = (
+    key: string,
+    label: string,
+    cost: Amount,
+    items: { label: string; cost: Amount }[],
+    nights = 0,
+  ) => (
+    <>
+      <tr>
+        <th scope="row">
+          <button
+            className="overview-place overview-country-link"
+            type="button"
+            aria-expanded={expanded.has(key)}
+            aria-controls={`overview-items-${key}`}
+            onClick={() => toggleCountry(key)}
+          >
+            <span className="overview-place-name">{label}</span>
+            <ChevronRight aria-hidden="true" />
+          </button>
+        </th>
+        {nights ? nightsCell(nights) : <td hidden={!hasNights}>—</td>}
+        <td>{moneyLabel(cost, currency)}</td>
+        <td>—</td>
+      </tr>
+      {expanded.has(key) &&
+        [...items]
+          .sort((a, b) => b.cost.value - a.cost.value)
+          .map((item, index) => (
+            <tr
+              key={`${item.label}-${index}`}
+              id={index ? undefined : `overview-items-${key}`}
+              className="overview-subrow"
+            >
+              <th scope="row" colSpan={hasNights ? 2 : 1}>
+                <span className="overview-place-name">{item.label}</span>
+              </th>
+              <td>{moneyLabel(item.cost, currency)}</td>
+              <td>—</td>
+            </tr>
+          ))}
+    </>
+  );
   const placeCostLabel = data.costs.activities.known
     ? "Living + stay + activities"
     : hasNights
@@ -551,22 +595,33 @@ export function Overview({
                 )}
                 {extraBuckets
                   .filter(([, cost]) => cost.known || cost.missing)
-                  .map(([label, cost]) => (
-                    <tr key={label}>
-                      <th scope="row">{label}</th>
-                      <td hidden={!hasNights}>—</td>
-                      <td>{moneyLabel(cost, currency)}</td>
-                      <td>—</td>
-                    </tr>
-                  ))}
-                {hasExpenses && (
-                  <tr>
-                    <th scope="row">Other expenses</th>
-                    <td hidden={!hasNights}>—</td>
-                    <td>{moneyLabel(data.costs.expenses, currency)}</td>
-                    <td>—</td>
-                  </tr>
-                )}
+                  .map(([label, cost]) =>
+                    label === "Between countries" ? (
+                      <Fragment key={label}>
+                        {bucketRow(
+                          "between",
+                          label,
+                          cost,
+                          data.betweenItems,
+                          data.betweenNights,
+                        )}
+                      </Fragment>
+                    ) : (
+                      <tr key={label}>
+                        <th scope="row">{label}</th>
+                        <td hidden={!hasNights}>—</td>
+                        <td>{moneyLabel(cost, currency)}</td>
+                        <td>—</td>
+                      </tr>
+                    ),
+                  )}
+                {hasExpenses &&
+                  bucketRow(
+                    "expenses",
+                    "Other expenses",
+                    data.costs.expenses,
+                    data.expenseItems,
+                  )}
                 <tr className="overview-grand-total">
                   <th scope="row">Trip total</th>
                   <td hidden={!hasNights}>—</td>
