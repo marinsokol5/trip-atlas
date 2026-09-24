@@ -267,15 +267,7 @@ export function Overview({
       combine(...statuses.filter(([s]) => s !== "estimated").map(([, a]) => a)),
     ],
   ] as const;
-  const countrySubtotal = combine(
-    ...[...data.countries]
-      .filter(([code]) => code !== "unknown")
-      .map(([, value]) => value.total),
-  );
   const hasExpenses = data.costs.expenses.known > 0;
-  const hasExtraAmounts =
-    hasExpenses ||
-    extraBuckets.some(([, value]) => value.value > 0 || value.missing > 0);
   const sortColumn = (key: StaySortKey) => {
     const next = {
       key,
@@ -634,12 +626,6 @@ export function Overview({
               </tbody>
               {countryCosts && !country && (
                 <tfoot>
-                  {hasExtraAmounts && (
-                    <tr>
-                      <th scope="row">Countries subtotal</th>
-                      {rowCells({ cost: countrySubtotal })}
-                    </tr>
-                  )}
                   {extraBuckets
                     .filter(([, cost]) => cost.known || cost.missing)
                     .map(([label, cost]) =>
