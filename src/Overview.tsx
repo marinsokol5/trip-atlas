@@ -249,6 +249,48 @@ export function Overview({
           ))}
     </>
   );
+  // The grand total, opening into estimated and confirmed amounts when both occur.
+  const totalRows = (totalLabel: string) => (
+    <>
+      <tr className="overview-grand-total">
+        <th scope="row">
+          {mixedStatuses ? (
+            <button
+              className="overview-place overview-country-link"
+              type="button"
+              aria-expanded={expanded.has("total")}
+              aria-controls="overview-items-total"
+              onClick={() => toggleCountry("total")}
+            >
+              <span className="overview-place-name">{totalLabel}</span>
+              <ChevronRight aria-hidden="true" />
+            </button>
+          ) : (
+            totalLabel
+          )}
+        </th>
+        {rowCells({
+          cost: data.costs.total,
+          nights: data.nights,
+          days: data.budgetDays,
+        })}
+      </tr>
+      {mixedStatuses &&
+        expanded.has("total") &&
+        statusTotals.map(([label, amount], index) => (
+          <tr
+            key={label}
+            id={index ? undefined : "overview-items-total"}
+            className="overview-subrow"
+          >
+            <th scope="row">
+              <span className="overview-place-name">{label}</span>
+            </th>
+            {rowCells({ cost: amount })}
+          </tr>
+        ))}
+    </>
+  );
   const byCountry = countryCosts && costView === "country";
   const [activeCost, setActiveCost] = useState<string>();
   // Breakdown rows light up their donut slice, and the other way round.
@@ -617,6 +659,25 @@ export function Overview({
                   </Fragment>
                 ))}
               </tbody>
+              {!countryCosts && data.hasStayCosts && (
+                <tfoot>
+                  {(data.costs.transport.known > 0 ||
+                    data.costs.transport.missing > 0) && (
+                    <tr>
+                      <th scope="row">Transport</th>
+                      {rowCells({ cost: data.costs.transport })}
+                    </tr>
+                  )}
+                  {hasExpenses &&
+                    bucketRow(
+                      "expenses",
+                      "Other expenses",
+                      data.costs.expenses,
+                      data.expenseItems,
+                    )}
+                  {totalRows(country ? "Total" : "Trip total")}
+                </tfoot>
+              )}
               {countryCosts && !country && (
                 <tfoot>
                   {extraBuckets
@@ -646,45 +707,7 @@ export function Overview({
                       data.costs.expenses,
                       data.expenseItems,
                     )}
-                  <tr className="overview-grand-total">
-                    <th scope="row">
-                      {mixedStatuses ? (
-                        <button
-                          className="overview-place overview-country-link"
-                          type="button"
-                          aria-expanded={expanded.has("total")}
-                          aria-controls="overview-items-total"
-                          onClick={() => toggleCountry("total")}
-                        >
-                          <span className="overview-place-name">
-                            Trip total
-                          </span>
-                          <ChevronRight aria-hidden="true" />
-                        </button>
-                      ) : (
-                        "Trip total"
-                      )}
-                    </th>
-                    {rowCells({
-                      cost: data.costs.total,
-                      nights: data.nights,
-                      days: data.budgetDays,
-                    })}
-                  </tr>
-                  {mixedStatuses &&
-                    expanded.has("total") &&
-                    statusTotals.map(([label, amount], index) => (
-                      <tr
-                        key={label}
-                        id={index ? undefined : "overview-items-total"}
-                        className="overview-subrow"
-                      >
-                        <th scope="row">
-                          <span className="overview-place-name">{label}</span>
-                        </th>
-                        {rowCells({ cost: amount })}
-                      </tr>
-                    ))}
+                  {totalRows("Trip total")}
                 </tfoot>
               )}
             </table>
