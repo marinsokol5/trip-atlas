@@ -31,15 +31,8 @@ npx skills update
 3. To compare plans, make another file and open both: `trip-atlas plan-a.json plan-b.json`.
 4. To keep a booking, ticket or confirmation email, use `/trip-atlas-download-booking`. It saves a clean PDF next to your itinerary and links it to the trip.
 
-## Open it on your phone
+## Host
 
-Trip Atlas only listens on your own computer. To reach it from your phone, put [Tailscale](https://tailscale.com/) in front of it and name your computer's tailnet address in `TRIP_ATLAS_HOSTS` (comma-separated for several):
-
-```sh
-TRIP_ATLAS_HOSTS=your-mac.your-tailnet.ts.net PORT=4173 trip-atlas --no-open itinerary.json
-tailscale serve --bg 4173
-```
-
-Then open `https://your-mac.your-tailnet.ts.net` on any device in your tailnet. Linked documents come from the same server, so PDFs open too while your computer is awake and Trip Atlas is running. Use `tailscale serve`, never `tailscale funnel`: funnel publishes your tickets and passports to the internet.
+For self-hosting, I recommend [Tailscale](https://tailscale.com/).
 
 [MIT license](LICENSE)
