@@ -133,6 +133,8 @@ export interface TripDay {
   title?: string;
   /** A must-know for this day that no booking, activity or journey owns. */
   notes?: string;
+  /** What makes the date itself special: a birthday, a holiday, the last night abroad. */
+  occasions?: string[];
   activities?: Activity[];
   documents?: DocumentLink[];
   blocks?: (TravelBlock | PlaceBlock)[];
@@ -452,9 +454,18 @@ export function parseTrip(input: unknown): Trip {
   t.days.forEach((v, i) => {
     const path = `days[${i}]`,
       d = object(v, path);
-    only(d, ["title", "notes", "activities", "documents", "blocks"], path);
+    only(
+      d,
+      ["title", "notes", "occasions", "activities", "documents", "blocks"],
+      path,
+    );
     if (d.title !== undefined) string(d.title, path + ".title");
     if (d.notes !== undefined) string(d.notes, path + ".notes");
+    if (d.occasions !== undefined) {
+      if (!Array.isArray(d.occasions))
+        fail(path + ".occasions", "expected an array");
+      d.occasions.forEach((o, j) => string(o, `${path}.occasions[${j}]`));
+    }
     if (d.activities !== undefined) {
       if (!Array.isArray(d.activities))
         fail(path + ".activities", "expected an array");

@@ -607,3 +607,10 @@ test("day activities take a name and an optional id, map link, tip and price", (
     /unknown field/,
   );
 });
+test("day occasions are a list of non-empty labels", () => {
+  const day = (occasions: unknown) => ({ ...base(), days: [{ occasions }] });
+  const ok = normalizeTrip(day(["🎂 Birthday", "Christmas Eve"]));
+  assert.deepEqual(ok.trip.days[0].occasions, ["🎂 Birthday", "Christmas Eve"]);
+  assert.throws(() => normalizeTrip(day("Birthday")), /days\[0\]\.occasions/);
+  assert.throws(() => normalizeTrip(day([" "])), /days\[0\]\.occasions\[0\]/);
+});
