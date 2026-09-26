@@ -13,6 +13,7 @@ test("the build lists every bundled runtime library with its license text", asyn
     "scheduler",
     "lucide-react",
     "d3-geo",
+    "@cfworker/json-schema",
   ])
     assert.match(
       text,

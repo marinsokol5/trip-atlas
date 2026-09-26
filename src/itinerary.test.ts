@@ -8,6 +8,7 @@ import {
   documentUrl,
 } from "./itinerary.ts";
 import type { Trip } from "./itinerary.ts";
+import schema from "../skills/trip-atlas-update-itinerary/itinerary.schema.json" with { type: "json" };
 const base = (): Trip => ({
   version: 1,
   title: "Example",
@@ -160,6 +161,74 @@ test("DST fold and gap require clarification", () => {
     /does not exist/,
   );
 });
+test("schema errors name the field and what it expected", () => {
+  const trip = (patch: Record<string, unknown>) =>
+    normalizeTrip({ ...base(), currency: "EUR", ...patch });
+  const travel = (block: Record<string, unknown>) =>
+    trip({
+      days: [{ blocks: [{ type: "travel", to: "kyoto", ...block }] }, {}],
+    });
+  const cases: [() => unknown, string][] = [
+    [
+      () => travel({ start: "24:00" }),
+      "days[0].blocks[0].start: expected HH:mm",
+    ],
+    [
+      () => travel({ distanceKm: JSON.parse("1e400") }),
+      "days[0].blocks[0].distanceKm: expected a finite number",
+    ],
+    [
+      () => travel({ distanceKm: 0 }),
+      "days[0].blocks[0].distanceKm: expected more than 0",
+    ],
+    [
+      () => travel({ mode: "bus", components: [{ mode: "bus" }] }),
+      "days[0].blocks[0]: omit mode when components give each part's mode",
+    ],
+    [
+      () => trip({ days: [{ blocks: [{ type: "boat" }] }] }),
+      'days[0].blocks[0].type: expected "travel" or "place"',
+    ],
+    [
+      () => trip({ days: [{ blocks: [null] }] }),
+      "days[0].blocks[0]: expected object",
+    ],
+    [
+      () => trip({ bookings: [{ type: "other", title: "x", cost: "100" }] }),
+      "bookings[0].cost: expected number or object",
+    ],
+    [
+      () =>
+        trip({
+          bookings: [{ type: "stay", title: "x" }],
+        }),
+      "bookings[0].type: expected one of accommodation, transport, activity, other",
+    ],
+    [
+      () =>
+        trip({
+          bookings: [
+            { type: "accommodation", title: "x", meals: { dinner: 1 } },
+          ],
+        }),
+      "bookings[0].meals.dinner: expected boolean or string",
+    ],
+    [
+      () => trip({ places: { ...base().places, " ": {} } }),
+      "places. : expected a non-empty ID",
+    ],
+    [
+      () => trip({ days: [{ title: undefined }] }),
+      "days[0].title: expected JSON data, not undefined",
+    ],
+    [() => normalizeTrip(null), "trip: expected object"],
+  ];
+  for (const [run, message] of cases)
+    assert.throws(run, (error: Error) => {
+      assert.equal(error.message, message);
+      return true;
+    });
+});
 test("document paths stay local", () => {
   for (const path of [
     "../secret",
@@ -171,6 +240,33 @@ test("document paths stay local", () => {
     "a?b",
   ])
     assert.equal(safeRelativePath(path), false, path);
+  // The schema's path pattern and safeRelativePath must agree.
+  const pattern = new RegExp(
+    schema.$defs.document.properties.path.pattern,
+    "u",
+  );
+  for (const path of [
+    "a.pdf",
+    "documents/jp/2026-01-02-tokyo-hotel.pdf",
+    "a/.b/c..d",
+    "",
+    ".",
+    "..",
+    "./a",
+    "a/./b",
+    "a/../b",
+    "a//b",
+    "a/",
+    "/a",
+    "a\\b",
+    "c:/a",
+    "a#b",
+    "a?b",
+    "a%20b",
+    "a\u0000b",
+    "a\u001fb",
+  ])
+    assert.equal(pattern.test(path), safeRelativePath(path), path);
   assert.equal(
     documentUrl("japan", "notes/booking one.pdf"),
     "/trips/japan/notes/booking%20one.pdf",
@@ -282,7 +378,7 @@ test("optional visual groups, estimates and components validate; unknown fields 
         places: {},
         days: [{}],
       }),
-    /trip.customMetadata: unknown field/,
+    /^Error: customMetadata: unknown field/,
   );
   assert.throws(
     () => normalizeTrip({ version: 1, places: {}, days: [{ summary: "x" }] }),
@@ -375,15 +471,15 @@ test("optional budgets accept zero, preserve legacy trips, and require one curre
       /estimatedCost/,
     );
   }
-  assert.throws(
-    () => normalizeTrip({ ...trip, currency: undefined }),
-    /currency: required/,
-  );
+  assert.throws(() => {
+    const { currency: _, ...withoutCurrency } = trip;
+    return normalizeTrip(withoutCurrency);
+  }, /currency: required/);
   for (const currency of ["eur", "EU", "", null])
     assert.throws(() => normalizeTrip({ ...trip, currency }), /currency:/);
   assert.throws(
     () => normalizeTrip({ ...trip, budget: { countries: { jp: {} } } }),
-    /uppercase ISO2/,
+    /budget.countries.jp: expected an uppercase ISO2 country code/,
   );
   assert.throws(
     () => normalizeTrip({ ...trip, budget: {} }),

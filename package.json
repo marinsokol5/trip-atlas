@@ -14,6 +14,7 @@
     "!scripts/*.test.mjs",
     "!scripts/release.mjs",
     "!scripts/pages.mjs",
+    "!scripts/schema-types.mjs",
     "skills/",
     "trips/",
     "THIRD_PARTY_NOTICES.md"
@@ -40,6 +41,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && vite build --config vite.node.config.ts",
     "lint": "oxlint",
+    "schema": "node scripts/schema-types.mjs",
     "start": "npm run build && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs",
     "test": "node --test src/*.test.ts scripts/*.test.mjs",
@@ -51,12 +53,14 @@
     "update": "npm install -g trip-atlas@latest && npx -y skills update -g trip-atlas-update-itinerary trip-atlas-download-booking"
   },
   "devDependencies": {
+    "@cfworker/json-schema": "^4.1.1",
     "@types/d3-geo": "^3.1.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "d3-geo": "^3.1.1",
+    "json-schema-to-typescript": "^16.0.0",
     "lucide-react": "^1.43.0",
     "oxlint": "^1.79.0",
     "prettier": "^3.9.6",

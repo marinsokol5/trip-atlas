@@ -1,176 +1,48 @@
+import { Validator, type OutputUnit, type Schema } from "@cfworker/json-schema";
+import schema from "../skills/trip-atlas-update-itinerary/itinerary.schema.json" with { type: "json" };
 import { validateBookingAllocations } from "./booking-model.ts";
+import type {
+  BookingCost,
+  BookingInput,
+  PlaceInput,
+  TravelBlock,
+  TripDay,
+  TripInput,
+} from "./itinerary-schema.ts";
 
-const clock = "([01]\\d|2[0-3]):[0-5]\\d";
-
-export interface DocumentLink {
-  label: string;
-  path: string;
-}
-export type Meal = boolean | string;
-export interface BaggageAllowance {
-  type: "checked" | "cabin" | "personal";
-  pieces: number;
-  /** Weight limit per piece. */
-  kg?: number;
-}
-export type CostStatus = "estimated" | "confirmed" | "paid";
-export type BookingAllocation =
-  | { type: "accommodation"; nights: number[] }
-  | { type: "transport"; leg: string }
-  | { type: "activity"; activity: string }
-  | { type: "additional"; day: number }
-  | { type: "unallocated" };
-export interface Booking {
-  /** `other` is a trip-wide expense (eSIM, visa) counted once in the whole-trip total. */
-  type: "accommodation" | "transport" | "activity" | "other";
+// The file format lives in the shipped JSON Schema; these are its generated types.
+export type {
+  Activity,
+  BaggageAllowance,
+  BookingAllocation,
+  BookingCost,
+  BookingInput,
+  CountryBudget,
+  DocumentLink,
+  Meal,
+  PackingItem,
+  PlaceBlock,
+  PlaceGroup,
+  PlaceInput,
+  PreparationTask,
+  TravelBlock,
+  TravelComponent,
+  TravelMode,
+  TripDay,
+  TripInput,
+  TripPreparation,
+} from "./itinerary-schema.ts";
+export type CostStatus = NonNullable<BookingCost["status"]>;
+/** A booking after parsing: a bare-number cost becomes `{ amount }`. */
+export type Booking = Omit<BookingInput, "cost"> & { cost?: BookingCost };
+/** A place after parsing, named by its ID when the file gives none. */
+export type Place = PlaceInput & { name: string };
+/** A trip after parsing, with defaults filled in. */
+export type Trip = Omit<TripInput, "title" | "places" | "bookings"> & {
   title: string;
-  place?: string;
-  startDate?: string;
-  endDate?: string;
-  startDay?: number;
-  endDay?: number;
-  status?: "planned" | "confirmed" | "cancelled";
-  reference?: string;
-  /** Meals with a stay: true/false, or text (e.g. "18:00, Japanese") for an included meal; omission means unknown. */
-  meals?: { dinner?: Meal; breakfast?: Meal; lunch?: Meal };
-  /** Local check-in time as `HH:mm` or a `HH:mm-HH:mm` window. */
-  checkIn?: string;
-  /** Latest local check-out time as `HH:mm`. */
-  checkOut?: string;
-  /** Bags each person may carry, e.g. on a flight. */
-  baggage?: BaggageAllowance[];
-  /** Plain-text reminder shown on the booking card. */
-  notes?: string;
-  /** Marks the note as a must, not a tip (e.g. "Bring ¥32,000 in cash"). */
-  important?: boolean;
-  /** Exact property location, linked to an external map. */
-  coordinates?: { lat: number; lon: number };
-  /** A Google Maps link to the place itself, opened instead of the coordinates. */
-  mapUrl?: string;
-  documents?: DocumentLink[];
-  cost?: {
-    /** Whole booking amount for one person, in the trip currency. */
-    amount: number;
-    status?: CostStatus;
-    allocation?: BookingAllocation;
-  };
-}
-export interface PlaceGroup {
-  name: string;
-  color?: string;
-}
-export interface Place {
-  group?: string;
-  name?: string;
-  country?: string;
-  timezone?: string;
-  coordinates?: {
-    lat: number;
-    lon: number;
-  };
-}
-/** How you travel; `other` for anything else (cable car, rickshaw). */
-export const travelModes = [
-  "walk",
-  "train",
-  "bus",
-  "flight",
-  "ferry",
-  "car",
-  "other",
-] as const;
-export type TravelMode = (typeof travelModes)[number];
-export interface TravelComponent {
-  mode: TravelMode;
-  estimatedDurationMinutes?: number;
-}
-export interface CountryBudget {
-  /** Daily living estimate for one person, in the trip currency. */
-  livingPerDay?: number;
-  /** One person's accommodation share per night, in the trip currency. */
-  accommodationPerNight?: number;
-}
-export interface TravelBlock {
-  /** Stable optional ID for explicit booking cost replacement. */
-  id?: string;
-  /** Estimated price for one person, in the trip currency. */
-  estimatedCost?: number;
-  components?: TravelComponent[];
-  type: "travel";
-  to: string;
-  from?: string;
-  start?: string;
-  end?: string;
-  endDay?: number;
-  /** Omitted when `components` give each part's mode. */
-  mode?: TravelMode;
-  estimatedDurationMinutes?: number;
-  /** Route length in kilometres, mainly for walks. */
-  distanceKm?: number;
-  /** Total climb and descent in metres. */
-  ascentMeters?: number;
-  descentMeters?: number;
-  notes?: string;
-  documents?: DocumentLink[];
-}
-export interface PlaceBlock {
-  type: "place";
-  place: string;
-}
-/** Something to see or do that day: a temple, a cruise, a show, a bath. */
-export interface Activity {
-  /** Stable reference for the booking that replaces its estimate. */
-  id?: string;
-  name: string;
-  /** A Google Maps link to the place itself. */
-  mapUrl?: string;
-  /** One non-obvious line about it ("Skip the first deer; there are more further in"). */
-  tip?: string;
-  /** Ticket or tour price for one person, in the trip currency; never part of living costs. */
-  estimatedCost?: number;
-}
-export interface TripDay {
-  title?: string;
-  /** A must-know for this day that no booking, activity or journey owns. */
-  notes?: string;
-  /** What makes the date itself special: a birthday, a holiday, the last night abroad. */
-  occasions?: string[];
-  activities?: Activity[];
-  documents?: DocumentLink[];
-  blocks?: (TravelBlock | PlaceBlock)[];
-}
-export interface PreparationTask {
-  title: string;
-  done?: boolean;
-  notes?: string;
-}
-export interface PackingItem {
-  title: string;
-  packed?: boolean;
-  notes?: string;
-  category?: string;
-  quantity?: number;
-}
-export interface TripPreparation {
-  /** Array order is priority order, including completed tasks. */
-  checklist?: PreparationTask[];
-  packing?: PackingItem[];
-}
-export interface Trip {
-  prepare?: TripPreparation;
-  bookings?: Booking[];
-  documents?: DocumentLink[];
-  currency?: string;
-  budget?: { countries: Record<string, CountryBudget> };
-  version: 1;
-  title?: string;
-  startDate?: string;
-  timezone?: string;
-  initialPlace?: string;
-  groups?: Record<string, PlaceGroup>;
   places: Record<string, Place>;
-  days: TripDay[];
-}
+  bookings?: Booking[];
+};
 export interface Leg {
   id: string;
   day: number;
@@ -218,24 +90,182 @@ export interface Itinerary {
 function fail(path: string, message: string): never {
   throw new Error(`${path}: ${message}`);
 }
-function object(value: unknown, path: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    fail(path, "expected an object");
-  return value as Record<string, unknown>;
+
+const validator = new Validator(schema as Schema, "2020-12", true);
+/** `#/days/0/to` as `days[0].to`, walking the input to tell array indexes from object keys. */
+function schemaPath(input: unknown, pointer: string): string {
+  let path = "trip",
+    value = input;
+  for (const raw of pointer.split("/").slice(1)) {
+    const key = decodeURIComponent(raw)
+      .replaceAll("~1", "/")
+      .replaceAll("~0", "~");
+    path = Array.isArray(value)
+      ? `${path}[${key}]`
+      : path === "trip"
+        ? key
+        : `${path}.${key}`;
+    value = (value as Record<string, unknown> | undefined)?.[key];
+  }
+  return path;
 }
-function coordinates(value: unknown, path: string) {
-  const c = object(value, path);
-  only(c, ["lat", "lon"], path);
-  if (
-    typeof c.lat !== "number" ||
-    !Number.isFinite(c.lat) ||
-    Math.abs(c.lat) > 90 ||
-    typeof c.lon !== "number" ||
-    !Number.isFinite(c.lon) ||
-    Math.abs(c.lon) > 180
-  )
-    fail(path, "invalid latitude/longitude");
+type SchemaNode = Record<string, unknown>;
+/** The schema node at a cfworker keyword location, following each `$ref` on the way. */
+function schemaAt(keywordLocation: string): SchemaNode {
+  let node: unknown = schema;
+  for (const raw of keywordLocation.split("/").slice(1)) {
+    node = (node as SchemaNode)[decodeURIComponent(raw)];
+    if (raw === "$ref")
+      node = (node as string)
+        .slice(2)
+        .split("/")
+        .reduce((n: unknown, key) => (n as SchemaNode)[key], schema);
+  }
+  return node as SchemaNode;
 }
+const list = (values: unknown[]) =>
+  [...new Set(values.flat())].map((v) => JSON.stringify(v)).join(" or ");
+/** What a failed keyword expected, in words; the schema's `errorMessage` wins where it has one. */
+function expected(error: OutputUnit): string {
+  const at = error.keywordLocation,
+    node = schemaAt(at.slice(0, at.lastIndexOf("/"))),
+    value = node[error.keyword];
+  switch (error.keyword) {
+    case "type":
+      return `expected ${[value].flat().join(" or ")}`;
+    case "enum":
+      return `expected one of ${(value as unknown[]).join(", ")}`;
+    case "const":
+      return `expected ${JSON.stringify(value)}`;
+    case "pattern":
+      return (node.errorMessage as string) ?? `expected to match ${value}`;
+    case "minimum":
+      return `expected at least ${value}`;
+    case "exclusiveMinimum":
+      return `expected more than ${value}`;
+    case "maximum":
+      return `expected at most ${value}`;
+    case "minLength":
+      return "expected a non-empty string";
+    case "minItems":
+      return `expected at least ${value} ${value === 1 ? "item" : "items"}`;
+    case "uniqueItems":
+      return "expected unique items";
+  }
+  return error.error;
+}
+const branch = /\/(oneOf|anyOf)\/\d+/g;
+/**
+ * Throws the one schema error worth reading: the first concrete failure, skipping union
+ * branches whose JSON type or `type` discriminator shows they were never the intended shape.
+ */
+function schemaFailure(input: unknown, errors: OutputUnit[]): never {
+  const unionAt = new Map(
+    errors
+      .filter((e) => e.keyword === "oneOf" || e.keyword === "anyOf")
+      .map((e) => [e.keywordLocation, e.instanceLocation]),
+  );
+  const wrong = new Set<string>();
+  for (const e of errors) {
+    if (e.keyword !== "const" && e.keyword !== "type") continue;
+    const last = [...e.keywordLocation.matchAll(branch)].at(-1);
+    if (!last) continue;
+    const prefix = e.keywordLocation.slice(0, last.index + last[0].length),
+      at = unionAt.get(prefix.replace(/\/\d+$/, ""));
+    if (e.instanceLocation === at || e.instanceLocation === `${at}/type`)
+      wrong.add(prefix);
+  }
+  const relevant = errors.filter(
+    (e) =>
+      ![...wrong].some(
+        (p) => e.keywordLocation === p || e.keywordLocation.startsWith(p + "/"),
+      ),
+  );
+  const wrappers = [
+    "properties",
+    "items",
+    "$ref",
+    "oneOf",
+    "anyOf",
+    "not",
+    "additionalProperties",
+  ];
+  const leaf =
+      relevant.find((e) => !wrappers.includes(e.keyword)) ?? relevant.at(-1)!,
+    path = schemaPath(input, leaf.instanceLocation),
+    quoted = /"(.*?)"/.exec(leaf.error)?.[1];
+  switch (leaf.keyword) {
+    case "false":
+      fail(path, "unknown field");
+    case "required":
+      fail(schemaPath(input, `${leaf.instanceLocation}/${quoted}`), "required");
+    case "propertyNames": {
+      const key = errors.find(
+        (e) =>
+          e.keywordLocation.startsWith(leaf.keywordLocation + "/") &&
+          !wrappers.includes(e.keyword),
+      );
+      fail(
+        schemaPath(input, `${leaf.instanceLocation}/${quoted}`),
+        key ? expected(key) : leaf.error,
+      );
+    }
+    case "dependentSchemas": {
+      const node = schemaAt(leaf.keywordLocation) as Record<string, SchemaNode>;
+      fail(path, (node[quoted!]?.errorMessage as string) ?? leaf.error);
+    }
+    case "oneOf":
+    case "anyOf": {
+      // Every branch was the wrong shape: name the discriminators or JSON types it accepts.
+      const union = leaf.keywordLocation;
+      const branches = (schemaAt(union) as unknown as unknown[]).map((_, i) => {
+        const b = schemaAt(`${union}/${i}`);
+        return b.$ref ? schemaAt(`${union}/${i}/$ref`) : b;
+      });
+      const discriminators = branches.map(
+        (b) =>
+          (b.properties as Record<string, SchemaNode> | undefined)?.type?.const,
+      );
+      const value = errors.find(
+        (e) =>
+          e.instanceLocation === leaf.instanceLocation && e.keyword === "type",
+      );
+      if (!value && discriminators.every((d) => d !== undefined))
+        fail(
+          schemaPath(input, `${leaf.instanceLocation}/type`),
+          `expected ${list(discriminators)}`,
+        );
+      fail(
+        path,
+        `expected ${[...new Set(branches.flatMap((b) => b.type ?? []))].join(" or ")}`,
+      );
+    }
+  }
+  fail(path, expected(leaf));
+}
+/** JSON.parse can still yield Infinity (1e400); objects built in code can hold anything. */
+function assertJsonData(value: unknown, path: string) {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) fail(path, "expected a finite number");
+  } else if (typeof value === "string") {
+    if (/\p{Cs}/u.test(value)) fail(path, "contains an unpaired surrogate");
+  } else if (Array.isArray(value))
+    value.forEach((v, i) => assertJsonData(v, `${path}[${i}]`));
+  else if (value && typeof value === "object")
+    for (const [key, v] of Object.entries(value)) {
+      const child = path === "trip" ? key : `${path}.${key}`;
+      if (/\p{Cs}/u.test(key)) fail(child, "contains an unpaired surrogate");
+      assertJsonData(v, child);
+    }
+  else if (value !== null && typeof value !== "boolean")
+    fail(path, `expected JSON data, not ${typeof value}`);
+}
+function assertTripShape(input: unknown): asserts input is TripInput {
+  assertJsonData(input, "trip");
+  const { valid, errors } = validator.validate(input);
+  if (!valid) schemaFailure(input, errors);
+}
+
 /** The one external site Trip Atlas links to: Google Maps, over https. */
 export function isGoogleMapsUrl(value: unknown): value is string {
   if (typeof value !== "string") return false;
@@ -258,20 +288,7 @@ export function isGoogleMapsUrl(value: unknown): value is string {
       (host === "goo.gl" && path.startsWith("/maps/")))
   );
 }
-function mode(value: unknown, path: string) {
-  if (!travelModes.includes(value as TravelMode))
-    fail(path, `expected one of ${travelModes.join(", ")}`);
-}
-/** Every field has a meaning; anything else is a typo or prose that belongs in a real field. */
-function only(value: Record<string, unknown>, keys: string[], path: string) {
-  for (const key of Object.keys(value))
-    if (!keys.includes(key)) fail(`${path}.${key}`, "unknown field");
-}
-function string(value: unknown, path: string) {
-  if (typeof value !== "string" || !value.trim())
-    fail(path, "expected a non-empty string");
-}
-// Control characters are deliberately forbidden in local paths.
+// Control characters are deliberately forbidden in local paths; the schema's document path pattern matches this.
 export function safeRelativePath(path: string): boolean {
   return (
     !!path &&
@@ -291,22 +308,9 @@ export function documentUrl(folder: string, path: string): string {
     [...folder.split("/"), ...path.split("/")].map(encodeURIComponent).join("/")
   );
 }
-function documents(value: unknown, path: string) {
-  if (value === undefined) return;
-  if (!Array.isArray(value)) fail(path, "expected an array");
-  value.forEach((v, i) => {
-    const d = object(v, `${path}[${i}]`);
-    only(d, ["label", "path"], `${path}[${i}]`);
-    string(d.label, `${path}[${i}].label`);
-    if (typeof d.path !== "string" || !safeRelativePath(d.path))
-      fail(`${path}[${i}].path`, "expected a safe relative local path");
-  });
-}
 function dateValid(s: string) {
   return (
-    /^\d{4}-\d{2}-\d{2}$/.test(s) &&
-    !Number.isNaN(Date.parse(s)) &&
-    new Date(s).toISOString().slice(0, 10) === s
+    !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s
   );
 }
 export function dateAt(date: string, offset: number): string {
@@ -314,543 +318,188 @@ export function dateAt(date: string, offset: number): string {
     .toISOString()
     .slice(0, 10);
 }
-function zoneValid(zone: unknown, path: string) {
-  string(zone, path);
+function zoneValid(zone: string, path: string) {
   try {
-    new Intl.DateTimeFormat("en", { timeZone: zone as string }).format();
+    new Intl.DateTimeFormat("en", { timeZone: zone }).format();
   } catch {
     fail(path, "invalid IANA timezone");
   }
 }
+/**
+ * Checks the file against the schema, then everything the schema cannot express:
+ * references between fields, real dates and timezones, day ranges and finite totals.
+ */
 export function parseTrip(input: unknown): Trip {
-  const t = object(input, "trip");
-  only(
-    t,
-    [
-      "version",
-      "title",
-      "startDate",
-      "initialPlace",
-      "timezone",
-      "currency",
-      "budget",
-      "groups",
-      "places",
-      "days",
-      "bookings",
-      "documents",
-      "prepare",
-    ],
-    "trip",
-  );
-  if (!Array.isArray(t.days) || !t.days.length)
-    fail("days", "expected at least one day");
+  assertTripShape(input);
+  const t = input,
+    dayCount = t.days.length;
 
   let hasPrices = false;
   let priceTotal = 0;
   let durationTotalMs = 0;
-  const duration = (value: unknown, path: string) => {
+  const duration = (value: number | undefined, path: string) => {
     if (value === undefined) return;
-    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
-      fail(path, "expected positive finite minutes");
     durationTotalMs += value * 60000;
     if (!Number.isFinite(durationTotalMs))
       fail(path, "duration is too large to total safely in milliseconds");
   };
-  const price = (value: unknown, path: string, units = 1) => {
+  const price = (value: number | undefined, path: string, units = 1) => {
     if (value === undefined) return;
-    if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
-      fail(path, "expected a finite nonnegative amount");
     hasPrices = true;
     priceTotal += value * units;
     if (!Number.isFinite(priceTotal))
       fail(path, "amount is too large to total safely across the trip");
   };
-  if (
-    t.currency !== undefined &&
-    (typeof t.currency !== "string" || !/^[A-Z]{3}$/.test(t.currency))
-  )
-    fail("currency", "expected uppercase ISO3 currency code, e.g. EUR");
-  if (t.budget !== undefined) {
-    const budget = object(t.budget, "budget");
-    only(budget, ["countries"], "budget");
-    const countries = object(budget.countries, "budget.countries");
-    for (const [code, value] of Object.entries(countries)) {
-      if (!/^[A-Z]{2}$/.test(code))
-        fail(
-          `budget.countries.${code}`,
-          "expected uppercase ISO2 country code",
-        );
-      const rates = object(value, `budget.countries.${code}`);
-      only(
-        rates,
-        ["livingPerDay", "accommodationPerNight"],
-        `budget.countries.${code}`,
-      );
-      price(
-        rates.livingPerDay,
-        `budget.countries.${code}.livingPerDay`,
-        t.days.length,
-      );
-      price(
-        rates.accommodationPerNight,
-        `budget.countries.${code}.accommodationPerNight`,
-        Math.max(0, t.days.length - 1),
-      );
-    }
+  const dayNumber = (value: number, path: string) => {
+    if (value > dayCount) fail(path, "expected a 1-based day within the trip");
+  };
+  for (const [code, rates] of Object.entries(t.budget?.countries ?? {})) {
+    price(
+      rates.livingPerDay,
+      `budget.countries.${code}.livingPerDay`,
+      dayCount,
+    );
+    price(
+      rates.accommodationPerNight,
+      `budget.countries.${code}.accommodationPerNight`,
+      Math.max(0, dayCount - 1),
+    );
   }
-  const groups = t.groups === undefined ? {} : object(t.groups, "groups");
-  for (const [id, value] of Object.entries(groups)) {
-    if (!id.trim()) fail("groups", "empty group ID");
-    const g = object(value, `groups.${id}`);
-    only(g, ["name", "color"], `groups.${id}`);
-    string(g.name, `groups.${id}.name`);
-    if (
-      g.color !== undefined &&
-      (typeof g.color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(g.color))
-    )
-      fail(`groups.${id}.color`, "expected #RRGGBB");
-  }
-  if (t.version !== 1) fail("version", "unsupported version; expected 1");
-  if (t.title !== undefined) string(t.title, "title");
-  if (
-    t.startDate !== undefined &&
-    (typeof t.startDate !== "string" || !dateValid(t.startDate))
-  )
+  if (t.startDate !== undefined && !dateValid(t.startDate))
     fail("startDate", "expected a real YYYY-MM-DD date");
   if (t.timezone !== undefined) zoneValid(t.timezone, "timezone");
-  const places = object(t.places, "places");
-  Object.entries(places).forEach(([id, v]) => {
-    if (!id) fail("places", "empty place ID");
-    const p = object(v, `places.${id}`);
-    only(
-      p,
-      ["name", "country", "timezone", "group", "coordinates"],
-      `places.${id}`,
-    );
-    if (
-      p.group !== undefined &&
-      (typeof p.group !== "string" || !Object.hasOwn(groups, p.group))
-    )
+  const groups = t.groups ?? {};
+  for (const [id, p] of Object.entries(t.places)) {
+    if (p.group !== undefined && !Object.hasOwn(groups, p.group))
       fail(`places.${id}.group`, "unknown group ID");
-    if (p.name !== undefined) string(p.name, `places.${id}.name`);
-    if (
-      p.country !== undefined &&
-      (typeof p.country !== "string" || !/^[A-Z]{2}$/.test(p.country))
-    )
-      fail(`places.${id}.country`, "expected uppercase ISO2");
     if (p.timezone !== undefined)
       zoneValid(p.timezone, `places.${id}.timezone`);
-    if (p.coordinates !== undefined)
-      coordinates(p.coordinates, `places.${id}.coordinates`);
-  });
-  const place = (v: unknown, path: string) => {
-    if (typeof v !== "string" || !Object.hasOwn(places, v))
-      fail(path, "unknown place ID");
+  }
+  const place = (id: string, path: string) => {
+    if (!Object.hasOwn(t.places, id)) fail(path, "unknown place ID");
   };
   if (t.initialPlace !== undefined) place(t.initialPlace, "initialPlace");
   const travelIds = new Set<string>(),
     activityIds = new Set<string>();
-  t.days.forEach((v, i) => {
-    const path = `days[${i}]`,
-      d = object(v, path);
-    only(
-      d,
-      ["title", "notes", "occasions", "activities", "documents", "blocks"],
-      path,
-    );
-    if (d.title !== undefined) string(d.title, path + ".title");
-    if (d.notes !== undefined) string(d.notes, path + ".notes");
-    if (d.occasions !== undefined) {
-      if (!Array.isArray(d.occasions))
-        fail(path + ".occasions", "expected an array");
-      d.occasions.forEach((o, j) => string(o, `${path}.occasions[${j}]`));
-    }
-    if (d.activities !== undefined) {
-      if (!Array.isArray(d.activities))
-        fail(path + ".activities", "expected an array");
-      d.activities.forEach((value, j) => {
-        const p = `${path}.activities[${j}]`,
-          activity = object(value, p);
-        only(activity, ["id", "name", "mapUrl", "tip", "estimatedCost"], p);
-        if (activity.id !== undefined) {
-          string(activity.id, p + ".id");
-          if (activityIds.has(activity.id as string))
-            fail(p + ".id", "duplicate activity ID");
-          activityIds.add(activity.id as string);
-        }
-        string(activity.name, p + ".name");
-        if (activity.mapUrl !== undefined && !isGoogleMapsUrl(activity.mapUrl))
-          fail(p + ".mapUrl", "expected an https Google Maps link");
-        if (activity.tip !== undefined) string(activity.tip, p + ".tip");
-        price(activity.estimatedCost, p + ".estimatedCost");
-      });
-    }
-    documents(d.documents, path + ".documents");
-    if (d.blocks !== undefined) {
-      if (!Array.isArray(d.blocks)) fail(path + ".blocks", "expected an array");
-      d.blocks.forEach((v, j) => {
-        const p = `${path}.blocks[${j}]`,
-          b = object(v, p);
-        if (b.type === "place") {
-          only(b, ["type", "place"], p);
-          place(b.place, p + ".place");
-        } else if (b.type === "travel") {
-          only(
-            b,
-            [
-              "type",
-              "id",
-              "from",
-              "to",
-              "mode",
-              "components",
-              "start",
-              "end",
-              "endDay",
-              "estimatedDurationMinutes",
-              "estimatedCost",
-              "distanceKm",
-              "ascentMeters",
-              "descentMeters",
-              "notes",
-              "documents",
-            ],
-            p,
-          );
-          if (b.id !== undefined) {
-            string(b.id, p + ".id");
-            if (travelIds.has(b.id as string))
-              fail(p + ".id", "duplicate travel ID");
-            travelIds.add(b.id as string);
-          }
-          price(b.estimatedCost, p + ".estimatedCost");
-          place(b.to, p + ".to");
-          if (b.from !== undefined) place(b.from, p + ".from");
-          for (const k of ["start", "end"])
-            if (
-              b[k] !== undefined &&
-              (typeof b[k] !== "string" ||
-                !/^([01]\d|2[0-3]):[0-5]\d$/.test(b[k] as string))
-            )
-              fail(p + "." + k, "expected HH:mm");
-          if (
-            b.distanceKm !== undefined &&
-            (typeof b.distanceKm !== "number" ||
-              !Number.isFinite(b.distanceKm) ||
-              b.distanceKm <= 0)
-          )
-            fail(p + ".distanceKm", "expected positive finite kilometres");
-          for (const k of ["ascentMeters", "descentMeters"])
-            if (
-              b[k] !== undefined &&
-              (typeof b[k] !== "number" ||
-                !Number.isFinite(b[k]) ||
-                (b[k] as number) < 0)
-            )
-              fail(p + "." + k, "expected nonnegative finite metres");
-          if (
-            b.endDay !== undefined &&
-            (!Number.isInteger(b.endDay) ||
-              Number(b.endDay) < i + 1 ||
-              Number(b.endDay) > (t.days as unknown[]).length)
-          )
-            fail(
-              p + ".endDay",
-              "expected 1-based arrival day within trip, on or after departure day",
-            );
-          if (b.mode !== undefined) mode(b.mode, p + ".mode");
-          if (b.mode !== undefined && b.components !== undefined)
-            fail(p + ".mode", "omit when components give each part's mode");
-          if (b.notes !== undefined) string(b.notes, p + ".notes");
-          duration(b.estimatedDurationMinutes, p + ".estimatedDurationMinutes");
-          if (b.components !== undefined) {
-            if (!Array.isArray(b.components) || !b.components.length)
-              fail(p + ".components", "expected nonempty array");
-            b.components.forEach((value, k) => {
-              const c = object(value, `${p}.components[${k}]`);
-              only(
-                c,
-                ["mode", "estimatedDurationMinutes"],
-                `${p}.components[${k}]`,
-              );
-              mode(c.mode, `${p}.components[${k}].mode`);
-              duration(
-                c.estimatedDurationMinutes,
-                `${p}.components[${k}].estimatedDurationMinutes`,
-              );
-            });
-          }
-          documents(b.documents, p + ".documents");
-        } else fail(p + ".type", "expected travel or place");
-      });
-    }
-  });
-  documents(t.documents, "documents");
-  if (t.prepare !== undefined) {
-    const prepare = object(t.prepare, "prepare");
-    only(prepare, ["checklist", "packing"], "prepare");
-    for (const key of ["checklist", "packing"] as const) {
-      const items = prepare[key];
-      if (items === undefined) continue;
-      if (!Array.isArray(items)) fail(`prepare.${key}`, "expected an array");
-      items.forEach((value, index) => {
-        const path = `prepare.${key}[${index}]`,
-          item = object(value, path),
-          status = key === "checklist" ? "done" : "packed";
-        only(
-          item,
-          key === "checklist"
-            ? ["title", "done", "notes"]
-            : ["title", "packed", "notes", "category", "quantity"],
-          path,
+  t.days.forEach((d, i) => {
+    const path = `days[${i}]`;
+    d.activities?.forEach((activity, j) => {
+      const p = `${path}.activities[${j}]`;
+      if (activity.id !== undefined) {
+        if (activityIds.has(activity.id))
+          fail(p + ".id", "duplicate activity ID");
+        activityIds.add(activity.id);
+      }
+      if (activity.mapUrl !== undefined && !isGoogleMapsUrl(activity.mapUrl))
+        fail(p + ".mapUrl", "expected an https Google Maps link");
+      price(activity.estimatedCost, p + ".estimatedCost");
+    });
+    d.blocks?.forEach((b, j) => {
+      const p = `${path}.blocks[${j}]`;
+      if (b.type === "place") return place(b.place, p + ".place");
+      if (b.id !== undefined) {
+        if (travelIds.has(b.id)) fail(p + ".id", "duplicate travel ID");
+        travelIds.add(b.id);
+      }
+      price(b.estimatedCost, p + ".estimatedCost");
+      place(b.to, p + ".to");
+      if (b.from !== undefined) place(b.from, p + ".from");
+      if (b.endDay !== undefined && (b.endDay < i + 1 || b.endDay > dayCount))
+        fail(
+          p + ".endDay",
+          "expected 1-based arrival day within trip, on or after departure day",
         );
-        string(item.title, path + ".title");
-        if (item.notes !== undefined) string(item.notes, path + ".notes");
-        if (item[status] !== undefined && typeof item[status] !== "boolean")
-          fail(path + "." + status, "expected a boolean");
-        if (key === "packing") {
-          if (item.category !== undefined)
-            string(item.category, path + ".category");
-          if (
-            item.quantity !== undefined &&
-            (typeof item.quantity !== "number" ||
-              !Number.isSafeInteger(item.quantity) ||
-              item.quantity <= 0)
-          )
-            fail(path + ".quantity", "expected a positive safe integer");
-        }
-      });
-    }
-  }
-  const dayNumber = (value: unknown, path: string) => {
-    if (
-      !Number.isInteger(value) ||
-      Number(value) < 1 ||
-      Number(value) > (t.days as unknown[]).length
-    )
-      fail(path, "expected a 1-based day within the trip");
-  };
-  if (t.bookings !== undefined) {
-    if (!Array.isArray(t.bookings)) fail("bookings", "expected an array");
-    t.bookings.forEach((value, index) => {
-      const path = `bookings[${index}]`,
-        b = object(value, path);
-      only(
-        b,
-        [
-          "type",
-          "title",
-          "place",
-          "startDate",
-          "endDate",
-          "startDay",
-          "endDay",
-          "status",
-          "reference",
-          "meals",
-          "checkIn",
-          "checkOut",
-          "baggage",
-          "notes",
-          "important",
-          "coordinates",
-          "mapUrl",
-          "documents",
-          "cost",
-        ],
-        path,
+      duration(b.estimatedDurationMinutes, p + ".estimatedDurationMinutes");
+      b.components?.forEach((c, k) =>
+        duration(
+          c.estimatedDurationMinutes,
+          `${p}.components[${k}].estimatedDurationMinutes`,
+        ),
       );
-      string(b.title, path + ".title");
+    });
+  });
+  t.bookings?.forEach((b, index) => {
+    const path = `bookings[${index}]`;
+    if (b.place !== undefined) place(b.place, path + ".place");
+    if (b.mapUrl !== undefined && !isGoogleMapsUrl(b.mapUrl))
+      fail(path + ".mapUrl", "expected an https Google Maps link");
+    for (const key of ["startDate", "endDate"] as const) {
+      const date = b[key];
+      if (date !== undefined && !dateValid(date))
+        fail(path + "." + key, "expected a real YYYY-MM-DD date");
+    }
+    for (const key of ["startDay", "endDay"] as const) {
+      const day = b[key];
+      if (day !== undefined) dayNumber(day, path + "." + key);
+    }
+    if (
+      (b.startDate !== undefined || b.endDate !== undefined) &&
+      (b.startDay !== undefined || b.endDay !== undefined)
+    )
+      fail(path, "use calendar dates or trip day numbers, not both");
+    for (const [start, end] of [
+      [b.startDate, b.endDate],
+      [b.startDay, b.endDay],
+    ] as const)
       if (
-        !["accommodation", "transport", "activity", "other"].includes(
-          b.type as string,
-        )
+        start !== undefined &&
+        end !== undefined &&
+        (end < start || (b.type === "accommodation" && end === start))
       )
         fail(
-          path + ".type",
-          "expected accommodation, transport, activity or other",
+          path + (typeof end === "string" ? ".endDate" : ".endDay"),
+          "must follow the start (accommodation needs at least one night)",
         );
-      if (b.place !== undefined) place(b.place, path + ".place");
-      if (b.reference !== undefined) string(b.reference, path + ".reference");
-      if (b.meals !== undefined) {
-        const meals = object(b.meals, path + ".meals");
-        for (const [key, value] of Object.entries(meals)) {
-          if (!["dinner", "breakfast", "lunch"].includes(key))
-            fail(path + ".meals." + key, "expected dinner, breakfast or lunch");
-          if (
-            typeof value !== "boolean" &&
-            (typeof value !== "string" || !value.trim())
-          )
-            fail(path + ".meals." + key, "expected a boolean or text");
-        }
-      }
-      if (
-        b.checkIn !== undefined &&
-        (typeof b.checkIn !== "string" ||
-          !new RegExp(`^${clock}(-${clock})?$`).test(b.checkIn))
-      )
-        fail(path + ".checkIn", "expected HH:mm or HH:mm-HH:mm");
-      if (
-        b.checkOut !== undefined &&
-        (typeof b.checkOut !== "string" ||
-          !new RegExp(`^${clock}$`).test(b.checkOut))
-      )
-        fail(path + ".checkOut", "expected HH:mm");
-      if (b.coordinates !== undefined)
-        coordinates(b.coordinates, path + ".coordinates");
-      if (b.mapUrl !== undefined && !isGoogleMapsUrl(b.mapUrl))
-        fail(path + ".mapUrl", "expected an https Google Maps link");
-      if (b.notes !== undefined) string(b.notes, path + ".notes");
-      if (b.important !== undefined && typeof b.important !== "boolean")
-        fail(path + ".important", "expected a boolean");
-      if (b.baggage !== undefined) {
-        if (!Array.isArray(b.baggage))
-          fail(path + ".baggage", "expected an array");
-        b.baggage.forEach((value, i) => {
-          const bagPath = `${path}.baggage[${i}]`,
-            bag = object(value, bagPath);
-          only(bag, ["type", "pieces", "kg"], bagPath);
-          if (!["checked", "cabin", "personal"].includes(bag.type as string))
-            fail(bagPath + ".type", "expected checked, cabin or personal");
-          if (!Number.isSafeInteger(bag.pieces) || (bag.pieces as number) < 0)
-            fail(bagPath + ".pieces", "expected a nonnegative whole number");
-          if (
-            bag.kg !== undefined &&
-            (typeof bag.kg !== "number" ||
-              !Number.isFinite(bag.kg) ||
-              bag.kg <= 0)
-          )
-            fail(bagPath + ".kg", "expected positive finite kilograms");
-        });
-      }
-      if (
-        b.status !== undefined &&
-        !["planned", "confirmed", "cancelled"].includes(b.status as string)
-      )
-        fail(path + ".status", "expected planned, confirmed or cancelled");
-      documents(b.documents, path + ".documents");
-      for (const key of ["startDate", "endDate"])
-        if (
-          b[key] !== undefined &&
-          (typeof b[key] !== "string" || !dateValid(b[key] as string))
-        )
-          fail(path + "." + key, "expected a real YYYY-MM-DD date");
-      for (const key of ["startDay", "endDay"])
-        if (b[key] !== undefined) dayNumber(b[key], path + "." + key);
-      if (
-        (b.startDate !== undefined || b.endDate !== undefined) &&
-        (b.startDay !== undefined || b.endDay !== undefined)
-      )
-        fail(path, "use calendar dates or trip day numbers, not both");
-      for (const [start, end] of [
-        ["startDate", "endDate"],
-        ["startDay", "endDay"],
-      ])
-        if (
-          b[start] !== undefined &&
-          b[end] !== undefined &&
-          (b[end]! < b[start]! ||
-            (b.type === "accommodation" && b[end] === b[start]))
-        )
-          fail(
-            path + "." + end,
-            "must follow the start (accommodation needs at least one night)",
-          );
-      // A bare number is shorthand for `{ "amount": n }`.
-      if (typeof b.cost === "number") price(b.cost, path + ".cost");
-      else if (b.cost !== undefined) {
-        const c = object(b.cost, path + ".cost");
-        only(c, ["amount", "status", "allocation"], path + ".cost");
-        if (c.amount === undefined)
-          fail(
-            path + ".cost.amount",
-            "required when cost is supplied; omit cost if unknown",
-          );
-        price(c.amount, path + ".cost.amount");
-        if (
-          c.status !== undefined &&
-          !["estimated", "confirmed", "paid"].includes(c.status as string)
-        )
-          fail(path + ".cost.status", "expected estimated, confirmed or paid");
-        if (c.allocation !== undefined && b.type === "other")
-          fail(
-            path + ".cost.allocation",
-            "other bookings count once in the trip total; omit allocation",
-          );
-        if (c.allocation !== undefined) {
-          const a = object(c.allocation, path + ".cost.allocation"),
-            ap = path + ".cost.allocation";
-          const keys =
-            a.type === "accommodation"
-              ? ["type", "nights"]
-              : a.type === "transport"
-                ? ["type", "leg"]
-                : a.type === "activity"
-                  ? ["type", "activity"]
-                  : a.type === "additional"
-                    ? ["type", "day"]
-                    : a.type === "unallocated"
-                      ? ["type"]
-                      : [];
-          if (!keys.length)
-            fail(
-              ap + ".type",
-              "expected accommodation, transport, activity, additional or unallocated",
-            );
-          if (Object.keys(a).some((key) => !keys.includes(key)))
-            fail(ap, "unexpected allocation field");
-          if (
-            (a.type === "accommodation" && b.type !== "accommodation") ||
-            (a.type === "transport" && b.type !== "transport") ||
-            (["activity", "additional"].includes(a.type as string) &&
-              b.type !== "activity")
-          )
-            fail(ap + ".type", "allocation must match the booking type");
-          if (a.type === "transport") {
-            if (typeof a.leg !== "string" || !travelIds.has(a.leg))
-              fail(ap + ".leg", "unknown travel block ID");
-          } else if (a.type === "activity") {
-            if (typeof a.activity !== "string" || !activityIds.has(a.activity))
-              fail(ap + ".activity", "unknown activity ID");
-          } else if (a.type === "additional") dayNumber(a.day, ap + ".day");
-          else if (a.type === "accommodation") {
-            const units = a.nights;
-            if (!Array.isArray(units) || !units.length)
-              fail(ap + ".nights", "expected a nonempty array of day numbers");
-            units.forEach((n, i) => dayNumber(n, `${ap}.nights[${i}]`));
-            if (new Set(units).size !== units.length)
-              fail(ap + ".nights", "duplicate day number");
-            if (units.includes((t.days as unknown[]).length))
-              fail(
-                ap + ".nights",
-                "the final trip day has no accommodation night",
-              );
-          }
-        }
-      }
-    });
-  }
+    // A bare number is shorthand for `{ "amount": n }`.
+    if (typeof b.cost === "number") return price(b.cost, path + ".cost");
+    if (b.cost === undefined) return;
+    price(b.cost.amount, path + ".cost.amount");
+    const a = b.cost.allocation,
+      ap = path + ".cost.allocation";
+    if (a === undefined) return;
+    if (b.type === "other")
+      fail(ap, "other bookings count once in the trip total; omit allocation");
+    if (
+      (a.type === "accommodation" && b.type !== "accommodation") ||
+      (a.type === "transport" && b.type !== "transport") ||
+      ((a.type === "activity" || a.type === "additional") &&
+        b.type !== "activity")
+    )
+      fail(ap + ".type", "allocation must match the booking type");
+    if (a.type === "transport" && !travelIds.has(a.leg))
+      fail(ap + ".leg", "unknown travel block ID");
+    if (a.type === "activity" && !activityIds.has(a.activity))
+      fail(ap + ".activity", "unknown activity ID");
+    if (a.type === "additional") dayNumber(a.day, ap + ".day");
+    if (a.type === "accommodation") {
+      a.nights.forEach((n, i) => dayNumber(n, `${ap}.nights[${i}]`));
+      if (a.nights.includes(dayCount))
+        fail(ap + ".nights", "the final trip day has no accommodation night");
+    }
+  });
   if (hasPrices && t.currency === undefined)
     fail(
       "currency",
       "required when budget rates, estimatedCost or booking amounts are supplied; use one uppercase ISO3 currency for the whole trip",
     );
+  const { title, places, bookings, ...rest } = t;
   return {
-    ...t,
-    title: t.title ?? "Untitled journey",
-    ...(Array.isArray(t.bookings) && {
-      bookings: t.bookings.map((b: Record<string, unknown>) =>
-        typeof b.cost === "number" ? { ...b, cost: { amount: b.cost } } : b,
+    ...rest,
+    title: title ?? "Untitled journey",
+    ...(bookings && {
+      bookings: bookings.map(({ cost, ...b }): Booking =>
+        cost === undefined
+          ? b
+          : { ...b, cost: typeof cost === "number" ? { amount: cost } : cost },
       ),
     }),
     places: Object.fromEntries(
       Object.entries(places).map(([id, p]) => [
         id,
-        { ...(p as object), name: (p as Record<string, unknown>).name ?? id },
+        { ...p, name: p.name ?? id },
       ]),
     ),
-  } as unknown as Trip;
+  };
 }
 // Find every matching instant, so DST folds and gaps cannot silently change a journey.
 export function localInstant(

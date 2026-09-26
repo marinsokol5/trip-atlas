@@ -31,6 +31,8 @@ npx skills update
 3. To compare plans, make another file and open both: `trip-atlas plan-a.json plan-b.json`.
 4. To keep a booking, ticket or confirmation email, use `/trip-atlas-download-booking`. It saves a clean PDF next to your itinerary and links it to the trip.
 
+The file format is defined by a [JSON Schema](skills/trip-atlas-update-itinerary/itinerary.schema.json). Start your file with `"$schema": "https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/skills/trip-atlas-update-itinerary/itinerary.schema.json"` and your editor will validate and autocomplete it.
+
 ## Host
 
 For self-hosting, I recommend [Tailscale](https://tailscale.com/).

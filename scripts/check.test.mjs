@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const cli = fileURLToPath(new URL("./cli.mjs", import.meta.url));
 async function run(args, cwd) {
@@ -19,6 +19,22 @@ async function run(args, cwd) {
   const [code] = await once(child, "close");
   return { code, output };
 }
+
+test("the published validator runs without node_modules", async (t) => {
+  // The package has no runtime dependencies, so every library must be inlined.
+  const root = await mkdtemp(join(tmpdir(), "trip-validator-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const copy = join(root, "validate.mjs");
+  await copyFile(
+    fileURLToPath(new URL("../dist-node/validate.mjs", import.meta.url)),
+    copy,
+  );
+  const { validateTrip } = await import(pathToFileURL(copy).href);
+  const demo = JSON.parse(
+    await readFile(new URL("../trips/japan/trip.json", import.meta.url), "utf8"),
+  );
+  assert.equal(validateTrip(demo).days, demo.days.length);
+});
 
 test("check accepts valid itineraries and summarises them", async () => {
   const demos = fileURLToPath(new URL("../trips/", import.meta.url));

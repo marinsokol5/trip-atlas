@@ -4,7 +4,7 @@ Trip Atlas's original code, demo JSON, demo text and application screenshots are
 
 ## Runtime libraries
 
-The production bundle includes React, Lucide React and d3-geo with their bundled dependencies. Minification removes their license comments, so every build regenerates `dist/THIRD_PARTY_LICENSES.txt` with [rollup-plugin-license](https://github.com/mjeanroy/rollup-plugin-license): each package actually included in the bundle, with its exact version, license and full license text, including embedded notices such as Feather's in Lucide and GeographicLib's in d3-geo. The file ships in the npm package and is served beside the app. The build fails if a bundled package has no license or one other than MIT, ISC, BSD or Apache-2.0.
+The production bundle includes React, Lucide React, d3-geo and @cfworker/json-schema with their bundled dependencies; the CLI validator in `dist-node/` bundles @cfworker/json-schema alone, whose license text is in the same file. Minification removes their license comments, so every build regenerates `dist/THIRD_PARTY_LICENSES.txt` with [rollup-plugin-license](https://github.com/mjeanroy/rollup-plugin-license): each package actually included in the bundle, with its exact version, license and full license text, including embedded notices such as Feather's in Lucide and GeographicLib's in d3-geo. The file ships in the npm package and is served beside the app. The build fails if a bundled package has no license or one other than MIT, ISC, BSD or Apache-2.0.
 
 ## Map data
 

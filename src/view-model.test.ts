@@ -284,7 +284,7 @@ test("mixed journeys with only a whole estimate stay unallocated instead of infl
           initialPlace: "a",
           days: [{ blocks: [{ type: "travel", to: "b", mode }] }],
         }),
-      /mode: expected one of/,
+      /mode: expected one of walk, train/,
     );
 });
 

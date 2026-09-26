@@ -18,10 +18,10 @@ Keep changes focused and explain the user-visible behavior and how you checked i
 - `src/App.tsx` and view components: the read-only React interface.
 - `scripts/`: local HTTP server, document boundary and integration tests.
 - `trips/`: public demonstrations; `trips/index.json` is the demo picker manifest.
-- `skills/trip-atlas-update-itinerary/SKILL.md`: compact, canonical field reference for agents.
+- `skills/trip-atlas-update-itinerary/itinerary.schema.json`: the canonical field reference, validated first by the app and the CLI; `SKILL.md` beside it holds the writing guidance for agents.
 - `skills/trip-atlas-download-booking/`: agent workflow that saves a reservation as one named PDF and links it from its booking; its template holds placeholders only.
 
-Schema, validation or document path changes must update the README, canonical skill and relevant tests together. Keep the skill compact: a two-sentence introduction and one required/optional sentence per authored field. Preserve unknown optional metadata rather than rewriting users' files.
+Schema, validation or document path changes must update the README, canonical skill and relevant tests together. Keep the skill compact: a two-sentence introduction and the writing rules; each field's meaning is one `description` sentence in the schema, followed by `npm run schema`. Preserve unknown optional metadata rather than rewriting users' files.
 
 The app stays local and read-only. Keep personal itineraries, tickets, confirmation numbers and books outside this repository. Use fictional attachments and public demos in tests and screenshots. Add source attribution for new third-party assets; the build regenerates bundled dependency licenses, and fails on an unlicensed or non-permissive one.
 

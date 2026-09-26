@@ -145,7 +145,7 @@ test("partial prices use plus, unknown countries never borrow a rate, walk price
   assert.equal(freewalk.times.other.value, 0);
   (trip.days[0].blocks![0] as TravelBlock).estimatedCost = 7;
   assert.equal(overview(normalizeTrip(trip)).costs.other.value, 7);
-  trip.places.kyoto.country = undefined;
+  delete trip.places.kyoto.country;
   assert.equal(overview(normalizeTrip(trip)).costs.living.missing, 2);
 });
 const times = (block: Partial<TravelBlock>, exact?: number) =>

@@ -240,7 +240,7 @@ test("other expenses and bare-number costs count once in the whole-trip total on
   ] as unknown as Booking[];
   assert.throws(
     () => parseTrip(trip),
-    /bookings\[0\]\.cost: expected a finite/,
+    /bookings\[0\]\.cost: expected at least 0/,
   );
 });
 

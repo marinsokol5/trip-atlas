@@ -17,12 +17,14 @@ export async function check(args) {
     return 1;
   }
   let validateTrip;
+  const validator = new URL("../dist-node/validate.mjs", import.meta.url);
   try {
-    ({ validateTrip } = await import("../dist-node/validate.mjs"));
+    await access(validator);
   } catch {
     console.error("Trip Atlas: Build the validator first with npm run build");
     return 1;
   }
+  ({ validateTrip } = await import(validator));
   let failed = false;
   for (const arg of args) {
     const file = resolve(process.env.INIT_CWD || process.cwd(), arg);
