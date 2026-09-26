@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-export function useMapLabelPreference(key: string, fallback: boolean) {
-  const storageKey = `trip-atlas-label-${key}`;
+/** A per-browser on/off preference; works without storage for the session. */
+export function useStoredBoolean(storageKey: string, fallback: boolean) {
   const [value, setValue] = useState(() => {
     try {
       const saved = window.localStorage.getItem(storageKey);

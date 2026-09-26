@@ -108,12 +108,12 @@ import { Prepare } from "./Prepare";
 import { activeTripView, availableTripViews, parseTripView } from "./trip-view";
 import type { TripView } from "./trip-view";
 import { ThemedSelect } from "./ThemedSelect";
-import { activityBooking, bookingGaps } from "./booking-model";
+import { activityBooking, bookingGaps, noBookingGaps } from "./booking-model";
 import { moneyLabel } from "./overview-model";
 import { MapLabelsMenu } from "./MapLabelsMenu";
 import { Flag, flagsShown } from "./Flag";
 import { Logo } from "./Logo";
-import { useMapLabelPreference } from "./use-map-label-preference";
+import { useStoredBoolean } from "./use-stored-boolean";
 
 type Entry = TripEntry;
 // Only animation consumers subscribe to frame updates. App receives semantic changes.
@@ -443,12 +443,12 @@ function TripMap({
     () => mapHighlightedCountries(model, country),
     [model, country],
   );
-  const [showEndpoints, setShowEndpoints] = useMapLabelPreference(
-    "start-finish",
+  const [showEndpoints, setShowEndpoints] = useStoredBoolean(
+    "trip-atlas-label-start-finish",
     true,
   );
-  const [showGroupNames, setShowGroupNames] = useMapLabelPreference(
-    "group-names",
+  const [showGroupNames, setShowGroupNames] = useStoredBoolean(
+    "trip-atlas-label-group-names",
     false,
   );
   const [tooltipPlace, setTooltipPlace] = useState<string | null>(null);
@@ -1347,7 +1347,14 @@ function Calendar({
   const selectedSlot = slots.findIndex(
     (slot) => slot.inScope && slot.day?.index === selectedDay,
   );
-  const gaps = useMemo(() => bookingGaps(model), [model]);
+  const [showUnbooked, setShowUnbooked] = useStoredBoolean(
+    "trip-atlas-show-unbooked",
+    false,
+  );
+  const gaps = useMemo(
+    () => (showUnbooked ? bookingGaps(model) : noBookingGaps),
+    [model, showUnbooked],
+  );
   const bookingStatus = useMemo(() => {
     const inScope = new Set(
       slots.flatMap((slot) =>
@@ -1424,14 +1431,24 @@ function Calendar({
             ? `${slots.find((slot) => slot.inScope)?.date ? dateLabel(slots.find((slot) => slot.inScope)!.date!) : ""} – ${slots.findLast((slot) => slot.inScope)?.date ? dateLabel(slots.findLast((slot) => slot.inScope)!.date!) : ""}`
             : "Days ahead"}
         </h2>
-        {bookingStatus && (
-          <span
-            className={`booking-status${bookingStatus.done ? " is-done" : ""}`}
-          >
-            {bookingStatus.done ? <Check /> : <CircleAlert />}
-            {bookingStatus.text}
-          </span>
-        )}
+        <span className="month-heading-tools">
+          {bookingStatus && (
+            <span
+              className={`booking-status${bookingStatus.done ? " is-done" : ""}`}
+            >
+              {bookingStatus.done ? <Check /> : <CircleAlert />}
+              {bookingStatus.text}
+            </span>
+          )}
+          <label className="unbooked-toggle">
+            <input
+              type="checkbox"
+              checked={showUnbooked}
+              onChange={(event) => setShowUnbooked(event.target.checked)}
+            />
+            Show unbooked
+          </label>
+        </span>
       </div>
       <div className="week">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (

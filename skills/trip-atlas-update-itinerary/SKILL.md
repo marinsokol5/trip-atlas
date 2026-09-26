@@ -41,7 +41,7 @@ Follow these so every trip file reads alike, rather than copying whatever file i
 - Bookings never change the route, times or nights. Documents, references and paid amounts do not imply `status: "confirmed"`; set it.
 - An accommodation's end is its checkout day; other booking ranges include both ends. Calendar dates stay fixed if the trip start moves.
 - A stay with a matching place and complete range replaces those nights' estimates automatically, only if it lies entirely inside the trip; otherwise it stays unallocated rather than prorated. Two active bookings cannot replace the same night, journey or activity.
-- Once the trip has any booking, the Calendar marks each night away from home without a stay and each flight without a linked booking as still to book.
+- Once the trip has any booking, the Calendar's "Show unbooked" switch (off by default) marks each night away from home without a stay and each flight without a linked booking as still to book.
 - Store a multi-night confirmation once, on its booking; it appears on every day of the stay.
 
 ## Trip
