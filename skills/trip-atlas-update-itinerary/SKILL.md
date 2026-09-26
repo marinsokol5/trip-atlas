@@ -41,7 +41,7 @@ Follow these so every trip file reads alike, rather than copying whatever file i
 - Bookings never change the route, times or nights. Documents, references and paid amounts do not imply `status: "confirmed"`; set it.
 - An accommodation's end is its checkout day; other booking ranges include both ends. Calendar dates stay fixed if the trip start moves.
 - A stay with a matching place and complete range replaces those nights' estimates automatically, only if it lies entirely inside the trip; otherwise it stays unallocated rather than prorated. Two active bookings cannot replace the same night, journey or activity.
-- Once the trip has any booking, the Calendar's "Show unbooked" switch (off by default) marks each night away from home without a stay and each flight without a linked booking as still to book.
+- The Calendar's "Show unbooked" switch (off by default) marks each night away from home without a stay and each flight without a linked booking as still to book.
 - Store a multi-night confirmation once, on its booking; it appears on every day of the stay.
 
 ## Trip
@@ -158,7 +158,7 @@ Follow these so every trip file reads alike, rather than copying whatever file i
 
 - `type` (required) is `"accommodation"`, `"transport"`, `"activity"`, `"additional"`, or `"unallocated"`. `accommodation` and `transport` need that booking type, `activity` and `additional` need an activity booking, `other` bookings take none, and unallocated excludes the price. No booking replaces the living budget.
 - `nights` (required for accommodation) lists unique 1-based days whose following nights are replaced equally, matching any supplied hotel place/dates and excluding transit and the final day.
-- `leg` (required for transport) references the travel block's authored `id` whose estimate is replaced. It is also how a flight counts as booked: once the trip has any booking, the Calendar marks every flight without a non-planned, non-cancelled booking linked this way, so give booked flights' blocks an `id`.
+- `leg` (required for transport) references the travel block's authored `id` whose estimate is replaced. It is also how a flight counts as booked: with "Show unbooked" on, the Calendar marks every flight without a non-planned, non-cancelled booking linked this way, so give booked flights' blocks an `id`.
 - `activity` (required for activity) references the planned activity's `id` whose `estimatedCost` is replaced; the day card then marks it booked.
 - `day` (required for additional) identifies the 1-based day of an activity cost that no planned activity covers.
 

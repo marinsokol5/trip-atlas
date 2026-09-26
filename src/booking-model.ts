@@ -192,7 +192,6 @@ export function isFlightLeg(leg: Leg): boolean {
  * What still needs booking: nights slept away from home that no booked stay covers,
  * and flights no booking is linked to. Nights on a plane, the last day and the home
  * days at either end never count; trains, buses and ferries are bought on the spot.
- * A trip without any booking is a sketch of a possible route: nothing is marked.
  */
 export const noBookingGaps = {
   nights: [] as number[],
@@ -201,7 +200,6 @@ export const noBookingGaps = {
   unbookedFlights: new Set<Leg>(),
 };
 export function bookingGaps(model: Itinerary) {
-  if (!model.trip.bookings?.length) return noBookingGaps;
   const stayCountries = new Set(mapAreas(model).map((area) => area.country));
   const bedNights = model.days
     .slice(0, -1)
