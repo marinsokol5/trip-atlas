@@ -1461,14 +1461,7 @@ function Calendar({
                 data-day={day.index + 1}
                 aria-pressed={day.index === selectedDay}
                 onClick={() => selectDay(day.index)}
-                aria-label={`${dayLabel(day)}. ${calendarCountries(model, day)}. ${dayTitle(model, day)}. ${dayGroups(
-                  model,
-                  day,
-                )
-                  .map((group) => group.name + ". ")
-                  .join(
-                    "",
-                  )}Night: ${name(model, day.overnight)}${gaps.unbookedNights.has(day.index + 1) ? ", not booked yet" : ""}`}
+                aria-label={`${dayLabel(day)}. ${calendarCountries(model, day)}. ${dayTitle(model, day)}. Night: ${name(model, day.overnight)}${gaps.unbookedNights.has(day.index + 1) ? ", not booked yet" : ""}`}
               >
                 <span className="calendar-date-context">
                   <span className="day-date">
@@ -1492,7 +1485,6 @@ function Calendar({
                   )}
                 </span>
                 <span className="day-title">{dayTitle(model, day)}</span>
-                <GroupLabels model={model} day={day} />
                 <span className="cell-chips">
                   {dayModeDurations(model, day).map((m) => (
                     <span
