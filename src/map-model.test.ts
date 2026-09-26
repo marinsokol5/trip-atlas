@@ -312,13 +312,35 @@ test("day titles are optional validated purpose labels with a route fallback", (
     ],
   };
   const model = normalizeTrip(input);
-  assert.equal(dayTitle(model, model.days[0]), "Base");
+  assert.equal(dayTitle(model, model.days[0]), "Base · Day 1");
   assert.equal(dayTitle(model, model.days[1]), "Snow monkeys, then Tokyo");
   const untitled = normalizeTrip({
     ...input,
     days: [{ blocks: [{ type: "travel", to: "b" }] }],
   });
   assert.equal(dayTitle(untitled, untitled.days[0]), "Base → Tokyo");
+  const stays = normalizeTrip({
+    ...input,
+    days: [
+      {},
+      {},
+      { blocks: [{ type: "travel", to: "b" }, { type: "travel", to: "a" }] },
+      { blocks: [{ type: "travel", to: "b" }] },
+      { blocks: [{ type: "travel", to: "a", endDay: 6 }] },
+      {},
+    ],
+  });
+  assert.deepEqual(
+    stays.days.map((day) => dayTitle(stays, day)),
+    [
+      "Base · Day 1",
+      "Base · Day 2",
+      "Base · Day 3",
+      "Base → Tokyo",
+      "Tokyo → Base",
+      "Tokyo → Base",
+    ],
+  );
   for (const title of ["", "  ", null, 9, {}])
     assert.throws(
       () => normalizeTrip({ ...input, days: [{ title }] }),

@@ -1491,9 +1491,7 @@ function Calendar({
                     </span>
                   )}
                 </span>
-                {day.source.title && (
-                  <span className="day-title">{day.source.title}</span>
-                )}
+                <span className="day-title">{dayTitle(model, day)}</span>
                 <GroupLabels model={model} day={day} />
                 <span className="cell-chips">
                   {dayModeDurations(model, day).map((m) => (

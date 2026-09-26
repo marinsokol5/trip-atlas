@@ -34,15 +34,17 @@ export function activeLegs(model: Itinerary, day: NormalizedDay) {
   );
 }
 export function dayTitle(model: Itinerary, day: NormalizedDay) {
+  if (day.source.title) return day.source.title;
   const name = (id?: string) =>
     id ? (model.trip.places[id].name ?? id) : "Location open";
-  const legs = activeLegs(model, day);
-  return (
-    day.source.title ??
-    (legs.length
-      ? `${name(legs[0].from)} → ${name(legs.at(-1)!.to)}`
-      : name(day.overnight))
-  );
+  const legs = activeLegs(model, day),
+    from = legs.length ? legs[0].from : day.startPlace,
+    to = day.inTransit && legs.length ? legs.at(-1)!.to : day.overnight;
+  if (from !== to) return `${name(from)} → ${name(to)}`;
+  if (!day.overnight) return name(day.overnight);
+  let nights = 1;
+  while (model.days[day.index - nights]?.overnight === day.overnight) nights++;
+  return `${name(day.overnight)} · Day ${nights}`;
 }
 
 export function dayGroups(model: Itinerary, day: NormalizedDay) {
