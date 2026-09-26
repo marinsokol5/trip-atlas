@@ -79,7 +79,7 @@ Follow these so every trip file reads alike, rather than copying whatever file i
 
 - `title` (optional) briefly describes the day's purpose. Without one the viewer shows the route ("Hanoi → Cat Ba") or the stay ("Hanoi · Day 3").
 - `notes` (optional) is the day's one must-know no booking, journey or activity owns (see Writing guidance); usually omitted.
-- `occasions` (optional) lists what makes the date itself special, shown in full on its calendar card: "🎂 Ana's birthday", "Christmas Eve", "Last night in Japan". Not for plans; those are activities.
+- `occasions` (optional) lists what makes the date itself special, shown in full under the day title: "🎂 Ana's birthday", "Christmas Eve", "Last night in Japan". Not for plans; those are activities.
 - `activities` (optional) lists what to see or do that day, in order.
 - `documents` (optional) lists documents relevant to this day.
 - `blocks` (optional) lists travel or place blocks in order, with location carrying forward afterward.

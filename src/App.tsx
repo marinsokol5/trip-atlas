@@ -1485,6 +1485,7 @@ function Calendar({
                   )}
                 </span>
                 <span className="day-title">{dayTitle(model, day)}</span>
+                <Occasions day={day} />
                 <span className="cell-chips">
                   {dayModeDurations(model, day).map((m) => (
                     <span
@@ -1544,6 +1545,18 @@ function Calendar({
         ))}
       </div>
     </div>
+  );
+}
+function Occasions({ day }: { day: NormalizedDay }) {
+  if (!day.source.occasions?.length) return null;
+  return (
+    <span className="day-occasions">
+      {day.source.occasions.map((occasion, index) => (
+        <span className="day-occasion" key={index}>
+          {occasion}
+        </span>
+      ))}
+    </span>
   );
 }
 function GroupLabels({ model, day }: { model: Itinerary; day: NormalizedDay }) {
@@ -1668,6 +1681,7 @@ function DayDetails({
         </p>
       )}
       <h2>{dayTitle(model, day)}</h2>
+      <Occasions day={day} />
       <GroupLabels model={model} day={day} />
       <span className="night">
         <Icon kind="bed" />
