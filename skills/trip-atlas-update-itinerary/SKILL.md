@@ -12,6 +12,7 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - Keep it short and trip-specific: no general advice, explanations, sources or history.
 - Only the fields in the schema exist. Put facts in fields, not prose; a recurring fact without a field means extending the schema.
 - Notes and tips are rare: only what a sensible traveller would otherwise get wrong. Never the obvious ("start early", "book ahead"), what a field shows, subjective labels or host courtesies. One sentence, no markdown or links.
+- A booking note is never the confirmation's routine terms (cancellation deadline, prepayment, arrival time, ID and card at check-in); say those in chat.
 - A note belongs to what it's about: a booking ("Bring ¥32,000 in cash"), a journey ("Meet the driver at Pillar 17"), an activity's `tip` ("Skip the first deer; more further in"), or else the day ("No shops tomorrow; buy food today").
 - The day's plan is its `activities`, never a day note.
 - `livingPerDay` is food, drinks and local rides; tickets and tours are an activity's `estimatedCost`.

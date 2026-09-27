@@ -6,6 +6,7 @@ import {
   mapHighlightedCountries,
   mapConnections,
   mapDisplayConnections,
+  excursionProgress,
   mapDisplayDuration,
   durationTotals,
   mapConnectionVisible,
@@ -413,7 +414,7 @@ test("unsplit bus and boat estimates survive as total without invented component
   }
 });
 
-test("internal circuits retain all waypoints while return trips display one-way durations", () => {
+test("day-trip circuits keep all waypoints but display as a one-way excursion; return trips display one-way durations", () => {
   const model = normalizeTrip({
     version: 1,
     initialPlace: "base",
@@ -470,7 +471,9 @@ test("internal circuits retain all waypoints while return trips display one-way 
     circuit.outbound.legs.map((leg) => leg.to),
     ["a", "b", "base"],
   );
-  assert.equal(mapDisplayDuration(model, circuit, "all"), "~1h15");
+  // Without coordinates the first stop is the excursion target: out 30m, back 25m + 20m.
+  assert.equal(circuit.excursion?.target, "a");
+  assert.equal(mapDisplayDuration(model, circuit, "all"), "~45m");
   assert.equal(excursion.inbound?.minutes, 150);
   assert.equal(mapDisplayDuration(model, excursion, "120"), "~2h30");
   assert.equal(mapDisplayDuration(model, excursion, "240"), "");
@@ -618,4 +621,41 @@ test("the Flights duration filter keeps only connections that fly", () => {
   assert.equal(mapConnectionVisible(model, bus, "flights"), false);
   assert.equal(mapConnectionVisible(model, flight, "flights"), true);
   assert.equal(mapConnectionVisible(model, bus, "120"), true);
+});
+
+test("an excursion runs from its base to the farthest stop and back", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "base",
+    places: {
+      base: { coordinates: { lat: 25, lon: 121.5 } },
+      near: { coordinates: { lat: 25.05, lon: 121.6 } },
+      far: { coordinates: { lat: 25.1, lon: 121.85 } },
+    },
+    days: [
+      {
+        blocks: [
+          { type: "travel", to: "near", mode: "train", estimatedDurationMinutes: 60 },
+          { type: "travel", to: "far", mode: "bus", estimatedDurationMinutes: 30 },
+          { type: "travel", to: "base", mode: "bus", estimatedDurationMinutes: 100 },
+        ],
+      },
+      {},
+    ],
+  });
+  const [connection] = mapDisplayConnections(model);
+  const excursion = connection.excursion!;
+  assert.equal(excursion.target, "far");
+  assert.deepEqual(excursion.out.legs.map((leg) => leg.to), ["near", "far"]);
+  assert.deepEqual(excursion.back.legs.map((leg) => leg.to), ["base"]);
+  assert.equal(mapDisplayDuration(model, connection, "all"), "~1h40");
+  const [, second, third] = model.legs;
+  assert.deepEqual(excursionProgress(excursion, second.id, 0.5), {
+    progress: 0.75,
+    reverse: false,
+  });
+  assert.deepEqual(excursionProgress(excursion, third.id, 0.5), {
+    progress: 0.5,
+    reverse: true,
+  });
 });

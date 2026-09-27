@@ -86,6 +86,7 @@ import {
   mapPointStyle,
   transferPlaces,
   mapDisplayConnections,
+  excursionProgress,
   mapDisplayDuration,
   directedCurvePoint,
   zoomMap,
@@ -99,7 +100,7 @@ import {
   spanCenter,
   mapDurationFilters,
 } from "./view-model";
-import type { Point, MapDurationFilter } from "./view-model";
+import type { Point, MapDurationFilter, MapExcursion } from "./view-model";
 import world from "./assets/world.json";
 import "./App.css";
 import { Overview } from "./Overview";
@@ -302,6 +303,7 @@ function Traveler({
     routes: {
       leg: Leg;
       reverseLeg?: Leg;
+      excursion?: MapExcursion;
       curve: ReturnType<typeof routeCurve>;
     }[];
   };
@@ -317,22 +319,33 @@ function Traveler({
     (view.y + point[1] * view.k) * frameScale,
   ];
   const active = geometry.routes.find(
-    (r) => r.leg.id === moment.leg?.id || r.reverseLeg?.id === moment.leg?.id,
+    (r) =>
+      r.leg.id === moment.leg?.id ||
+      r.reverseLeg?.id === moment.leg?.id ||
+      (!!moment.leg &&
+        !!r.excursion &&
+        !!excursionProgress(r.excursion, moment.leg.id, 0)),
   );
+  // An excursion's legs share one line: out to its farthest stop, then back.
+  const along =
+    active && moment.leg && moment.progress !== undefined
+      ? active.excursion
+        ? excursionProgress(active.excursion, moment.leg.id, moment.progress)
+        : {
+            progress: moment.progress,
+            reverse: active.reverseLeg?.id === moment.leg.id,
+          }
+      : undefined;
   const marker =
-    moment.leg && active && moment.progress !== undefined
-      ? directedCurvePoint(
-          active.curve,
-          moment.progress,
-          active.reverseLeg?.id === moment.leg.id,
-        )
+    active && along
+      ? directedCurvePoint(active.curve, along.progress, along.reverse)
       : moment.place
         ? geometry.points[moment.place]
         : undefined;
   let heading = 0;
-  if (active && moment.leg && moment.progress !== undefined) {
-    const reverse = active.reverseLeg?.id === moment.leg.id;
-    const t = reverse ? 1 - moment.progress : moment.progress;
+  if (active && along) {
+    const reverse = along.reverse;
+    const t = reverse ? 1 - along.progress : along.progress;
     const { a, b, c } = active.curve;
     const direction = reverse ? -1 : 1;
     const dx = direction * ((1 - t) * (c[0] - a[0]) + t * (b[0] - c[0]));
@@ -608,17 +621,34 @@ function TripMap({
         .filter((p) => !globe || globeFacing(globeView.center, p.coordinates))
         .map((p) => [p.id, projection(p.coordinates)!]),
     );
-    const routes = connections.flatMap(({ outbound, inbound }) =>
-      outbound.legs.flatMap((leg, index) => {
+    const curveBetween = (from: string, to: string) =>
+      globe
+        ? globeRouteCurve(
+            projection,
+            globeView.center,
+            coordinates[from],
+            coordinates[to],
+          )
+        : routeCurve(points[from], points[to]);
+    const routes = connections.flatMap(({
+      outbound,
+      inbound,
+      excursion,
+    }): {
+      leg: Leg;
+      reverseLeg?: Leg;
+      excursion?: MapExcursion;
+      curve: ReturnType<typeof routeCurve>;
+    }[] => {
+      if (excursion) {
+        const base = outbound.from!;
+        if (!points[base] || !points[excursion.target]) return [];
+        const curve = curveBetween(base, excursion.target);
+        return curve ? [{ leg: outbound.legs[0], excursion, curve }] : [];
+      }
+      return outbound.legs.flatMap((leg, index) => {
         if (!leg.from || !points[leg.from] || !points[leg.to]) return [];
-        const curve = globe
-          ? globeRouteCurve(
-              projection,
-              globeView.center,
-              coordinates[leg.from],
-              coordinates[leg.to],
-            )
-          : routeCurve(points[leg.from], points[leg.to]);
+        const curve = curveBetween(leg.from, leg.to);
         return curve
           ? [
               {
@@ -628,8 +658,8 @@ function TripMap({
               },
             ]
           : [];
-      }),
-    );
+      });
+    });
     const path = geoPath(projection);
     const outlines = globe
       ? globeShapes(world.features, projection, globeReach, turning ? 5 : 2.5)
@@ -1026,13 +1056,25 @@ function TripMap({
                   aria-hidden="true"
                 />
               )}
-              {geometry.routes.map(({ leg, reverseLeg, curve }) => {
+              {geometry.routes.map(({ leg: first, reverseLeg, excursion, curve }) => {
+                // An excursion draws its whole day trip as one base ↔ farthest-stop line.
+                const legs = excursion
+                  ? [...excursion.out.legs, ...excursion.back.legs]
+                  : [first];
+                const leg = excursion
+                  ? { ...first, to: excursion.target }
+                  : first;
                 const internal =
+                    !excursion &&
                     groupKey(model, leg.from) === groupKey(model, leg.to) &&
                     modeKind(leg) === "walk",
-                  isActive =
-                    selected.has(leg.id) ||
-                    (!!reverseLeg && selected.has(reverseLeg.id));
+                  outActive = excursion
+                    ? excursion.out.legs.some((l) => selected.has(l.id))
+                    : selected.has(leg.id),
+                  backActive = excursion
+                    ? excursion.back.legs.some((l) => selected.has(l.id))
+                    : !!reverseLeg && selected.has(reverseLeg.id),
+                  isActive = legs.some((l) => selected.has(l.id)) || backActive;
                 const {
                   curve: c,
                   arrow,
@@ -1055,13 +1097,14 @@ function TripMap({
                     ),
                     moment.place === leg.from,
                   ),
-                  !!reverseLeg,
+                  !!reverseLeg || !!excursion,
                 );
                 return (
                   <g key={leg.id}>
                     <path
                       data-leg={leg.id}
                       data-return-leg={reverseLeg?.id}
+                      data-excursion={excursion ? excursion.target : undefined}
                       className={`route${isActive ? " active" : ""}`}
                       style={{
                         stroke: internal ? color(model, leg.to) : undefined,
@@ -1070,17 +1113,18 @@ function TripMap({
                       d={`M${c.a}Q${c.c} ${c.b}`}
                       markerStart={
                         arrowStart
-                          ? `url(#${reverseLeg && selected.has(reverseLeg.id) ? "active" : "route"}-arrow)`
+                          ? `url(#${backActive ? "active" : "route"}-arrow)`
                           : undefined
                       }
                       markerEnd={
                         arrow
-                          ? `url(#${selected.has(leg.id) ? "active" : "route"}-arrow)`
+                          ? `url(#${outActive ? "active" : "route"}-arrow)`
                           : undefined
                       }
                     >
                       <title>
-                        {name(model, leg.from)} {reverseLeg ? "↔" : "→"}{" "}
+                        {name(model, leg.from)}{" "}
+                        {reverseLeg || excursion ? "↔" : "→"}{" "}
                         {name(model, leg.to)}
                       </title>
                     </path>
@@ -1121,7 +1165,7 @@ function TripMap({
                       >
                         <span
                           className="connection-duration"
-                          title={`${name(model, connection.outbound.from)} ${connection.inbound ? "↔" : "→"} ${name(model, connection.outbound.to)} · ${connection.inbound ? "One-way vehicle time (longer direction); return journey shown by both arrowheads" : connection.outbound.from === connection.outbound.to ? "Total vehicle time for this circuit" : "One-way vehicle time"}`}
+                          title={`${name(model, connection.outbound.from)} ${connection.inbound || connection.excursion ? "↔" : "→"} ${name(model, connection.excursion?.target ?? connection.outbound.to)} · ${connection.excursion ? "One-way vehicle time (longer direction); day trip shown by both arrowheads" : connection.inbound ? "One-way vehicle time (longer direction); return journey shown by both arrowheads" : connection.outbound.from === connection.outbound.to ? "Total vehicle time for this circuit" : "One-way vehicle time"}`}
                         >
                           {text}
                         </span>

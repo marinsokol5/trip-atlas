@@ -305,6 +305,19 @@ function vehicleDuration(leg: Leg): { minutes?: number; approximate: boolean } {
     approximate: leg.durationMs === undefined,
   };
 }
+function journeyConnection(journey: Leg[]): MapConnection {
+  const durations = journey.map(vehicleDuration);
+  return {
+    id: journey[0].id,
+    from: journey[0].from,
+    to: journey.at(-1)!.to,
+    legs: journey,
+    minutes: durations.every((part) => part.minutes !== undefined)
+      ? durations.reduce((sum, part) => sum + part.minutes!, 0)
+      : undefined,
+    approximate: durations.some((part) => part.approximate),
+  };
+}
 export function mapConnections(
   model: Itinerary,
   country = "",
@@ -323,19 +336,7 @@ export function mapConnections(
     const journeys = returnTrip
       ? [pending.slice(0, halfway), pending.slice(halfway)]
       : [pending];
-    for (const journey of journeys) {
-      const durations = journey.map(vehicleDuration);
-      result.push({
-        id: journey[0].id,
-        from: journey[0].from,
-        to: journey.at(-1)!.to,
-        legs: journey,
-        minutes: durations.every((part) => part.minutes !== undefined)
-          ? durations.reduce((sum, part) => sum + part.minutes!, 0)
-          : undefined,
-        approximate: durations.some((part) => part.approximate),
-      });
-    }
+    for (const journey of journeys) result.push(journeyConnection(journey));
     pending = [];
   };
   for (const leg of model.legs) {
@@ -385,9 +386,58 @@ export function mapConnectionDuration(connection: MapConnection) {
   const minutes = Math.round(connection.minutes);
   return `${connection.approximate ? "~" : ""}${minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h${minutes % 60 || ""}`}`;
 }
+export interface MapExcursion {
+  /** The stop farthest from base; the day trip is drawn as one base ↔ target line. */
+  target: string;
+  out: MapConnection;
+  back: MapConnection;
+}
 export interface MapDisplayConnection {
   outbound: MapConnection;
   inbound?: MapConnection;
+  excursion?: MapExcursion;
+}
+/** A circuit that leaves a base and returns to it the same day, split at its farthest stop. */
+export function mapExcursion(
+  model: Itinerary,
+  connection: MapConnection,
+): MapExcursion | undefined {
+  const { from, legs } = connection;
+  if (!from || from !== connection.to || legs.length < 2) return undefined;
+  const base = model.trip.places[from].coordinates;
+  const distance = (id: string) => {
+    const p = model.trip.places[id].coordinates;
+    if (!base || !p) return -1;
+    const x =
+      (p.lon - base.lon) * Math.cos((((p.lat + base.lat) / 2) * Math.PI) / 180);
+    return Math.hypot(x, p.lat - base.lat);
+  };
+  let split = 1;
+  for (let i = 2; i < legs.length; i++)
+    if (distance(legs[i - 1].to) > distance(legs[split - 1].to)) split = i;
+  const target = legs[split - 1].to;
+  if (target === from) return undefined;
+  return {
+    target,
+    out: journeyConnection(legs.slice(0, split)),
+    back: journeyConnection(legs.slice(split)),
+  };
+}
+/** Where the traveller is along an excursion's single line: out toward the target, then back. */
+export function excursionProgress(
+  excursion: MapExcursion,
+  legId: string,
+  progress: number,
+) {
+  for (const [half, reverse] of [
+    [excursion.out, false],
+    [excursion.back, true],
+  ] as const) {
+    const index = half.legs.findIndex((leg) => leg.id === legId);
+    if (index >= 0)
+      return { progress: (index + progress) / half.legs.length, reverse };
+  }
+  return undefined;
 }
 export function mapDisplayConnections(
   model: Itinerary,
@@ -401,7 +451,7 @@ export function mapDisplayConnections(
     pairs.set(key, [...(pairs.get(key) ?? []), connection]);
   }
   const consumed = new Set<string>();
-  return connections.flatMap((outbound) => {
+  return connections.flatMap((outbound): MapDisplayConnection[] => {
     if (consumed.has(outbound.id)) return [];
     const candidates = pairs.get(
       JSON.stringify([outbound.from, outbound.to].sort()),
@@ -424,7 +474,8 @@ export function mapDisplayConnections(
       consumed.add(inbound.id);
       return [{ outbound, inbound }];
     }
-    return [{ outbound }];
+    const excursion = mapExcursion(model, outbound);
+    return [excursion ? { outbound, excursion } : { outbound }];
   });
 }
 export function mapDisplayDuration(
@@ -432,9 +483,11 @@ export function mapDisplayDuration(
   connection: MapDisplayConnection,
   filter: MapDurationFilter,
 ) {
-  const directions = connection.inbound
-    ? [connection.outbound, connection.inbound]
-    : [connection.outbound];
+  const directions = connection.excursion
+    ? [connection.excursion.out, connection.excursion.back]
+    : connection.inbound
+      ? [connection.outbound, connection.inbound]
+      : [connection.outbound];
   const longest = directions
     .filter((direction) => mapConnectionVisible(model, direction, filter))
     .sort(
