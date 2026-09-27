@@ -565,6 +565,43 @@ export function momentAt(model: Itinerary, value: number): Moment {
   return { place: segment?.place, at, unknown: !segment?.place };
 }
 
+/** Where clicking a place jumps: late on its first night there, else while first visiting it. */
+export function placePosition(
+  model: Itinerary,
+  id: string,
+  days: NormalizedDay[] = model.days,
+): number | undefined {
+  const night = days.find((day) => !day.inTransit && day.overnight === id);
+  if (night) return night.index + 0.99;
+  const visit = days.find((day) =>
+    activeLegs(model, day).some((leg) => leg.to === id || leg.from === id),
+  );
+  if (!visit) return undefined;
+  if (visit.hasUnknownTiming) {
+    // Stop midway through the first pause at the place in the day's replay.
+    const steps = schematicSteps(model, visit.index);
+    const total = steps.reduce((sum, step) => sum + step.weight, 0);
+    let before = 0;
+    for (const step of steps) {
+      if (!step.leg && step.place === id)
+        return visit.index + (before + step.weight / 2) / total;
+      before += step.weight;
+    }
+    return visit.index + 0.5;
+  }
+  const span = visit.durationMs!;
+  const at = (ms: number) =>
+    visit.index + Math.max(0, Math.min(0.99, (ms - visit.start!) / span));
+  const stay = visit.segments.find(
+    (s) => s.type !== "travel" && s.place === id && s.end! > s.start!,
+  );
+  if (stay) return at((stay.start! + stay.end!) / 2);
+  // With no time spent there, stop just as the arriving leg reaches it.
+  const arrival = visit.segments.find(
+    (s) => s.type === "travel" && s.leg?.to === id,
+  );
+  return arrival ? at(arrival.end! - 1) : visit.index + 0.5;
+}
 /** A replay cursor, not a new schedule: untimed routes use illustrative progress. */
 export function mapMomentAt(
   model: Itinerary,
@@ -574,13 +611,35 @@ export function mapMomentAt(
   if (!entered.unknown) return { ...entered, schematic: false };
   const index = Math.min(model.days.length - 1, Math.max(0, Math.floor(value)));
   const day = model.days[index];
-  const legs = activeLegs(model, day);
-  if (!legs.length)
+  const steps = schematicSteps(model, index);
+  if (!steps.length)
     return {
       place: day.overnight ?? day.startPlace,
       unknown: true,
       schematic: true,
     };
+  const total = steps.reduce((sum, step) => sum + step.weight, 0);
+  let progress = Math.max(0, Math.min(0.999999, value - index)) * total;
+  for (const step of steps) {
+    if (progress < step.weight) {
+      return step.leg
+        ? {
+            leg: step.leg,
+            progress:
+              step.start! +
+              (progress / step.weight) * (step.end! - step.start!),
+            unknown: true,
+            schematic: true,
+          }
+        : { place: step.place, unknown: true, schematic: true };
+    }
+    progress -= step.weight;
+  }
+  return { place: day.overnight, unknown: true, schematic: true };
+}
+/** An untimed day's replay: pauses at places and legs weighted by their estimates. */
+function schematicSteps(model: Itinerary, index: number) {
+  const legs = activeLegs(model, model.days[index]);
   const steps: {
     place?: string;
     leg?: Leg;
@@ -588,6 +647,7 @@ export function mapMomentAt(
     end?: number;
     weight: number;
   }[] = [];
+  if (!legs.length) return steps;
   // Omit an origin pause when the selected day begins partway through an overnight leg.
   if (legs[0].day === index + 1 && legs[0].from)
     steps.push({ place: legs[0].from, weight: 1.5 });
@@ -613,24 +673,7 @@ export function mapMomentAt(
     if (leg.endDay === index + 1)
       steps.push({ place: leg.to, weight: i === legs.length - 1 ? 1.5 : 0.5 });
   }
-  const total = steps.reduce((sum, step) => sum + step.weight, 0);
-  let progress = Math.max(0, Math.min(0.999999, value - index)) * total;
-  for (const step of steps) {
-    if (progress < step.weight) {
-      return step.leg
-        ? {
-            leg: step.leg,
-            progress:
-              step.start! +
-              (progress / step.weight) * (step.end! - step.start!),
-            unknown: true,
-            schematic: true,
-          }
-        : { place: step.place, unknown: true, schematic: true };
-    }
-    progress -= step.weight;
-  }
-  return { place: day.overnight, unknown: true, schematic: true };
+  return steps;
 }
 export function clockAt(
   model: Itinerary,

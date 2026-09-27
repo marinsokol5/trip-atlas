@@ -87,6 +87,7 @@ import {
   transferPlaces,
   mapDisplayConnections,
   excursionProgress,
+  placePosition,
   mapDisplayDuration,
   directedCurvePoint,
   zoomMap,
@@ -438,6 +439,7 @@ function TripMap({
   togglePlayback,
   playbackSpeed,
   changePlaybackSpeed,
+  selectPosition,
 }: {
   model: Itinerary;
   value: number;
@@ -450,8 +452,14 @@ function TripMap({
   togglePlayback: () => void;
   playbackSpeed: number;
   changePlaybackSpeed: (speed: number) => void;
+  selectPosition: (value: number) => void;
 }) {
   const moment = mapMomentAt(model, value);
+  const scopeDays = useMemo(() => areaDays(model, country), [model, country]);
+  const jumpTo = (id: string) => {
+    const position = placePosition(model, id, scopeDays);
+    if (position !== undefined) selectPosition(position);
+  };
   const highlightedCountries = useMemo(
     () => mapHighlightedCountries(model, country),
     [model, country],
@@ -574,6 +582,7 @@ function TripMap({
   const pixelScale = frameScale * view.k;
   const numbered = !showGroupNames;
   const dragged = useRef(false);
+  const pressedPlace = useRef<string | undefined>(undefined);
   const drag = useRef<
     | { x: number; y: number; vx: number; vy: number; globe: GlobeView }
     | undefined
@@ -947,8 +956,11 @@ function TripMap({
             aria-label={`Trip map. ${markerLabel}${moment.schematic ? ". Illustrative position" : ""}`}
             onPointerDown={(e) => {
               dragged.current = false;
-              if (!(e.target as Element).closest("[data-place-hit]"))
-                setTooltipPlace(null);
+              pressedPlace.current =
+                (e.target as Element)
+                  .closest("[data-place-hit]")
+                  ?.getAttribute("data-place-hit") ?? undefined;
+              if (!pressedPlace.current) setTooltipPlace(null);
               e.currentTarget.setPointerCapture(e.pointerId);
               drag.current = {
                 x: e.clientX,
@@ -988,6 +1000,14 @@ function TripMap({
             onPointerUp={() => {
               drag.current = undefined;
               setTurning(false);
+            }}
+            // Pointer capture sends the click here, not to the pressed place.
+            onClick={() => {
+              const id = pressedPlace.current;
+              pressedPlace.current = undefined;
+              if (!id || dragged.current) return;
+              setTooltipPlace(id);
+              jumpTo(id);
             }}
             onPointerCancel={() => {
               drag.current = undefined;
@@ -1227,14 +1247,14 @@ function TripMap({
                           setTooltipPlace(id);
                       }}
                       onBlur={() => setTooltipPlace(null)}
-                      onClick={() => {
-                        if (!dragged.current) setTooltipPlace(id);
-                      }}
+                      // A mouse click jumps to the place without leaving a focus ring behind.
+                      onMouseDown={(event) => event.preventDefault()}
                       onKeyDown={(event) => {
                         if (event.key === "Escape") setTooltipPlace(null);
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           setTooltipPlace(id);
+                          jumpTo(id);
                         }
                       }}
                     />
@@ -2292,6 +2312,7 @@ function App() {
                   togglePlayback={togglePlayback}
                   playbackSpeed={playbackSpeed}
                   changePlaybackSpeed={changePlaybackSpeed}
+                  selectPosition={selectPosition}
                 />
               </div>
               {activeTab === "calendar" && (

@@ -7,6 +7,7 @@ import {
   mapConnections,
   mapDisplayConnections,
   excursionProgress,
+  placePosition,
   mapDisplayDuration,
   durationTotals,
   mapConnectionVisible,
@@ -658,4 +659,27 @@ test("an excursion runs from its base to the farthest stop and back", () => {
     progress: 0.5,
     reverse: true,
   });
+});
+
+test("clicking a place jumps to its first night there, else to the visit", () => {
+  const model = normalizeTrip({
+    version: 1,
+    initialPlace: "home",
+    places: { home: {}, city: {}, sight: {}, next: {} },
+    days: [
+      { blocks: [{ type: "travel", to: "city", mode: "train" }] },
+      {
+        blocks: [
+          { type: "travel", to: "sight", mode: "bus" },
+          { type: "travel", to: "city", mode: "bus" },
+        ],
+      },
+      { blocks: [{ type: "travel", to: "next", mode: "train" }] },
+      {},
+    ],
+  });
+  assert.equal(placePosition(model, "city"), 0.99);
+  assert.equal(placePosition(model, "sight"), 1.5);
+  assert.equal(placePosition(model, "next"), 2.99);
+  assert.equal(placePosition(model, "home", model.days.slice(1)), undefined);
 });
