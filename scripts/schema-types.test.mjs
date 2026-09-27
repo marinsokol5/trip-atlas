@@ -7,6 +7,6 @@ test("generated itinerary types match the schema", async () => {
   assert.equal(
     await readFile(typesFile, "utf8"),
     await schemaTypes(),
-    "src/itinerary-schema.ts is stale; run npm run schema",
+    "src/itinerary-schema.ts is stale; run pnpm run schema",
   );
 });

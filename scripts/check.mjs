@@ -21,7 +21,7 @@ export async function check(args) {
   try {
     await access(validator);
   } catch {
-    console.error("Trip Atlas: Build the validator first with npm run build");
+    console.error("Trip Atlas: Build the validator first with pnpm run build");
     return 1;
   }
   ({ validateTrip } = await import(validator));

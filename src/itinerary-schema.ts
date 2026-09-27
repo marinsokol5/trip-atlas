@@ -1,4 +1,4 @@
-// Generated from skills/trip-atlas-update-itinerary/itinerary.schema.json by `npm run schema`; do not edit.
+// Generated from skills/trip-atlas-update-itinerary/itinerary.schema.json by `pnpm run schema`; do not edit.
 
 export type Text = string;
 /**

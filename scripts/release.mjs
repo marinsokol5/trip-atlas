@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Interactive release: bump the version, publish to npm, push the tag and create a GitHub release.
-// Usage: npm run release [-- --dry-run]
+// Usage: pnpm run release [-- --dry-run]
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
@@ -54,10 +54,10 @@ if (output("git", ["status", "--porcelain"]))
 output("git", ["fetch", "--quiet", "origin", "main"]);
 if (output("git", ["rev-list", "--count", "HEAD..origin/main"]) !== "0")
   guard("main is behind origin/main; pull first.");
-const user = output("npm", ["whoami"]);
-if (!user) guard("Not logged in to npm; run `npm login` first.");
+const user = output("pnpm", ["whoami"]);
+if (!user) guard("Not logged in to npm; run `pnpm login` first.");
 
-const published = output("npm", ["view", pkg.name, "version"]);
+const published = output("pnpm", ["view", pkg.name, "version"]);
 console.log(`${pkg.name}`);
 console.log(`  package.json   ${pkg.version}`);
 console.log(`  npm (latest)   ${published ?? "not published yet"}`);
@@ -94,21 +94,22 @@ const confirm = await ask(
 rl.close();
 if (confirm.toLowerCase() !== "y") fail("Nothing released.");
 
-run("npm", ["run", "check"]);
+run("pnpm", ["run", "check"]);
 if (dryRun) {
-  run("npm", ["publish", "--dry-run", "--ignore-scripts"]);
+  run("pnpm", ["publish", "--dry-run", "--ignore-scripts", "--no-git-checks"]);
   console.log(`\nDry run done; v${version} was not tagged or published.`);
   process.exit(0);
 }
 // check already ran above. A current version is tagged only once it is published.
 if (part === "current") {
-  run("npm", ["publish", "--ignore-scripts"]);
+  run("pnpm", ["publish", "--ignore-scripts", "--no-git-checks"]);
   run("git", ["tag", "-a", `v${version}`, "-m", `v${version}`]);
 } else {
-  run("npm", ["version", part, "-m", "Release v%s"]);
+  run("pnpm", ["version", part, "--message", "Release v%s"]);
   run(
-    "npm",
-    ["publish", "--ignore-scripts"],
+    "pnpm",
+    // The script checks the branch itself; the version commit is not pushed yet.
+    ["publish", "--ignore-scripts", "--no-git-checks"],
     `git tag -d v${version} && git reset --hard HEAD~1`,
   );
 }

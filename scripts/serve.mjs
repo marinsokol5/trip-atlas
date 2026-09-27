@@ -62,7 +62,7 @@ if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
       await access(resolve(appRoot, "index.html"), constants.R_OK);
     } catch {
       throw new Error(
-        "Build the app first with npm run build (or use npm start)",
+        "Build the app first with pnpm run build (or use pnpm start)",
       );
     }
     const app = staticFiles(appRoot);
