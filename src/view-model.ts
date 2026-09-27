@@ -497,6 +497,107 @@ export function mapDisplayDuration(
     )[0];
   return longest ? mapConnectionDuration(longest) : "";
 }
+/** Below this many screen pixels per degree, 1:50m outlines are as sharp as 1:10m ones look. */
+export const detailPixelsPerDegree = 12;
+/**
+ * Longitude/latitude bounds of what a flat map shows under a pan/zoom view: a canvas of
+ * `visible` frame units centered on the 900×480 frame. Longitudes stay continuous around
+ * `centerLon`, so a view across ±180° gives, say, 170…190 rather than −180…180.
+ */
+export function mapViewBounds(
+  invert: (point: Point) => Point | null | undefined,
+  view: { x: number; y: number; k: number },
+  visible = { width: 900, height: 480 },
+  centerLon = 0,
+): [number, number, number, number] | undefined {
+  const toMap = (x: number, y: number): Point => [
+    (x - view.x) / view.k,
+    (y - view.y) / view.k,
+  ];
+  const left = 450 - visible.width / 2,
+    top = 240 - visible.height / 2;
+  const samples: Point[] = [];
+  for (let i = 0; i <= 4; i++)
+    for (let j = 0; j <= 4; j++) {
+      const p = invert(
+        toMap(left + (visible.width * i) / 4, top + (visible.height * j) / 4),
+      );
+      if (!p || !p.every(Number.isFinite)) return undefined;
+      samples.push([
+        centerLon + ((((p[0] - centerLon + 180) % 360) + 360) % 360) - 180,
+        p[1],
+      ]);
+    }
+  const lons = samples.map((p) => p[0]),
+    lats = samples.map((p) => p[1]);
+  return [
+    Math.min(...lons),
+    Math.min(...lats),
+    Math.max(...lons),
+    Math.max(...lats),
+  ];
+}
+type CountryShape = {
+  bbox?: number[];
+  geometry?: { type: string; coordinates: unknown };
+  properties: { iso2: string };
+};
+const landBoxes = new WeakMap<CountryShape, number[][]>();
+/** One box per landmass, so a country spanning the dateline (US, Russia) is not "in view" everywhere. */
+function countryBoxes(feature: CountryShape) {
+  let boxes = landBoxes.get(feature);
+  if (!boxes) {
+    const { geometry } = feature;
+    const polygons = (
+      geometry?.type === "Polygon"
+        ? [geometry.coordinates]
+        : geometry?.type === "MultiPolygon"
+          ? geometry.coordinates
+          : []
+    ) as Point[][][];
+    boxes = polygons.length
+      ? polygons.map(([outer]) => {
+          const lons = outer.map((p) => p[0]),
+            lats = outer.map((p) => p[1]);
+          return [
+            Math.min(...lons),
+            Math.min(...lats),
+            Math.max(...lons),
+            Math.max(...lats),
+          ];
+        })
+      : feature.bbox
+        ? [feature.bbox]
+        : [];
+    landBoxes.set(feature, boxes);
+  }
+  return boxes;
+}
+/** Country codes with a landmass inside `bounds` (longitudes may run past ±180°). */
+export function detailCountries(
+  features: readonly CountryShape[],
+  bounds: [number, number, number, number] | undefined,
+) {
+  if (!bounds) return [];
+  const [west, south, east, north] = bounds;
+  const codes = features
+    .filter(
+      (feature) =>
+        feature.properties.iso2 &&
+        countryBoxes(feature).some((box) =>
+          [-360, 0, 360].some(
+            (shift) =>
+              box[0] + shift <= east &&
+              box[2] + shift >= west &&
+              box[1] <= north &&
+              box[3] >= south,
+          ),
+        ),
+    )
+    .map(({ properties }) => properties.iso2);
+  // A country split into several features (Australia's territories) is one detail file.
+  return [...new Set(codes)].sort();
+}
 export function zoomMap(
   view: { x: number; y: number; k: number },
   factor: number,

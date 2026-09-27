@@ -87,6 +87,9 @@ import {
   transferPlaces,
   mapDisplayConnections,
   excursionProgress,
+  detailCountries,
+  mapViewBounds,
+  detailPixelsPerDegree,
   placePosition,
   mapDisplayDuration,
   directedCurvePoint,
@@ -102,7 +105,6 @@ import {
   mapDurationFilters,
 } from "./view-model";
 import type { Point, MapDurationFilter, MapExcursion } from "./view-model";
-import world from "./assets/world.json";
 import "./App.css";
 import { Overview } from "./Overview";
 import { Bookings, DayBookings, Documents } from "./Bookings";
@@ -116,6 +118,71 @@ import { MapLabelsMenu } from "./MapLabelsMenu";
 import { Flag, flagsShown } from "./Flag";
 import { Logo } from "./Logo";
 import { useStoredBoolean } from "./use-stored-boolean";
+
+// The 1:50m world outlines are their own chunk: requested as the app starts, never blocking first paint.
+type WorldCountry = {
+  type: string;
+  bbox?: number[];
+  geometry: { type: string; coordinates: unknown };
+  properties: { name: string; iso2: string };
+};
+let worldCountries: readonly WorldCountry[] | undefined;
+const worldRequest = import("./assets/world.json").then((module) => {
+  worldCountries = module.default.features as readonly WorldCountry[];
+  return worldCountries;
+});
+// A failure before any map mounts is shown by the map itself, not as an unhandled rejection.
+worldRequest.catch(() => {});
+const noCountries: readonly WorldCountry[] = [];
+function useWorldCountries() {
+  const [state, setState] = useState<{
+    countries?: readonly WorldCountry[];
+    failed?: boolean;
+  }>({ countries: worldCountries });
+  useEffect(() => {
+    if (state.countries) return;
+    let current = true;
+    worldRequest.then(
+      (countries) => current && setState({ countries }),
+      () => current && setState({ failed: true }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [state.countries]);
+  return state;
+}
+// 1:10m outlines: one lazily loaded chunk per country, keyed by world.json feature name.
+// They are bundled and served with the app, never fetched from the internet.
+type DetailGeometry = { type: "MultiPolygon"; coordinates: number[][][][] };
+type DetailShapes = Record<string, DetailGeometry>;
+const detailFiles = import.meta.glob<DetailShapes>("./assets/detail/*.json", {
+  import: "default",
+});
+const hasDetail = (code: string) =>
+  `./assets/detail/${code}.json` in detailFiles;
+// Loaded shapes outlive any one map, so switching trips never reloads or loses them.
+const detailLoaded: Record<string, DetailShapes> = {};
+const detailLoads = new Map<string, Promise<void>>();
+function loadDetail(code: string) {
+  let load = detailLoads.get(code);
+  if (!load) {
+    load = detailFiles[`./assets/detail/${code}.json`]().then(
+      (shapes) => {
+        detailLoaded[code] = shapes;
+      },
+      (error) => {
+        // Forget the failure so a later view can try again.
+        detailLoads.delete(code);
+        throw error;
+      },
+    );
+    detailLoads.set(code, load);
+  }
+  return load;
+}
+// Outline paths depend only on the projection, so each is computed once per projection.
+const outlineCaches = new WeakMap<GeoProjection, WeakMap<object, string | null>>();
 
 type Entry = TripEntry;
 // Only animation consumers subscribe to frame updates. App receives semantic changes.
@@ -593,7 +660,7 @@ function TripMap({
     () => mapDisplayConnections(model, country),
     [model, country],
   );
-  const geometry = useMemo(() => {
+  const projection = useMemo(() => {
     let projection: GeoProjection;
     if (globe) projection = globeProjection(globeView, globeFit.scale);
     else {
@@ -621,6 +688,67 @@ function TripMap({
           ]);
       } else projection.scale(135).translate([450, 260]);
     }
+    return projection;
+  }, [locations, globe, globeView, globeFit]);
+  const worldState = useWorldCountries();
+  const countries = worldState.countries ?? noCountries;
+  // A flat map showing enough screen pixels per degree swaps the 1:50m outlines in view for 1:10m ones.
+  const detailWanted = useMemo(() => {
+    if (globe || !countries.length) return [];
+    const pixelsPerDegree =
+      ((projection.scale() * Math.PI) / 180) * view.k * frameScale;
+    if (pixelsPerDegree < detailPixelsPerDegree) return [];
+    return detailCountries(
+      countries,
+      mapViewBounds(
+        (point) => projection.invert?.(point),
+        view,
+        // The whole canvas shows geography, not just the fixed-ratio frame.
+        {
+          width: canvasSize.width / frameScale,
+          height: canvasSize.height / frameScale,
+        },
+        -projection.rotate()[0],
+      ),
+    ).filter(hasDetail);
+  }, [globe, countries, projection, view, frameScale, canvasSize]);
+  const detailKey = detailWanted.join(",");
+  const [loadedDetail, setLoadedDetail] = useState(
+    () => new Set(Object.keys(detailLoaded)),
+  );
+  useEffect(() => {
+    const missing = (detailKey ? detailKey.split(",") : []).filter(
+      (code) => !detailLoaded[code],
+    );
+    if (!missing.length) return;
+    let current = true;
+    // One state update per batch, however many countries arrive.
+    Promise.allSettled(missing.map(loadDetail)).then(() => {
+      if (current)
+        setLoadedDetail(
+          (loaded) =>
+            new Set([...loaded, ...missing.filter((code) => detailLoaded[code])]),
+        );
+    });
+    return () => {
+      current = false;
+    };
+  }, [detailKey]);
+  // A string key, so panning within the same loaded set never recomputes the outlines.
+  const activeKey = detailWanted
+    .filter((code) => loadedDetail.has(code) || detailLoaded[code])
+    .join(",");
+  const activeDetail = useMemo(
+    () =>
+      Object.fromEntries(
+        (activeKey ? activeKey.split(",") : []).map((code) => [
+          code,
+          detailLoaded[code],
+        ]),
+      ) as Record<string, DetailShapes>,
+    [activeKey],
+  );
+  const geometry = useMemo(() => {
     const coordinates = Object.fromEntries(
       locations.map((p) => [p.id, p.coordinates]),
     );
@@ -670,12 +798,22 @@ function TripMap({
       });
     });
     const path = geoPath(projection);
+    let outlineCache = outlineCaches.get(projection);
+    if (!outlineCache) outlineCaches.set(projection, (outlineCache = new WeakMap()));
     const outlines = globe
-      ? globeShapes(world.features, projection, globeReach, turning ? 5 : 2.5)
-      : world.features.map((feature) =>
-          path(feature as unknown as GeoPermissibleObjects),
-        );
-    const shapes = world.features.map((feature, i) => ({
+      ? globeShapes(countries, projection, globeReach, turning ? 5 : 2.5)
+      : countries.map((feature) => {
+          const shape =
+            activeDetail[feature.properties.iso2]?.[feature.properties.name] ??
+            feature;
+          let outline = outlineCache.get(shape);
+          if (outline === undefined) {
+            outline = path(shape as unknown as GeoPermissibleObjects);
+            outlineCache.set(shape, outline);
+          }
+          return outline;
+        });
+    const shapes = countries.map((feature, i) => ({
       id: i,
       path: outlines[i],
       name: feature.properties.name,
@@ -700,13 +838,15 @@ function TripMap({
     });
     return { points, routes, shapes, labels, sphere, graticule };
   }, [
+    projection,
+    activeDetail,
+    countries,
     locations,
     groups,
     transfers,
     connections,
     globe,
     globeView,
-    globeFit,
     globeReach,
     turning,
   ]);
@@ -849,6 +989,7 @@ function TripMap({
       <div
         className={`map-canvas${globe ? " globe" : ""}`}
         data-testid="map-canvas"
+        aria-busy={!worldState.countries && !worldState.failed}
       >
         <div className="map-header">
           <div className="map-caption">
@@ -950,6 +1091,18 @@ function TripMap({
           </div>
         </div>
         <div className="map-geometry" ref={frame}>
+          {!worldState.countries && (
+            <div className="map-loading" role="status">
+              {worldState.failed ? (
+                "Couldn’t load the map outlines. Refresh to try again."
+              ) : (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  Loading map…
+                </>
+              )}
+            </div>
+          )}
           <svg
             viewBox="0 0 900 480"
             role="group"

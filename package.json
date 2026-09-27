@@ -15,6 +15,7 @@
     "!scripts/release.mjs",
     "!scripts/pages.mjs",
     "!scripts/schema-types.mjs",
+    "!scripts/world-detail.mjs",
     "skills/",
     "trips/",
     "THIRD_PARTY_NOTICES.md"

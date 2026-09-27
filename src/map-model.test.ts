@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { geoArea, geoMercator } from "d3-geo";
 import { normalizeTrip } from "./itinerary.ts";
 import {
   mapHighlightedCountries,
@@ -18,6 +19,8 @@ import {
   mapPointStyle,
   routeCurve,
   zoomMap,
+  detailCountries,
+  mapViewBounds,
 } from "./view-model.ts";
 
 test("vehicle connection spans transfer points and final hiking leg before filtering", () => {
@@ -682,4 +685,102 @@ test("clicking a place jumps to its first night there, else to the visit", () =>
   assert.equal(placePosition(model, "sight"), 1.5);
   assert.equal(placePosition(model, "next"), 2.99);
   assert.equal(placePosition(model, "home", model.days.slice(1)), undefined);
+});
+
+test("flat views pick the countries in view, including across the dateline", () => {
+  const features = [
+    { bbox: [120, 21.9, 122, 25.3], properties: { iso2: "TW" } },
+    { bbox: [123, 24, 146, 45.5], properties: { iso2: "JP" } },
+    { bbox: [3.4, 50.8, 7.2, 53.5], properties: { iso2: "NL" } },
+    { bbox: [0, 0, 1, 1], properties: { iso2: "" } },
+    // Australia's territories are separate features sharing one detail file.
+    { bbox: [105.5, -10.6, 105.8, -10.4], properties: { iso2: "AU" } },
+    { bbox: [113, -44, 154, -10], properties: { iso2: "AU" } },
+    {
+      // A dateline country is only in view where one of its landmasses is.
+      bbox: [-180, -21, 180, -12],
+      geometry: {
+        type: "MultiPolygon",
+        coordinates: [
+          [[[177, -19], [180, -19], [180, -16], [177, -16], [177, -19]]],
+          [[[-180, -17], [-178, -17], [-178, -16], [-180, -16], [-180, -17]]],
+        ],
+      },
+      properties: { iso2: "FJ" },
+    },
+    {
+      bbox: [-178, 19, 180, 71],
+      geometry: {
+        type: "MultiPolygon",
+        coordinates: [
+          [[[-125, 30], [-70, 30], [-70, 49], [-125, 49], [-125, 30]]],
+          [[[172, 51], [180, 51], [180, 53], [172, 53], [172, 51]]],
+        ],
+      },
+      properties: { iso2: "US" },
+    },
+  ];
+  assert.deepEqual(detailCountries(features, [119, 21, 126, 27]), ["JP", "TW"]);
+  assert.deepEqual(detailCountries(features, [165, 45, 179, 55]), ["US"]);
+  assert.deepEqual(detailCountries(features, [100, -45, 160, -5]), ["AU"]);
+  assert.deepEqual(detailCountries(features, undefined), []);
+
+  // Centered on Fiji, the view runs past 180° instead of wrapping to −180…180.
+  const fiji = geoMercator()
+    .rotate([-179, 0])
+    .center([0, -17])
+    .scale(3000)
+    .translate([450, 240]);
+  const bounds = mapViewBounds(
+    (point) => fiji.invert!(point),
+    { x: 0, y: 0, k: 1 },
+    { width: 900, height: 480 },
+    179,
+  )!;
+  assert.ok(bounds[0] > 165 && bounds[2] > 180 && bounds[2] < 195, `${bounds}`);
+  assert.deepEqual(detailCountries(features, bounds), ["FJ"]);
+  // A wider canvas than the frame shows, and so selects, more of the world.
+  const wide = mapViewBounds(
+    (point) => fiji.invert!(point),
+    { x: 0, y: 0, k: 1 },
+    { width: 1800, height: 480 },
+    179,
+  )!;
+  assert.ok(wide[2] - wide[0] > bounds[2] - bounds[0]);
+  assert.equal(mapViewBounds(() => null, { x: 0, y: 0, k: 1 }), undefined);
+});
+
+test("every 1:50m country has a 1:10m outline of about the same area", () => {
+  const world = JSON.parse(
+    readFileSync(new URL("./assets/world.json", import.meta.url), "utf8"),
+  );
+  const files = new Set(
+    readdirSync(new URL("./assets/detail/", import.meta.url)),
+  );
+  const detail = new Map<string, Record<string, { type: string; coordinates: unknown[] }>>();
+  for (const feature of world.features) {
+    const { iso2, name } = feature.properties;
+    if (!iso2) continue;
+    assert.ok(files.has(`${iso2}.json`), iso2);
+    if (!detail.has(iso2))
+      detail.set(
+        iso2,
+        JSON.parse(
+          readFileSync(
+            new URL(`./assets/detail/${iso2}.json`, import.meta.url),
+            "utf8",
+          ),
+        ),
+      );
+    const shape = detail.get(iso2)![name];
+    assert.equal(shape?.type, "MultiPolygon", `${iso2} ${name}`);
+    assert.ok(shape.coordinates.length > 0, `${iso2} ${name} is empty`);
+    // Tiny states differ between scales; anything over ~4,000 km² must agree within 10%.
+    const coarse = geoArea(feature);
+    if (coarse > 1e-4) {
+      const ratio = geoArea(shape as never) / coarse;
+      assert.ok(ratio > 0.9 && ratio < 1.1, `${iso2} ${name}: ${ratio}`);
+    }
+  }
+  assert.equal(files.size, detail.size);
 });

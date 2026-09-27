@@ -142,6 +142,52 @@ nav {
   height: 100%;
   display: block;
 }
+.map-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  pointer-events: none;
+  /* Fast local loads finish before the notice would appear, so it never flashes. */
+  opacity: 0;
+  animation: map-loading-reveal 150ms ease-out 250ms forwards;
+}
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes map-loading-reveal {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pulse {
+  to {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-loading {
+    animation-duration: 0s;
+  }
+  .spinner {
+    animation: pulse 1.2s ease-in-out infinite alternate;
+  }
+}
 .geography path {
   fill: var(--land);
   stroke: var(--coast);
