@@ -20,7 +20,9 @@ import {
   CircleAlert,
   Lightbulb,
 } from "lucide-react";
+import { useState } from "react";
 import { Flag } from "./Flag";
+import { ThemedSelect } from "./ThemedSelect";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
 import { documentUrl } from "./itinerary";
 import {
@@ -29,6 +31,7 @@ import {
   bookingCountries,
   bookingsOnDay,
   isCheckoutDay,
+  isFlightLeg,
   isListedBooking,
   nightBookingsOnDay,
 } from "./booking-model";
@@ -455,10 +458,21 @@ export function Bookings({
   folder: string;
   onWholeTrip: () => void;
 }) {
+  const [typeFilter, setTypeFilter] = useState("all");
   const bookings = (model.trip.bookings ?? []).filter(
     (booking) => !country || bookingCountries(model, booking).includes(country),
   );
-  const listed = bookings.filter(isListedBooking);
+  const listed = bookings.filter((booking) => {
+    if (!isListedBooking(booking)) return false;
+    if (typeFilter === "all") return true;
+    if (typeFilter === "flight" || typeFilter === "transport") {
+      if (booking.type !== "transport") return false;
+      const leg = transportLeg(booking, model);
+      const isFlight = !!leg && isFlightLeg(leg);
+      return typeFilter === "flight" ? isFlight : !isFlight;
+    }
+    return booking.type === typeFilter;
+  });
   const tripWide = listed.filter(
     (booking) => bookingDayIndex(booking, model) === undefined,
   );
@@ -497,22 +511,51 @@ export function Bookings({
           (id) => id && model.trip.places[id].country === country,
         )),
   );
-  const hasDocuments = !!(
-    model.trip.documents?.length ||
-    days.length ||
-    legs.length
-  );
+  const hasDocuments =
+    (typeFilter === "all" || typeFilter === "documents") &&
+    !!(model.trip.documents?.length || days.length || legs.length);
   return (
     <section className="bookings-view" aria-label="Documents view">
       <header className="bookings-heading">
         <h2>Documents</h2>
+        <div className="bookings-type-filter">
+          <span>Type</span>
+          <ThemedSelect
+            label="Document type"
+            value={typeFilter}
+            options={[
+              { value: "all", label: "All types" },
+              { value: "accommodation", label: typeLabels.accommodation },
+              { value: "flight", label: "Flights" },
+              { value: "transport", label: "Other transport" },
+              { value: "activity", label: typeLabels.activity },
+              { value: "other", label: typeLabels.other },
+              { value: "documents", label: "Independent documents" },
+            ]}
+            onChange={setTypeFilter}
+          />
+        </div>
       </header>
-      {!listed.length && !hasDocuments && country && (
+      {!listed.length && !hasDocuments && (
         <div className="booking-scope-empty">
-          <p>No bookings or documents for this area.</p>
-          <button className="overview-back" onClick={onWholeTrip}>
-            View the whole trip
-          </button>
+          <p role="status">
+            {typeFilter !== "all"
+              ? `No documents of this type${country ? " for this area" : ""}.`
+              : `No bookings or documents${country ? " for this area" : ""}.`}
+          </p>
+          {typeFilter !== "all" && (
+            <button
+              className="overview-back"
+              onClick={() => setTypeFilter("all")}
+            >
+              Show all types
+            </button>
+          )}
+          {country && (
+            <button className="overview-back" onClick={onWholeTrip}>
+              View the whole trip
+            </button>
+          )}
         </div>
       )}
       <div

@@ -26,7 +26,8 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 Follow these so every trip file reads alike, rather than copying whatever file is nearby. When editing, keep the file's existing style.
 
 - Place IDs are lowercase kebab-case names (`hoi-an`, `cat-ba-park`); airports use their lowercase IATA code (`han`) and a name like `Hanoi Noi Bai Airport (HAN)`.
-- An airport is its own place, joined to its city by a transfer journey; flights run airport to airport.
+- A place is where you sleep or travel to; anything within about 30 minutes of the day's base, airports included, is an activity (`mapUrl`, no travel block), its local rides under `livingPerDay`.
+- A farther airport is its own place, joined to its city by a transfer journey; flights run airport to airport, or to the city whose own airport it is.
 - Journey `id`s are `<from>-<to>` place IDs (`han-nrt`), added only where a booking references the leg; add a suffix only to tell repeats apart.
 - Day titles are short and say what the day is: "Fly Hanoi → Tokyo", "Day trip to Nara", "Temples and old streets".
 - Estimates are round per-person numbers; set `0` for what a package includes, and omit what nobody knows yet.

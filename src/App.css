@@ -2349,7 +2349,26 @@ main[data-theme="dark"] {
   scrollbar-gutter: stable;
 }
 .bookings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
+}
+.bookings-type-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+.bookings-type-filter .select-popup {
+  width: max-content;
+}
+.booking-scope-empty .overview-back {
+  margin-right: 12px;
 }
 .bookings-heading h2 {
   font-size: 20px;
