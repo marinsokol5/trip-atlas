@@ -33,6 +33,31 @@ npx skills update
 
 The file format is defined by a [JSON Schema](skills/trip-atlas-update-itinerary/itinerary.schema.json). Start your file with `"$schema": "https://raw.githubusercontent.com/marinsokol5/trip-atlas/main/skills/trip-atlas-update-itinerary/itinerary.schema.json"` and your editor will validate and autocomplete it.
 
+### Baggage
+
+Booking baggage is per person. Each `baggage` entry records a bag type (`checked`, `cabin`, or `personal`), its `pieces`, and optionally `kg` per piece. Set `cabinTotalKg` on the booking when cabin bags and personal items share a weight limit; it excludes checked bags and requires at least one cabin or personal piece. Individual `kg` limits still apply. Without `cabinTotalKg`, no shared limit is assumed.
+
+Record verified size limits as `dimensionsCm` (three external side lengths from longest to shortest, including wheels, handles and pockets) or `maxLinearCm` (the sum of height + width + depth). If both are present, both limits apply. Omit unknown dimensions; the viewer does not infer them or fetch airline policies.
+
+This example shows separate dimensions for each bag, followed by a shared weight row with the cabin and personal-item icons joined by a plus sign and “10 kg”:
+
+```json
+{
+  "type": "transport",
+  "title": "Flight",
+  "baggage": [
+    { "type": "checked", "pieces": 1, "kg": 23, "maxLinearCm": 158 },
+    { "type": "cabin", "pieces": 1, "dimensionsCm": [56, 36, 23] },
+    { "type": "personal", "pieces": 1, "dimensionsCm": [40, 30, 15] }
+  ],
+  "cabinTotalKg": 10
+}
+```
+
+### Weather
+
+A day can carry its forecast: `"weather": { "lowC": 19, "highC": 27, "condition": "rain" }`. Temperatures are whole °C and `condition` (`sunny`, `partly-cloudy`, `cloudy`, `rain`, `storm` or `snow`) is optional. The Calendar shows it in the top-right corner of the day, e.g. a rain cloud and “19–27°”. Trip Atlas never fetches weather; have your agent fill it in and refresh it as the dates near.
+
 ## Host
 
 For self-hosting, I recommend [Tailscale](https://tailscale.com/).

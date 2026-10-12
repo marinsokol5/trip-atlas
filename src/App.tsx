@@ -27,6 +27,12 @@ import {
   Check,
   CircleAlert,
   MapPin,
+  CloudSun,
+  Cloud,
+  CloudRain,
+  CloudLightning,
+  Snowflake,
+  Thermometer,
 } from "lucide-react";
 import {
   useEffect,
@@ -57,6 +63,7 @@ import { normalizeTrip, tripsRoot } from "./itinerary";
 import { loadJson, parseManifest } from "./load-trip";
 import type { TripEntry } from "./load-trip";
 import type { Itinerary, NormalizedDay, Leg } from "./itinerary";
+import type { DayWeather } from "./itinerary-schema";
 import {
   activeLegs,
   clockAt,
@@ -1695,7 +1702,7 @@ function Calendar({
                 data-day={day.index + 1}
                 aria-pressed={day.index === selectedDay}
                 onClick={() => selectDay(day.index)}
-                aria-label={`${dayLabel(day)}. ${calendarCountries(model, day)}. ${dayTitle(model, day)}. Night: ${name(model, day.overnight)}${gaps.unbookedNights.has(day.index + 1) ? ", not booked yet" : ""}`}
+                aria-label={`${dayLabel(day)}. ${calendarCountries(model, day)}. ${dayTitle(model, day)}. ${day.source.weather ? `${weatherLabel(day.source.weather)}. ` : ""}Night: ${name(model, day.overnight)}${gaps.unbookedNights.has(day.index + 1) ? ", not booked yet" : ""}`}
               >
                 <span className="calendar-date-context">
                   <span className="day-date">
@@ -1717,6 +1724,7 @@ function Calendar({
                         : calendarCountries(model, day)}
                     </span>
                   )}
+                  <Weather day={day} />
                 </span>
                 <span className="day-title">{dayTitle(model, day)}</span>
                 <Occasions day={day} />
@@ -1790,6 +1798,66 @@ function Occasions({ day }: { day: NormalizedDay }) {
           {occasion}
         </span>
       ))}
+    </span>
+  );
+}
+const weatherIcons: Record<
+  NonNullable<DayWeather["condition"]>,
+  typeof MapIcon
+> = {
+  sunny: Sun,
+  "partly-cloudy": CloudSun,
+  cloudy: Cloud,
+  rain: CloudRain,
+  storm: CloudLightning,
+  snow: Snowflake,
+};
+/** "−3 to 5°" or "19–27°", with a true minus sign. */
+function temperatureRange({ lowC, highC }: DayWeather): string {
+  const degrees = (value: number) => String(value).replace("-", "−");
+  return lowC < 0
+    ? `${degrees(lowC)} to ${degrees(highC)}°`
+    : `${lowC}–${highC}°`;
+}
+const weatherWords: Record<NonNullable<DayWeather["condition"]>, string> = {
+  sunny: "Sunny",
+  "partly-cloudy": "Partly cloudy",
+  cloudy: "Cloudy",
+  rain: "Rainy",
+  storm: "Stormy",
+  snow: "Snowy",
+};
+/** "Rainy, 19–27 °C" for the day details, tooltips and screen readers. */
+function weatherLabel(weather: DayWeather): string {
+  const range = temperatureRange(weather).replace(/°$/, " °C");
+  return weather.condition
+    ? `${weatherWords[weather.condition]}, ${range}`
+    : range;
+}
+function Weather({ day }: { day: NormalizedDay }) {
+  const weather = day.source.weather;
+  if (!weather) return null;
+  const Condition = weather.condition && weatherIcons[weather.condition];
+  return (
+    <span className="day-weather" title={weatherLabel(weather)}>
+      {Condition && (
+        <Condition className="icon" aria-hidden="true" strokeWidth={1.6} />
+      )}
+      {temperatureRange(weather)}
+    </span>
+  );
+}
+/** The selected day's forecast, with its sky spelled out. */
+function WeatherDetail({ day }: { day: NormalizedDay }) {
+  const weather = day.source.weather;
+  if (!weather) return null;
+  const Condition = weather.condition
+    ? weatherIcons[weather.condition]
+    : Thermometer;
+  return (
+    <span className="weather-detail">
+      <Condition className="icon" aria-hidden="true" strokeWidth={1.6} />
+      {weatherLabel(weather)}
     </span>
   );
 }
@@ -1917,6 +1985,7 @@ function DayDetails({
       <h2>{dayTitle(model, day)}</h2>
       <Occasions day={day} />
       <GroupLabels model={model} day={day} />
+      <WeatherDetail day={day} />
       <span className="night">
         <Icon kind="bed" />
         {day.inTransit

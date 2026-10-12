@@ -218,6 +218,11 @@
   "days": [
     {
       "title": "Arrive in Hanoi",
+      "weather": {
+        "lowC": 21,
+        "highC": 28,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Hoan Kiem Lake"
@@ -240,6 +245,11 @@
     },
     {
       "title": "Old Quarter and Temple of Literature",
+      "weather": {
+        "lowC": 20,
+        "highC": 27,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Temple of Literature",
@@ -256,6 +266,11 @@
     },
     {
       "title": "Down to Ninh Binh",
+      "weather": {
+        "lowC": 20,
+        "highC": 28,
+        "condition": "sunny"
+      },
       "activities": [
         {
           "name": "Hang Mua",
@@ -289,6 +304,11 @@
     },
     {
       "title": "Trang An by boat",
+      "weather": {
+        "lowC": 21,
+        "highC": 28,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Trang An",
@@ -317,6 +337,11 @@
     },
     {
       "title": "Across to Cat Ba",
+      "weather": {
+        "lowC": 21,
+        "highC": 26,
+        "condition": "cloudy"
+      },
       "blocks": [
         {
           "type": "travel",
@@ -340,6 +365,11 @@
     },
     {
       "title": "Kayaking Lan Ha Bay",
+      "weather": {
+        "lowC": 20,
+        "highC": 25,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "id": "lan-ha-kayak",
@@ -382,6 +412,11 @@
     },
     {
       "title": "Ngu Lam Peak hike",
+      "weather": {
+        "lowC": 19,
+        "highC": 25,
+        "condition": "sunny"
+      },
       "activities": [
         {
           "name": "Ngu Lam Peak",
@@ -412,6 +447,11 @@
     },
     {
       "title": "Back to Hanoi",
+      "weather": {
+        "lowC": 19,
+        "highC": 26,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Hanoi street food walk",
@@ -440,6 +480,11 @@
     },
     {
       "title": "West Lake and a night flight",
+      "weather": {
+        "lowC": 18,
+        "highC": 25,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Ho Chi Minh Mausoleum",
@@ -475,6 +520,11 @@
     },
     {
       "title": "Arrive in Tokyo",
+      "weather": {
+        "lowC": 11,
+        "highC": 18,
+        "condition": "sunny"
+      },
       "activities": [
         {
           "name": "Senso-ji"
@@ -497,6 +547,11 @@
     },
     {
       "title": "Meiji Jingu to Shibuya",
+      "weather": {
+        "lowC": 10,
+        "highC": 17,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Meiji Jingu"
@@ -513,6 +568,11 @@
     },
     {
       "title": "Markets, gardens and teamLab",
+      "weather": {
+        "lowC": 11,
+        "highC": 16,
+        "condition": "rain"
+      },
       "activities": [
         {
           "name": "Tsukiji Outer Market"
@@ -529,6 +589,11 @@
     },
     {
       "title": "Up into Hakone",
+      "weather": {
+        "lowC": 7,
+        "highC": 13,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Hakone Open-Air Museum",
@@ -551,6 +616,11 @@
     },
     {
       "title": "Lake Ashi, then Kyoto",
+      "weather": {
+        "lowC": 8,
+        "highC": 16,
+        "condition": "sunny"
+      },
       "activities": [
         {
           "name": "Lake Ashi cruise",
@@ -580,6 +650,11 @@
     },
     {
       "title": "Fushimi Inari and Higashiyama",
+      "weather": {
+        "lowC": 7,
+        "highC": 17,
+        "condition": "sunny"
+      },
       "activities": [
         {
           "name": "Fushimi Inari Taisha",
@@ -596,6 +671,11 @@
     },
     {
       "title": "Arashiyama",
+      "weather": {
+        "lowC": 8,
+        "highC": 15,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Arashiyama Bamboo Grove"
@@ -612,6 +692,11 @@
     },
     {
       "title": "Day trip to Nara",
+      "weather": {
+        "lowC": 6,
+        "highC": 15,
+        "condition": "sunny"
+      },
       "activities": [
         {
           "name": "Todai-ji",
@@ -644,6 +729,11 @@
     },
     {
       "title": "Philosopher's Path in autumn",
+      "weather": {
+        "lowC": 7,
+        "highC": 14,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Ginkaku-ji",
@@ -661,6 +751,11 @@
     },
     {
       "title": "On to Osaka",
+      "weather": {
+        "lowC": 9,
+        "highC": 15,
+        "condition": "rain"
+      },
       "activities": [
         {
           "name": "Osaka Castle",
@@ -682,6 +777,11 @@
     },
     {
       "title": "Eating through Osaka",
+      "weather": {
+        "lowC": 9,
+        "highC": 16,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Kuromon Market"
@@ -697,6 +797,11 @@
     },
     {
       "title": "Fly to Taipei",
+      "weather": {
+        "lowC": 17,
+        "highC": 22,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Raohe Night Market"
@@ -733,6 +838,11 @@
     },
     {
       "title": "Temples and old Taipei",
+      "weather": {
+        "lowC": 18,
+        "highC": 23,
+        "condition": "rain"
+      },
       "activities": [
         {
           "name": "Longshan Temple"
@@ -747,6 +857,11 @@
     },
     {
       "title": "Shifen and Jiufen",
+      "weather": {
+        "lowC": 16,
+        "highC": 20,
+        "condition": "rain"
+      },
       "activities": [
         {
           "name": "Shifen Old Street"
@@ -785,6 +900,11 @@
     },
     {
       "title": "Beitou hot springs and Tamsui",
+      "weather": {
+        "lowC": 17,
+        "highC": 23,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Beitou Hot Spring Museum"
@@ -801,6 +921,11 @@
     },
     {
       "title": "Taipei 101 and Elephant Mountain",
+      "weather": {
+        "lowC": 18,
+        "highC": 24,
+        "condition": "partly-cloudy"
+      },
       "activities": [
         {
           "name": "Taipei 101 Observatory",
@@ -814,6 +939,11 @@
     },
     {
       "title": "Palace Museum and Shilin",
+      "weather": {
+        "lowC": 17,
+        "highC": 22,
+        "condition": "rain"
+      },
       "activities": [
         {
           "name": "National Palace Museum",
@@ -826,6 +956,11 @@
     },
     {
       "title": "Last morning in Taipei",
+      "weather": {
+        "lowC": 17,
+        "highC": 21,
+        "condition": "cloudy"
+      },
       "activities": [
         {
           "name": "Da'an Forest Park"

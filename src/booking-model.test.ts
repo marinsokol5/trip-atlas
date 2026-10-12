@@ -4,6 +4,8 @@ import { normalizeTrip, parseTrip } from "./itinerary.ts";
 import type { Booking, Trip, TravelBlock } from "./itinerary.ts";
 import {
   activityBooking,
+  baggageGroups,
+  baggageLabel,
   bookingAllocation,
   bookingGaps,
   bookingRange,
@@ -60,6 +62,57 @@ const hotel = (): Booking => ({
   reference: "ABC-123",
   documents: [{ label: "Confirmation", path: "docs/hotel.pdf" }],
   cost: { amount: 80, status: "paid" },
+});
+
+test("combined baggage groups only cabin and personal items, keeping individual caps", () => {
+  const checked = { type: "checked", pieces: 2, kg: 23 } as const;
+  const cabin = { type: "cabin", pieces: 1, kg: 10 } as const;
+  const personal = { type: "personal", pieces: 1 } as const;
+  const baggage = [personal, checked, cabin];
+  assert.deepEqual(baggageGroups({ baggage, cabinTotalKg: 12 }), [
+    { bags: [personal, cabin], totalKg: 12 },
+    { bags: [checked] },
+  ]);
+  assert.equal(baggageLabel(cabin), "1 × 10 kg cabin");
+  assert.deepEqual(baggage, [personal, checked, cabin]);
+});
+
+test("independent baggage limits remain separate when no combined limit is given", () => {
+  const baggage: NonNullable<Booking["baggage"]> = [
+    { type: "checked", pieces: 2, kg: 23 },
+    { type: "cabin", pieces: 1, kg: 7 },
+    { type: "personal", pieces: 1, kg: 1.5 },
+  ];
+  assert.deepEqual(
+    baggageGroups({ baggage }),
+    baggage.map((bag) => ({ bags: [bag] })),
+  );
+  assert.deepEqual(baggage.map(baggageLabel), [
+    "2 × 23 kg checked",
+    "1 × 7 kg cabin",
+    "1 × 1.5 kg personal item",
+  ]);
+  assert.deepEqual(baggageGroups({}), []);
+});
+
+test("baggage labels distinguish per-side dimensions from the sum of all sides", () => {
+  assert.equal(
+    baggageLabel({ type: "cabin", pieces: 1, dimensionsCm: [56, 36, 23] }),
+    "1 cabin · 56 × 36 × 23 cm",
+  );
+  assert.equal(
+    baggageLabel({ type: "checked", pieces: 1, kg: 23, maxLinearCm: 158 }),
+    "1 × 23 kg checked · H + W + D ≤ 158 cm",
+  );
+  assert.equal(
+    baggageLabel({
+      type: "personal",
+      pieces: 1,
+      dimensionsCm: [37.5, 25, 12.5],
+      maxLinearCm: 75,
+    }),
+    "1 personal item · 37.5 × 25 × 12.5 cm · H + W + D ≤ 75 cm",
+  );
 });
 
 test("legacy and empty optional content add no view; independent trip, day and travel docs do", () => {

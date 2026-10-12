@@ -383,6 +383,8 @@ export function parseTrip(input: unknown): Trip {
     activityIds = new Set<string>();
   t.days.forEach((d, i) => {
     const path = `days[${i}]`;
+    if (d.weather && d.weather.highC < d.weather.lowC)
+      fail(path + ".weather.highC", "expected at least lowC");
     d.activities?.forEach((activity, j) => {
       const p = `${path}.activities[${j}]`;
       if (activity.id !== undefined) {

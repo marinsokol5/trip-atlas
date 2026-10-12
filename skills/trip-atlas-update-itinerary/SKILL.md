@@ -18,6 +18,9 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - `livingPerDay` is food, drinks and local rides; tickets and tours are an activity's `estimatedCost`.
 - Titles short and plain, no numbering or superlatives. Booking titles are the property name; `reference` is a real code.
 - Fill bookings from the confirmation: dates, check-in/out, `meals`, GPS `coordinates`, `status`, per-person `cost.amount`.
+- Baggage is per person: list cabin bags and personal items separately in `baggage`. Each entry's `kg` is a per-piece cap. When those items share a weight allowance, set the booking's `cabinTotalKg`; it excludes checked bags and requires at least one cabin or personal piece. Keep any separate per-piece caps too, and omit an unspecified shared limit.
+- Record baggage sizes verified from the ticket or the operating airline's rules for that route and fare: `dimensionsCm` is three external side limits in centimetres, longest first, including wheels, handles and pockets; `maxLinearCm` is the maximum sum of height + width + depth. If both are set, both limits apply. Omit unknown sizes; never derive side limits from a linear limit. The app displays these fields and does not read tickets or fetch airline policies itself.
+- A day's `weather` is your forecast for where most of the day is spent: whole °C `lowC` and `highC`, plus a `condition` only when one sky clearly dominates. Replace it with a fresher forecast as the date nears; the app never fetches weather itself.
 - Add checklist or packing items only once the user agrees to them.
 - After every edit run `npx trip-atlas check <file>` (in a Trip Atlas checkout: `node scripts/cli.mjs check <file>`) and fix everything it reports.
 
@@ -60,4 +63,5 @@ The schema checks the shape of every field. `trip-atlas check` also checks what 
 - Journeys run in time order: arrival after departure (mind timezones and `endDay`), no overlap with the previous journey, no blocks while an overnight journey is under way, and no exact time falls on an ambiguous daylight-saving clock.
 - Every `documents[].path` exists beside the itinerary.
 - `mapUrl` is an https Google Maps link.
+- A day's `weather.highC` is at least its `lowC`.
 - `currency` is set once any price is; every number, and the price and duration totals, stay finite.

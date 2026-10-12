@@ -1,4 +1,5 @@
 import type {
+  BaggageAllowance,
   Booking,
   BookingAllocation,
   Itinerary,
@@ -6,6 +7,32 @@ import type {
   Trip,
 } from "./itinerary.ts";
 import { componentLegs, mapAreas, modeKind } from "./view-model.ts";
+
+/** Group only cabin bags and personal items under a shared per-person limit. */
+export function baggageGroups(
+  booking: Pick<Booking, "baggage" | "cabinTotalKg">,
+): { bags: BaggageAllowance[]; totalKg?: number }[] {
+  const bags = booking.baggage ?? [];
+  const onboard = bags.filter((bag) => bag.type !== "checked");
+  return bags.flatMap((bag) => {
+    if (booking.cabinTotalKg === undefined || bag.type === "checked")
+      return [{ bags: [bag] }];
+    return bag === onboard[0]
+      ? [{ bags: onboard, totalKg: booking.cabinTotalKg }]
+      : [];
+  });
+}
+
+export function baggageLabel(bag: BaggageAllowance): string {
+  const type = bag.type === "personal" ? "personal item" : bag.type;
+  return [
+    `${bag.pieces}${bag.kg !== undefined ? ` × ${bag.kg} kg` : ""} ${type}`,
+    ...(bag.dimensionsCm ? [`${bag.dimensionsCm.join(" × ")} cm`] : []),
+    ...(bag.maxLinearCm !== undefined
+      ? [`H + W + D ≤ ${bag.maxLinearCm} cm`]
+      : []),
+  ].join(" · ");
+}
 
 /** Dates remain authored calendar dates; offsets are only a view of this trip. */
 export function bookingRange(booking: Booking, trip: Trip) {

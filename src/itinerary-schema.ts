@@ -155,6 +155,7 @@ export interface TripDay {
    * What makes the date itself special, shown in full under the day title: "🎂 Ana's birthday", "Christmas Eve", "Last night in Japan". Not for plans; those are activities.
    */
   occasions?: Text[];
+  weather?: DayWeather;
   /**
    * What to see or do that day, in order.
    */
@@ -164,6 +165,23 @@ export interface TripDay {
    * Travel or place blocks in order; location carries forward afterward.
    */
   blocks?: (TravelBlock | PlaceBlock)[];
+}
+/**
+ * The day's forecast where most of it is spent, shown in its Calendar cell; replace it with a fresher forecast as the date nears.
+ */
+export interface DayWeather {
+  /**
+   * The day's low in whole °C.
+   */
+  lowC: number;
+  /**
+   * The day's high in whole °C, at least `lowC`.
+   */
+  highC: number;
+  /**
+   * The sky most of the day; omit it when no one condition clearly dominates.
+   */
+  condition?: "sunny" | "partly-cloudy" | "cloudy" | "rain" | "storm" | "snow";
 }
 /**
  * Something to see or do that day: a temple, a cruise, a show, a bath.
@@ -331,6 +349,10 @@ export interface BookingInput {
    */
   baggage?: BaggageAllowance[];
   /**
+   * Combined weight limit per person for all cabin bags and personal items in baggage; excludes checked bags. Requires at least one cabin or personal piece. Individual baggage[].kg limits still apply; omission means no combined limit is specified.
+   */
+  cabinTotalKg?: number;
+  /**
    * A plain-text reminder shown on the booking card, as a quiet tip by default.
    */
   notes?: string;
@@ -356,6 +378,17 @@ export interface BaggageAllowance {
    * Weight limit per piece.
    */
   kg?: number;
+  /**
+   * Maximum external dimensions per piece in centimetres, including wheels, handles and pockets. List the three sides from longest to shortest. Omit when unknown; do not infer side limits from a linear limit.
+   *
+   * @minItems 3
+   * @maxItems 3
+   */
+  dimensionsCm?: number[];
+  /**
+   * Maximum sum of height + width + depth per piece in centimetres. Omit when unknown. If dimensionsCm is also set, both limits apply.
+   */
+  maxLinearCm?: number;
 }
 export interface BookingCost {
   /**

@@ -650,6 +650,88 @@ test("booking baggage validates type, pieces and weight", () => {
     /kg/,
   );
 });
+test("combined cabin allowance requires cabin or personal pieces and a positive finite limit", () => {
+  const flight = (extra: Record<string, unknown>) => ({
+    ...base(),
+    bookings: [{ type: "transport", title: "Flight", ...extra }],
+  });
+  const baggage = [
+    { type: "checked", pieces: 2, kg: 23 },
+    { type: "cabin", pieces: 1, kg: 10 },
+    { type: "personal", pieces: 1 },
+  ];
+  const booking = normalizeTrip(flight({ baggage, cabinTotalKg: 12 })).trip
+    .bookings![0];
+  assert.equal(booking.cabinTotalKg, 12);
+  assert.equal(booking.baggage![1].kg, 10);
+  assert.doesNotThrow(() =>
+    normalizeTrip(
+      flight({
+        baggage: [{ type: "personal", pieces: 1 }],
+        cabinTotalKg: 7,
+      }),
+    ),
+  );
+  for (const cabinTotalKg of [0, -1, "10", null, NaN, Infinity])
+    assert.throws(
+      () => normalizeTrip(flight({ baggage, cabinTotalKg })),
+      /cabinTotalKg/,
+    );
+  for (const extra of [
+    {},
+    { baggage: [] },
+    { baggage: [{ type: "checked", pieces: 1, kg: 23 }] },
+    { baggage: [{ type: "cabin", pieces: 0 }] },
+  ])
+    assert.throws(
+      () => normalizeTrip(flight({ ...extra, cabinTotalKg: 10 })),
+      /cabinTotalKg|baggage/,
+    );
+});
+
+test("baggage dimensions preserve side and linear limits and reject malformed sizes", () => {
+  const flight = (size: Record<string, unknown>) => ({
+    ...base(),
+    bookings: [
+      {
+        type: "transport",
+        title: "Flight",
+        baggage: [{ type: "personal", pieces: 1, ...size }],
+      },
+    ],
+  });
+  const dimensionsCm = [37.5, 25, 12.5];
+  const bag = normalizeTrip(flight({ dimensionsCm, maxLinearCm: 75 })).trip
+    .bookings![0].baggage![0];
+  assert.deepEqual(bag.dimensionsCm, dimensionsCm);
+  assert.equal(bag.maxLinearCm, 75);
+  assert.equal(
+    normalizeTrip(flight({ maxLinearCm: 158 })).trip.bookings![0].baggage![0]
+      .dimensionsCm,
+    undefined,
+  );
+  for (const value of [
+    [],
+    [56, 36],
+    [56, 36, 23, 1],
+    [56, 0, 23],
+    [56, -1, 23],
+    [56, "36", 23],
+    [56, NaN, 23],
+    [56, Infinity, 23],
+    "56x36x23",
+  ])
+    assert.throws(
+      () => normalizeTrip(flight({ dimensionsCm: value })),
+      /dimensionsCm/,
+    );
+  for (const value of [0, -1, "158", null, NaN, Infinity])
+    assert.throws(
+      () => normalizeTrip(flight({ maxLinearCm: value })),
+      /maxLinearCm/,
+    );
+});
+
 test("day activities take a name and an optional id, map link, tip and price", () => {
   const day = (activities: unknown) => ({
     ...base(),
@@ -709,4 +791,32 @@ test("day occasions are a list of non-empty labels", () => {
   assert.deepEqual(ok.trip.days[0].occasions, ["🎂 Birthday", "Christmas Eve"]);
   assert.throws(() => normalizeTrip(day("Birthday")), /days\[0\]\.occasions/);
   assert.throws(() => normalizeTrip(day([" "])), /days\[0\]\.occasions\[0\]/);
+});
+test("day weather is an optional whole-degree range with a known sky", () => {
+  const day = (weather: unknown) => ({ ...base(), days: [{ weather }] });
+  const ok = normalizeTrip(day({ lowC: -3, highC: 5, condition: "snow" }));
+  assert.deepEqual(ok.trip.days[0].weather, {
+    lowC: -3,
+    highC: 5,
+    condition: "snow",
+  });
+  assert.equal(normalizeTrip(base()).trip.days[0].weather, undefined);
+  normalizeTrip(day({ lowC: 20, highC: 20 }));
+  assert.throws(
+    () => normalizeTrip(day({ lowC: 20, highC: 18 })),
+    /days\[0\]\.weather\.highC: expected at least lowC/,
+  );
+  assert.throws(() => normalizeTrip(day({ highC: 20 })), /lowC/);
+  assert.throws(
+    () => normalizeTrip(day({ lowC: 12.5, highC: 20 })),
+    /days\[0\]\.weather\.lowC/,
+  );
+  assert.throws(
+    () => normalizeTrip(day({ lowC: 12, highC: 20, condition: "drizzle" })),
+    /days\[0\]\.weather\.condition/,
+  );
+  assert.throws(
+    () => normalizeTrip(day({ lowC: 12, highC: 20, humidity: 80 })),
+    /unknown field/,
+  );
 });

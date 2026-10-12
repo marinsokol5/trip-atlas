@@ -275,6 +275,9 @@
             "$ref": "#/$defs/text"
           }
         },
+        "weather": {
+          "$ref": "#/$defs/weather"
+        },
         "activities": {
           "description": "What to see or do that day, in order.",
           "type": "array",
@@ -298,6 +301,31 @@
               }
             ]
           }
+        }
+      }
+    },
+    "weather": {
+      "title": "DayWeather",
+      "description": "The day's forecast where most of it is spent, shown in its Calendar cell; replace it with a fresher forecast as the date nears.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lowC", "highC"],
+      "properties": {
+        "lowC": {
+          "description": "The day's low in whole °C.",
+          "type": "integer",
+          "minimum": -90,
+          "maximum": 60
+        },
+        "highC": {
+          "description": "The day's high in whole °C, at least `lowC`.",
+          "type": "integer",
+          "minimum": -90,
+          "maximum": 60
+        },
+        "condition": {
+          "description": "The sky most of the day; omit it when no one condition clearly dominates.",
+          "enum": ["sunny", "partly-cloudy", "cloudy", "rain", "storm", "snow"]
         }
       }
     },
@@ -473,6 +501,18 @@
           "description": "Weight limit per piece.",
           "type": "number",
           "exclusiveMinimum": 0
+        },
+        "dimensionsCm": {
+          "description": "Maximum external dimensions per piece in centimetres, including wheels, handles and pockets. List the three sides from longest to shortest. Omit when unknown; do not infer side limits from a linear limit.",
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "number", "exclusiveMinimum": 0 }
+        },
+        "maxLinearCm": {
+          "description": "Maximum sum of height + width + depth per piece in centimetres. Omit when unknown. If dimensionsCm is also set, both limits apply.",
+          "type": "number",
+          "exclusiveMinimum": 0
         }
       }
     },
@@ -481,6 +521,24 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["type", "title"],
+      "dependentSchemas": {
+        "cabinTotalKg": {
+          "required": ["baggage"],
+          "properties": {
+            "baggage": {
+              "contains": {
+                "type": "object",
+                "required": ["type", "pieces"],
+                "properties": {
+                  "type": { "enum": ["cabin", "personal"] },
+                  "pieces": { "type": "integer", "minimum": 1 }
+                }
+              }
+            }
+          },
+          "errorMessage": "cabinTotalKg requires at least one cabin bag or personal item"
+        }
+      },
       "properties": {
         "type": {
           "description": "`other` is a trip-wide expense (eSIM, visa) counted once in the whole-trip total.",
@@ -550,6 +608,11 @@
           "items": {
             "$ref": "#/$defs/baggage"
           }
+        },
+        "cabinTotalKg": {
+          "description": "Combined weight limit per person for all cabin bags and personal items in baggage; excludes checked bags. Requires at least one cabin or personal piece. Individual baggage[].kg limits still apply; omission means no combined limit is specified.",
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "notes": {
           "description": "A plain-text reminder shown on the booking card, as a quiet tip by default.",

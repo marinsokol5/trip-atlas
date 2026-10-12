@@ -20,13 +20,15 @@ import {
   CircleAlert,
   Lightbulb,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Flag } from "./Flag";
 import { ThemedSelect } from "./ThemedSelect";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
 import { documentUrl } from "./itinerary";
 import {
   activityDay,
+  baggageGroups,
+  baggageLabel,
   bookingAllocation,
   bookingCountries,
   bookingsOnDay,
@@ -76,20 +78,61 @@ function Meals({ meals }: { meals: NonNullable<Booking["meals"]> }) {
   );
 }
 const bagKinds = {
-  checked: { label: "checked", Icon: Luggage },
-  cabin: { label: "cabin", Icon: Briefcase },
-  personal: { label: "personal item", Icon: Backpack },
+  checked: Luggage,
+  cabin: Briefcase,
+  personal: Backpack,
 } as const;
-function Baggage({ bags }: { bags: NonNullable<Booking["baggage"]> }) {
+function Baggage({ booking }: { booking: Booking }) {
   return (
     <ul className="booking-baggage" aria-label="Baggage per person">
-      {bags.map((bag, index) => {
-        const { label, Icon } = bagKinds[bag.type];
-        const text = `${bag.pieces}${bag.kg !== undefined ? ` × ${bag.kg} kg` : ""} ${label}`;
+      {baggageGroups(booking).map(({ bags, totalKg }, index) => {
+        const types = [
+          ...new Set(
+            bags.filter((bag) => bag.pieces > 0).map((bag) => bag.type),
+          ),
+        ];
+        const sharedBags = types
+          .map((type) => (type === "personal" ? "Personal item" : "Cabin bag"))
+          .join(" plus ");
         return (
-          <li key={index} title={`${text}, per person`}>
-            <Icon strokeWidth={1.75} aria-hidden="true" />
-            {text}
+          <li key={index}>
+            {bags.map((bag, bagIndex) => {
+              const Icon = bagKinds[bag.type];
+              const text = baggageLabel(bag);
+              return (
+                <span
+                  className="booking-bag"
+                  key={bagIndex}
+                  title={`${text}, per person`}
+                >
+                  <Icon strokeWidth={1.75} aria-hidden="true" />
+                  <span>{text}</span>
+                </span>
+              );
+            })}
+            {totalKg !== undefined && (
+              <span
+                className="booking-bag"
+                title={`${sharedBags}: ${totalKg} kg combined per person`}
+              >
+                <span
+                  className="booking-baggage-icons"
+                  role="img"
+                  aria-label={`${sharedBags}, combined allowance`}
+                >
+                  {types.map((type, typeIndex) => {
+                    const Icon = bagKinds[type];
+                    return (
+                      <Fragment key={type}>
+                        {typeIndex > 0 && <span aria-hidden="true">+</span>}
+                        <Icon strokeWidth={1.75} aria-hidden="true" />
+                      </Fragment>
+                    );
+                  })}
+                </span>
+                <span>{totalKg} kg</span>
+              </span>
+            )}
           </li>
         );
       })}
@@ -358,7 +401,7 @@ export function BookingCard({
           {booking.meals && <Meals meals={booking.meals} />}
         </div>
       )}
-      {!!booking.baggage?.length && <Baggage bags={booking.baggage} />}
+      {!!booking.baggage?.length && <Baggage booking={booking} />}
       {booking.cost && allocation && (
         <p className="booking-allocation">{allocation}</p>
       )}
