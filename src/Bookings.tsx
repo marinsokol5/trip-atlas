@@ -19,6 +19,7 @@ import {
   TrainFront,
   CircleAlert,
   Lightbulb,
+  CalendarClock,
 } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Flag } from "./Flag";
@@ -31,6 +32,7 @@ import {
   baggageLabel,
   bookingAllocation,
   bookingCountries,
+  cancellationLabel,
   bookingsOnDay,
   isCheckoutDay,
   isFlightLeg,
@@ -262,6 +264,7 @@ export function BookingCard({
   country?: string;
 }) {
   const count = nights(booking, model),
+    cancellation = cancellationLabel(booking),
     leg = transportLeg(booking, model),
     flightTime = leg && modeKind(leg) === "flight" ? legDuration(leg) : "",
     allocation = allocationLabel(booking, model),
@@ -402,6 +405,12 @@ export function BookingCard({
         </div>
       )}
       {!!booking.baggage?.length && <Baggage booking={booking} />}
+      {cancellation && (
+        <p className="booking-cancellation">
+          <CalendarClock strokeWidth={1.75} aria-hidden="true" />
+          <span>{cancellation}</span>
+        </p>
+      )}
       {booking.cost && allocation && (
         <p className="booking-allocation">{allocation}</p>
       )}

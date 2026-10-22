@@ -33,6 +33,79 @@ const base = (): Trip => ({
     {},
   ],
 });
+
+test("cancellation schema accepts only an optional date string on the booking", () => {
+  const booking = (extra: Record<string, unknown>) => ({
+    ...base(),
+    bookings: [{ type: "activity", title: "Example booking", ...extra }],
+  });
+  for (const cancellableBy of [
+    "",
+    "12 Nov 2026",
+    "2026-11-12T12:00:00Z",
+    null,
+    20261112,
+    {},
+    { date: "2026-11-12" },
+    {
+      date: "2026-11-12",
+      time: "12:00",
+      timezone: "Asia/Tokyo",
+      inclusive: true,
+    },
+  ])
+    assert.throws(
+      () => normalizeTrip(booking({ cancellableBy })),
+      /bookings\[0\]\.cancellableBy/,
+      JSON.stringify(cancellableBy),
+    );
+  assert.throws(
+    () =>
+      normalizeTrip(
+        booking({
+          cancellation: { policy: "free_until", cancellableBy: "2026-11-12" },
+        }),
+      ),
+    /bookings\[0\]\.cancellation.*unknown field/,
+  );
+  assert.doesNotThrow(() => normalizeTrip(booking({})));
+});
+
+test("cancellation dates are real calendar dates regardless of booking price", () => {
+  for (const cost of [undefined, 0, { amount: 0 }]) {
+    for (const cancellableBy of ["2026-02-30", "2026-02-29", "2026-13-01"])
+      assert.throws(
+        () =>
+          normalizeTrip({
+            ...base(),
+            currency: "EUR",
+            bookings: [
+              {
+                type: "activity",
+                title: "Example booking",
+                ...(cost === undefined ? {} : { cost }),
+                cancellableBy,
+              },
+            ],
+          }),
+        /bookings\[0\]\.cancellableBy.*real/,
+      );
+  }
+  const trip = {
+    ...base(),
+    bookings: [
+      {
+        type: "activity",
+        title: "Example booking",
+        cancellableBy: "2028-02-29",
+      },
+    ],
+  };
+  assert.equal(
+    normalizeTrip(trip).trip.bookings![0].cancellableBy,
+    "2028-02-29",
+  );
+});
 test("empty days inherit location; motion only during travel", () => {
   const n = normalizeTrip(base());
   assert.deepEqual(

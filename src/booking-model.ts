@@ -6,7 +6,20 @@ import type {
   Leg,
   Trip,
 } from "./itinerary.ts";
-import { componentLegs, mapAreas, modeKind } from "./view-model.ts";
+import { componentLegs, dateLabel, mapAreas, modeKind } from "./view-model.ts";
+
+/** Deadlines stay authored local calendar dates, without timezone conversion. */
+export function cancellationLabel(
+  booking: Pick<Booking, "cancellableBy">,
+): string | undefined {
+  if (!booking.cancellableBy) return undefined;
+  const date = dateLabel(booking.cancellableBy, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return `Free cancellation by ${date}`;
+}
 
 /** Group only cabin bags and personal items under a shared per-person limit. */
 export function baggageGroups(

@@ -3578,6 +3578,21 @@ main[data-theme="dark"] {
 .booking-details > * {
   margin: 0;
 }
+.booking-cancellation {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.booking-cancellation > svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 .booking-list .booking-tile > .booking-notes,
 .booking-grid .booking-tile > .booking-notes {
   margin-left: 0;

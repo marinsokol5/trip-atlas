@@ -10,6 +10,7 @@ import {
   bookingGaps,
   bookingRange,
   bookingsOnDay,
+  cancellationLabel,
   hasBookingContent,
   nightBookingsOnDay,
 } from "./booking-model.ts";
@@ -62,6 +63,30 @@ const hotel = (): Booking => ({
   reference: "ABC-123",
   documents: [{ label: "Confirmation", path: "docs/hotel.pdf" }],
   cost: { amount: 80, status: "paid" },
+});
+
+test("cancellation labels preserve authored local dates without extra qualifiers", () => {
+  const label = (deadline: string) =>
+    cancellationLabel({ cancellableBy: deadline });
+  assert.equal(cancellationLabel({}), undefined);
+  assert.equal(label("2026-11-12"), "Free cancellation by 12 Nov 2026");
+  // Historical deadlines are still literal terms, never a calculated expiry state.
+  assert.equal(label("2000-01-01"), "Free cancellation by 1 Jan 2000");
+});
+
+test("cancellation deadlines remain authored before the trip and across date changes", () => {
+  const trip = fixture();
+  trip.bookings = [
+    { type: "activity", title: "Example booking", cancellableBy: "2026-10-15" },
+  ];
+  for (const startDate of ["2026-11-01", "2027-01-01", undefined]) {
+    trip.startDate = startDate;
+    if (startDate === undefined) delete trip.startDate;
+    assert.equal(
+      normalizeTrip(trip).trip.bookings![0].cancellableBy,
+      "2026-10-15",
+    );
+  }
 });
 
 test("combined baggage groups only cabin and personal items, keeping individual caps", () => {

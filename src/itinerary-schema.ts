@@ -329,6 +329,10 @@ export interface BookingInput {
    */
   reference?: string;
   /**
+   * The verified local free-cancellation deadline as YYYY-MM-DD, shown on the booking card. Omit when free cancellation is unavailable or its deadline is unknown. It remains fixed when trip dates change and may precede the trip; no timezone conversion is applied. Full terms stay in the linked booking document.
+   */
+  cancellableBy?: string;
+  /**
    * Meals with a stay, shown as dinner, breakfast, lunch; a text value is shown on hover. Put meal times and types here, not in notes.
    */
   meals?: {

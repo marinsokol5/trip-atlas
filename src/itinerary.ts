@@ -430,6 +430,9 @@ export function parseTrip(input: unknown): Trip {
       if (date !== undefined && !dateValid(date))
         fail(path + "." + key, "expected a real YYYY-MM-DD date");
     }
+    const deadline = b.cancellableBy;
+    if (deadline !== undefined && !dateValid(deadline))
+      fail(path + ".cancellableBy", "expected a real YYYY-MM-DD date");
     for (const key of ["startDay", "endDay"] as const) {
       const day = b[key];
       if (day !== undefined) dayNumber(day, path + "." + key);

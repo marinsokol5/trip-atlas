@@ -12,12 +12,13 @@ Compare trips by opening different JSON files (at most 2 MiB of UTF-8 each); edi
 - Keep it short and trip-specific: no general advice, explanations, sources or history.
 - Only the fields in the schema exist. Put facts in fields, not prose; a recurring fact without a field means extending the schema.
 - Notes and tips are rare: only what a sensible traveller would otherwise get wrong. Never the obvious ("start early", "book ahead"), what a field shows, subjective labels or host courtesies. One sentence, no markdown or links.
-- A booking note is never the confirmation's routine terms (cancellation deadline, prepayment, arrival time, ID and card at check-in); say those in chat.
+- A booking note is never the confirmation's routine terms. Put a verified free-cancellation deadline in `cancellableBy` and arrival times in `checkIn`; full terms stay in the linked booking document.
 - A note belongs to what it's about: a booking ("Bring ¥32,000 in cash"), a journey ("Meet the driver at Pillar 17"), an activity's `tip` ("Skip the first deer; more further in"), or else the day ("No shops tomorrow; buy food today").
 - The day's plan is its `activities`, never a day note.
 - `livingPerDay` is food, drinks and local rides; tickets and tours are an activity's `estimatedCost`.
 - Titles short and plain, no numbering or superlatives. Booking titles are the property name; `reference` is a real code.
 - Fill bookings from the confirmation: dates, check-in/out, `meals`, GPS `coordinates`, `status`, per-person `cost.amount`.
+- Set the booking's optional `cancellableBy` to its verified local free-cancellation deadline as `YYYY-MM-DD`. Omit when free cancellation is unavailable or the deadline is unknown. All such dates are local, without timezone conversion; the card shows “Free cancellation by <date>”. Keep full terms in the linked booking document and do not infer a date from a generic airline policy.
 - Baggage is per person: list cabin bags and personal items separately in `baggage`. Each entry's `kg` is a per-piece cap. When those items share a weight allowance, set the booking's `cabinTotalKg`; it excludes checked bags and requires at least one cabin or personal piece. Keep any separate per-piece caps too, and omit an unspecified shared limit.
 - Record baggage sizes verified from the ticket or the operating airline's rules for that route and fare: `dimensionsCm` is three external side limits in centimetres, longest first, including wheels, handles and pockets; `maxLinearCm` is the maximum sum of height + width + depth. If both are set, both limits apply. Omit unknown sizes; never derive side limits from a linear limit. The app displays these fields and does not read tickets or fetch airline policies itself.
 - A day's `weather` is your forecast for where most of the day is spent: whole °C `lowC` and `highC`, plus a `condition` only when one sky clearly dominates. Replace it with a fresher forecast as the date nears; the app never fetches weather itself.
@@ -59,6 +60,7 @@ The schema checks the shape of every field. `trip-atlas check` also checks what 
 - Dates are real calendar dates and timezones are real IANA zones.
 - Day numbers (`endDay`, `startDay`, `nights`, `day`) lie within the trip; an `endDay` is on or after its departure day, and the final day has no accommodation night.
 - A booking uses calendar dates or day numbers, not both, and its end follows its start (a stay needs at least one night).
+- `cancellableBy` is a real fixed calendar date, which may precede the trip and does not move when the trip start changes.
 - An allocation matches its booking's type, and `other` bookings take none. Allocated nights match the stay's complete check-in/checkout range, are not in transit, and are spent at the booking's place; no night, journey or activity is replaced twice.
 - Journeys run in time order: arrival after departure (mind timezones and `endDay`), no overlap with the previous journey, no blocks while an overnight journey is under way, and no exact time falls on an ambiguous daylight-saving clock.
 - Every `documents[].path` exists beside the itinerary.

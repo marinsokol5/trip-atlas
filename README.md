@@ -54,6 +54,20 @@ This example shows separate dimensions for each bag, followed by a shared weight
 }
 ```
 
+### Cancellation
+
+Set a booking's `cancellableBy` to its verified local free-cancellation deadline as `YYYY-MM-DD`. The Documents and Calendar cards show “Free cancellation by 12 Nov 2026”. Omit the field when free cancellation is unavailable or its deadline is unknown; nothing is shown. Open the linked booking document for full terms.
+
+```json
+{
+  "type": "accommodation",
+  "title": "Example Inn",
+  "cancellableBy": "2026-11-12"
+}
+```
+
+The date stays fixed when trip dates change and is always local, without timezone conversion or an expiry countdown. Do not infer a free-cancellation deadline from a generic airline policy.
+
 ### Weather
 
 A day can carry its forecast: `"weather": { "lowC": 19, "highC": 27, "condition": "rain" }`. Temperatures are whole °C and `condition` (`sunny`, `partly-cloudy`, `cloudy`, `rain`, `storm` or `snow`) is optional. The Calendar shows it in the top-right corner of the day, e.g. a rain cloud and “19–27°”. Trip Atlas never fetches weather; have your agent fill it in and refresh it as the dates near.
