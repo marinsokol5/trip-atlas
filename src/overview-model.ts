@@ -1,4 +1,5 @@
-import { bookingAllocation } from "./booking-model.ts";
+import { bookingAllocation, bookingRange } from "./booking-model.ts";
+import { dateAt } from "./itinerary.ts";
 import type { CostStatus, Itinerary, Leg } from "./itinerary.ts";
 import {
   activeLegs,
@@ -229,10 +230,20 @@ export interface StayRow {
   nights: number;
   cost: Amount;
 }
+/** Flying home on `returnDay` uses what starts before it, and all of the planned day home. */
+function usedBy(model: Itinerary, returnDay: number, day: number) {
+  const homeDay = model.legs.at(-1)?.day ?? model.days.length;
+  return day < returnDay || (day === returnDay && day === homeDay);
+}
+/**
+ * With `returnDay`, only what is used when flying home that day: its days up to it,
+ * nights before it and the journeys `usedBy` it.
+ */
 export function overview(
   model: Itinerary,
   country = "",
   breakdown: "countries" | "places" = country ? "places" : "countries",
+  returnDay?: number,
 ) {
   type Override = { value: number; status: CostStatus };
   const nightOverrides = new Map<number, Override>(),
@@ -374,6 +385,7 @@ export function overview(
   const homeDay = (index: number) =>
     firstAway >= 0 && (index < firstAway || index > lastAway);
   for (const day of model.days) {
+    if (returnDay !== undefined && day.index + 1 > returnDay) continue;
     const places = [
       day.startPlace,
       ...(day.source.blocks?.flatMap((b) =>
@@ -431,7 +443,8 @@ export function overview(
         addCost(row(place).cost, entry.price.value, entry.price.status);
       }
     }
-    if (day.index === model.days.length - 1) continue;
+    if (day.index === model.days.length - 1 || day.index + 1 === returnDay)
+      continue;
     if (day.inTransit) {
       if (country) continue;
       // Compared by country, a night aboard a domestic journey is spent in that
@@ -471,6 +484,7 @@ export function overview(
     unallocated = amount(),
     transport = amount();
   for (const leg of model.legs) {
+    if (returnDay !== undefined && !usedBy(model, returnDay, leg.day)) continue;
     const cs = legKinds(leg);
     const replacement = leg.block.id
       ? legOverrides.get(leg.block.id)
@@ -559,4 +573,60 @@ export function overview(
       total: combine(living, accommodation, transport, activities, expenses),
     },
   };
+}
+
+/**
+ * Flying home on `day` (0: the day before the trip): what was spent by then, and every
+ * booked unit from that day on, cancelled that day. Only a `cancellableBy` on or after
+ * it refunds; anything unknown is lost. Skipped is the rest of the planned total, so
+ * the four add up to it; unallocated bookings stay outside it, as in the total.
+ */
+export function earlyReturn(model: Itinerary, day: number) {
+  const { trip } = model;
+  const date = trip.startDate ? dateAt(trip.startDate, day - 1) : undefined;
+  const lost = amount(),
+    refundable = amount();
+  let unused = 0,
+    booked = 0;
+  for (const booking of trip.bookings ?? []) {
+    // Trip-wide expenses are always spent.
+    if (
+      booking.type === "other" ||
+      booking.status === "planned" ||
+      booking.status === "cancelled"
+    )
+      continue;
+    const { start, end } = bookingRange(booking, trip);
+    if (start === undefined) continue;
+    const nights =
+      booking.type === "accommodation" && end !== undefined && end > start;
+    const share = nights
+      ? Math.max(0, end - Math.max(start, day)) / (end - start)
+      : usedBy(model, day, start)
+        ? 0
+        : 1;
+    if (!share) continue;
+    unused++;
+    const free =
+      date !== undefined &&
+      booking.cancellableBy !== undefined &&
+      date <= booking.cancellableBy;
+    const value = booking.cost && booking.cost.amount * share;
+    add(
+      free ? refundable : lost,
+      value,
+      (booking.cost?.status ?? "estimated") === "estimated",
+    );
+    if (value !== undefined && bookingAllocation(booking, trip))
+      booked += value;
+  }
+  const planned = overview(model).costs.total,
+    spent = overview(model, "", "countries", day).costs.total;
+  const skipped: Amount = {
+    value: Math.max(0, planned.value - spent.value - booked),
+    known: planned.known ? 1 : 0,
+    missing: Math.max(0, planned.missing - spent.missing),
+    estimated: planned.estimated,
+  };
+  return { date, spent, lost, refundable, skipped, unused };
 }

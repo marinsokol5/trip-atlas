@@ -68,6 +68,8 @@ Set a booking's `cancellableBy` to its verified local free-cancellation deadline
 
 The date stays fixed when trip dates change and is always local, without timezone conversion or an expiry countdown. Do not infer a free-cancellation deadline from a generic airline policy.
 
+The Overview’s Early return picker splits the per-person cost of flying home on a given trip day, or before the trip, into Spent (everything used by then), Lost, Refundable and Skipped (the rest of the plan, such as living costs for the days you miss), which add up to the trip total: every booked night, journey or activity from that day on is cancelled that day, and only a `cancellableBy` on or after it refunds. A booking without one counts as lost; leaving on the day of the trip’s last journey uses all of that day’s journeys. The new flight home is not included.
+
 ### Weather
 
 A day can carry its forecast: `"weather": { "lowC": 19, "highC": 27, "condition": "rain" }`. Temperatures are whole °C and `condition` (`sunny`, `partly-cloudy`, `cloudy`, `rain`, `storm` or `snow`) is optional. The Calendar shows it in the top-right corner of the day, e.g. a rain cloud and “19–27°”. Trip Atlas never fetches weather; have your agent fill it in and refresh it as the dates near.

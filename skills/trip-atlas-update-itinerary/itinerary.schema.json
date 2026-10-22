@@ -577,7 +577,7 @@
           "$ref": "#/$defs/text"
         },
         "cancellableBy": {
-          "description": "The verified local free-cancellation deadline as YYYY-MM-DD, shown on the booking card. Omit when free cancellation is unavailable or its deadline is unknown. It remains fixed when trip dates change and may precede the trip; no timezone conversion is applied. Full terms stay in the linked booking document.",
+          "description": "The verified local free-cancellation deadline as YYYY-MM-DD, shown on the booking card; the Overview's early-return total counts a booking without it as lost. Omit when free cancellation is unavailable or its deadline is unknown. It remains fixed when trip dates change and may precede the trip; no timezone conversion is applied. Full terms stay in the linked booking document.",
           "$ref": "#/$defs/date"
         },
         "meals": {

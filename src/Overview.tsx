@@ -11,16 +11,19 @@ import {
   TrainFront,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { dateAt } from "./itinerary";
 import type { Itinerary } from "./itinerary";
 import type { Amount } from "./overview-model";
 import { CostBreakdown } from "./CostBreakdown";
 import { Flag } from "./Flag";
+import { ThemedSelect } from "./ThemedSelect";
 import { areaDays, dateLabel, mapAreas } from "./view-model";
 import {
   averageLabel,
   combine,
   countryColor,
   costStatusAmounts,
+  earlyReturn,
   headlineTimeLabel,
   moneyLabel,
   overview,
@@ -89,6 +92,37 @@ export function Overview({
     ["Unassigned", data.unassigned],
   ] as const;
   const unallocatedCost = data.costs.unallocated.known > 0;
+  const [returnDay, setReturnDay] = useState("");
+  const canReturnEarly = !country && earlyReturn(model, 0).unused > 0;
+  const early =
+    canReturnEarly && returnDay ? earlyReturn(model, Number(returnDay)) : null;
+  // Fixed order and colors, so a part keeps its color whatever the day.
+  const returnParts = early
+    ? [
+        { key: "spent", label: "Spent", cost: early.spent },
+        { key: "lost", label: "Lost", cost: early.lost },
+        { key: "refundable", label: "Refundable", cost: early.refundable },
+        { key: "skipped", label: "Skipped", cost: early.skipped },
+      ].map((part, index) => ({
+        ...part,
+        color: `var(--cost-${[1, 2, 3, 7][index]})`,
+      }))
+    : [];
+  const returnTotal = combine(...returnParts.map((part) => part.cost));
+  const [activePart, setActivePart] = useState<string>();
+  // Nothing at all is still a sum of money here: €0 rather than a bare 0.
+  const partLabel = (cost: Amount) =>
+    moneyLabel(
+      cost.known || cost.missing ? cost : { ...cost, known: 1 },
+      currency,
+    );
+  const returnOption = (day: number) => {
+    const name = day ? `Day ${day}` : "Before the trip";
+    const date = model.trip.startDate && dateAt(model.trip.startDate, day - 1);
+    return date
+      ? `${name} · ${dateLabel(date, { weekday: "short", day: "numeric", month: "short" })}`
+      : name;
+  };
   const [preferredSort, setSort] = useState(() => {
     try {
       return parseStaySort(
@@ -564,6 +598,92 @@ export function Overview({
                   ))}
               </div>
             )}
+          {canReturnEarly && (
+            <section
+              className="overview-early-return"
+              aria-labelledby="early-return-heading"
+            >
+              <div className="overview-stay-heading">
+                <h2 id="early-return-heading">Early return</h2>
+                <ThemedSelect
+                  label="Fly home on"
+                  value={returnDay}
+                  options={[
+                    { value: "", label: "As planned" },
+                    ...Array.from(
+                      { length: model.days.length + 1 },
+                      (_, day) => ({
+                        value: String(day),
+                        label: returnOption(day),
+                      }),
+                    ),
+                  ]}
+                  onChange={setReturnDay}
+                />
+              </div>
+              {early && (
+                <div onPointerLeave={() => setActivePart(undefined)}>
+                  <div
+                    className="early-return-bar"
+                    role="img"
+                    aria-label={returnParts
+                      .map((part) => `${part.label} ${partLabel(part.cost)}`)
+                      .join(", ")}
+                  >
+                    {returnParts
+                      .filter((part) => part.cost.value > 0)
+                      .map((part) => (
+                        <span
+                          key={part.key}
+                          title={`${part.label} ${partLabel(part.cost)}`}
+                          style={{
+                            flexGrow: part.cost.value,
+                            backgroundColor: part.color,
+                          }}
+                          className={
+                            activePart && activePart !== part.key
+                              ? "is-muted"
+                              : undefined
+                          }
+                          onPointerEnter={() => setActivePart(part.key)}
+                        />
+                      ))}
+                  </div>
+                  <table className="cost-table">
+                    <tbody>
+                      {returnParts.map((part) => (
+                        <tr
+                          key={part.key}
+                          className={
+                            activePart === part.key ? "is-active" : undefined
+                          }
+                          onPointerEnter={() => setActivePart(part.key)}
+                        >
+                          <th scope="row">
+                            <i style={{ backgroundColor: part.color }} />
+                            {part.label}
+                          </th>
+                          <td>{partLabel(part.cost)}</td>
+                          <td>
+                            {part.cost.value > 0 && returnTotal.value > 0
+                              ? `${Math.round((part.cost.value / returnTotal.value) * 100)}%`
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th scope="row">Total</th>
+                        <td>{partLabel(returnTotal)}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
         </div>
         <section className="overview-stays" aria-labelledby="stays-heading">
           <div className="overview-stay-heading">

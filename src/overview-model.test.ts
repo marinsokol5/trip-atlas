@@ -7,6 +7,7 @@ import {
   averageLabel,
   combine,
   countryColor,
+  earlyReturn,
   headlineTimeLabel,
   nightShare,
   moneyLabel,
@@ -684,4 +685,154 @@ test("country comparison gives each overnight journey's night to its country or 
     data.expenseItems.map((item) => [item.label, item.cost.value]),
     [["eSIM", 20]],
   );
+});
+
+test("early return splits the trip into spent, lost and refundable by the return day", () => {
+  const m = normalizeTrip({
+    version: 1,
+    currency: "EUR",
+    startDate: "2026-11-01",
+    initialPlace: "tokyo",
+    places: {
+      tokyo: { country: "JP" },
+      kyoto: { country: "JP" },
+      airport: { country: "JP" },
+      home: {},
+    },
+    budget: { countries: { JP: { livingPerDay: 10 } } },
+    days: [
+      {},
+      {},
+      { blocks: [{ type: "travel", id: "train", to: "kyoto", mode: "train" }] },
+      {},
+      {},
+      {
+        blocks: [
+          { type: "travel", to: "airport", mode: "bus", estimatedCost: 5 },
+          { type: "travel", id: "home", to: "home", mode: "flight" },
+        ],
+      },
+    ],
+    bookings: [
+      {
+        type: "accommodation",
+        title: "Tokyo hotel",
+        place: "tokyo",
+        startDate: "2026-11-01",
+        endDate: "2026-11-03",
+        cancellableBy: "2026-10-25",
+        cost: { amount: 100, status: "confirmed" },
+      },
+      {
+        type: "transport",
+        title: "Train",
+        startDate: "2026-11-03",
+        cancellableBy: "2026-11-02",
+        cost: {
+          amount: 30,
+          status: "paid",
+          allocation: { type: "transport", leg: "train" },
+        },
+      },
+      {
+        type: "accommodation",
+        title: "Kyoto inn",
+        place: "kyoto",
+        startDate: "2026-11-03",
+        endDate: "2026-11-06",
+        cancellableBy: "2026-11-01",
+        cost: { amount: 90, status: "confirmed" },
+      },
+      { type: "activity", title: "Tour", startDate: "2026-11-05" },
+      {
+        type: "activity",
+        title: "Maybe",
+        status: "planned",
+        startDate: "2026-11-04",
+        cost: { amount: 50 },
+      },
+      {
+        type: "transport",
+        title: "Flight home",
+        startDate: "2026-11-06",
+        cost: {
+          amount: 400,
+          status: "paid",
+          allocation: { type: "transport", leg: "home" },
+        },
+      },
+      { type: "other", title: "eSIM", cost: { amount: 20, status: "paid" } },
+    ],
+  });
+  const at = (day: number) => {
+    const result = earlyReturn(m, day);
+    return {
+      date: result.date,
+      spent: result.spent.value,
+      lost: [result.lost.value, result.lost.missing],
+      refundable: result.refundable.value,
+      skipped: result.skipped.value,
+      unused: result.unused,
+    };
+  };
+  // Cancelling the day before the trip: only deadlines on or after 31 Oct refund,
+  // and only the trip-wide eSIM is already spent.
+  assert.deepEqual(at(0), {
+    date: "2026-10-31",
+    spent: 20,
+    lost: [500, 1],
+    refundable: 120,
+    skipped: 55,
+    unused: 5,
+  });
+  // A deadline on the return day itself still refunds; a stay under way loses its unused nights.
+  assert.deepEqual(at(2), {
+    date: "2026-11-02",
+    spent: 90,
+    lost: [540, 1],
+    refundable: 30,
+    skipped: 35,
+    unused: 5,
+  });
+  // Four days of living, three nights and the train are spent; the rest of the inn is
+  // lost, and the last day of living and the airport bus are skipped.
+  assert.deepEqual(at(4), {
+    date: "2026-11-04",
+    spent: 220,
+    lost: [460, 1],
+    refundable: 0,
+    skipped: 15,
+    unused: 3,
+  });
+  assert.equal(moneyLabel(earlyReturn(m, 4).lost, "EUR"), "€460+");
+  // Leaving on the planned day home, its bus and flight are used: the whole plan is spent.
+  assert.equal(overview(m).costs.total.value, 695);
+  assert.deepEqual(at(6), {
+    date: "2026-11-06",
+    spent: 695,
+    lost: [0, 0],
+    refundable: 0,
+    skipped: 0,
+    unused: 0,
+  });
+  // Without calendar dates no deadline can be met, so nothing refunds.
+  const undated = earlyReturn(
+    normalizeTrip({
+      version: 1,
+      currency: "EUR",
+      places: {},
+      days: [{}, {}],
+      bookings: [
+        {
+          type: "activity",
+          title: "Tour",
+          startDay: 2,
+          cancellableBy: "2099-01-01",
+          cost: { amount: 40 },
+        },
+      ],
+    }),
+    1,
+  );
+  assert.deepEqual([undated.lost.value, undated.refundable.value], [40, 0]);
 });

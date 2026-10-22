@@ -2566,6 +2566,28 @@ main[data-theme="dark"] {
   color: var(--ink);
   margin-left: 8px;
 }
+.overview-early-return {
+  margin-top: 30px;
+}
+.overview-early-return .select-popup {
+  width: max-content;
+}
+/* The four parts of the planned total as one bar, in the cost table's colors. */
+.early-return-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  margin: 18px 0 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.early-return-bar span {
+  min-width: 2px;
+  transition: opacity 0.15s;
+}
+.early-return-bar span.is-muted {
+  opacity: 0.3;
+}
 @media (max-width: 760px) {
   .bookings-view {
     padding: 24px 20px;
