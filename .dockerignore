@@ -1,0 +1,11 @@
+# Like .gitignore: dependencies, build output and personal files stay out of the build.
+.git
+node_modules
+dist
+dist-node
+dist-pages
+.env
+.env.*
+/itinerary.json
+/private/
+/books/

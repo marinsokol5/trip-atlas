@@ -7,7 +7,7 @@ pnpm install
 pnpm dev
 ```
 
-Run `pnpm run check` before submitting a change. It lints, builds and runs the model, loader and local-server regression tests; the server tests bind temporary loopback ports and remove their temporary files. `pnpm test` also builds first, so it works on a clean checkout. CI checks Node 24 on Linux, macOS and Windows, plus the current Node release on Linux.
+Run `pnpm run check` before submitting a change. It lints, builds and runs the model, loader and local-server regression tests; the server tests bind temporary loopback ports (on Linux, one also listens on `0.0.0.0`) and remove their temporary files. `pnpm test` also builds first, so it works on a clean checkout. CI checks Node 24 on Linux, macOS and Windows, plus the current Node release on Linux.
 
 Keep changes focused and explain the user-visible behavior and how you checked it. Add regression coverage for corrected behavior; avoid tests that merely repeat the implementation. UI changes should also be tried in Overview, Map and Calendar at desktop and narrow widths, using the public demos. Bookings and Prepare appear only for trips that provide those sections.
 

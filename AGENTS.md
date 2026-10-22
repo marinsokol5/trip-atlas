@@ -9,6 +9,7 @@ Trip Atlas is a local, read-only viewer for itinerary JSON files: map, calendar,
 - `pnpm start <file.json>...`: build, then serve those itineraries on 127.0.0.1.
 - `node scripts/cli.mjs check <file.json>...`: validate itineraries exactly as the viewer does, including linked documents.
 - `pnpm run build:pages`: the public demo site (one demo, base `/trip-atlas/`) in `dist-pages/`; `.github/workflows/pages.yml` deploys it on every push to `main`.
+- `docker build -t trip-atlas .`: the self-hosting image, the packed npm package listening on `0.0.0.0` inside the container (README, Host).
 
 ## Layout
 
@@ -25,7 +26,8 @@ Trip Atlas is a local, read-only viewer for itinerary JSON files: map, calendar,
 
 - A field or field meaning changes in `itinerary.schema.json` first, followed by `pnpm run schema`. Any format, validation or document path change also updates `skills/trip-atlas-update-itinerary/SKILL.md`, the README and the relevant tests in the same change.
 - The app never writes itineraries or documents, and it fetches nothing at runtime. The only outbound links are ones the user clicks.
-- Keep the server's security boundary intact: loopback only, GET/HEAD only, Host and Origin checks (extra hosts only through the opt-in `TRIP_ATLAS_HOSTS`), and only declared document paths inside each itinerary's folder. Add a regression test when touching `scripts/files.mjs`, `http.mjs` or `serve.mjs`.
+- Keep it easy for anyone to self-host: a `docker run` (README, Host) is the whole setup.
+- Keep the server's security boundary intact: loopback by default (another listen address only through the opt-in `TRIP_ATLAS_LISTEN`, which the Docker image sets), GET/HEAD only, Host and Origin checks (extra hosts only through the opt-in `TRIP_ATLAS_HOSTS`), and only declared document paths inside each itinerary's folder. Add a regression test when touching `scripts/files.mjs`, `http.mjs` or `serve.mjs`.
 - The published package has no runtime dependencies: React, d3, lucide and @cfworker/json-schema are bundled into `dist/` (the schema validator also into `dist-node/`) and stay in `devDependencies`. Runtime scripts must run on Node 22 as plain JavaScript, without importing TypeScript.
 - Develop and test with the demos or temporary files. Never commit personal itineraries, tickets, confirmation codes, names or home locations; fixtures, tests and screenshots use fictional data.
 - Do not modify a user's own itinerary unless they explicitly ask for itinerary editing.

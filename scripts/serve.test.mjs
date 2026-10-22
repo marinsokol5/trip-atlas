@@ -66,7 +66,7 @@ test("localhost serving rejects hostile origins and active documents cannot exec
   const url = await launch(t, [file]);
   for (const headers of [
     { host: "attacker.example" },
-    { host: "127.0.0.1:123" },
+    { host: "127.0.0.1.attacker.example" },
     { origin: "https://attacker.example" },
     { origin: "null" },
     { "sec-fetch-site": "cross-site" },
@@ -184,6 +184,79 @@ test("TRIP_ATLAS_HOSTS admits only the listed proxy names, documents included", 
       value,
     );
 });
+
+// Resolves to the status code, or to the error code when nothing answers.
+const request = (url, headers = {}) =>
+  new Promise((resolve) => {
+    get(url, { headers }, (response) => {
+      response.resume();
+      resolve(response.statusCode);
+    }).on("error", (error) => resolve(error.code));
+  });
+async function emptyTrip(t) {
+  const root = await mkdtemp(join(tmpdir(), "trip-listen-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, "trip.json");
+  await writeFile(file, JSON.stringify({ version: 1, places: {}, days: [{}] }));
+  return file;
+}
+
+test("a forwarded loopback port (docker run -p, ssh -L) is accepted, still same-origin only", async (t) => {
+  const url = await launch(t, [await emptyTrip(t)]);
+  for (const headers of [
+    { host: "localhost:8100" },
+    { host: "127.0.0.1:8100", origin: "http://127.0.0.1:8100" },
+    { host: "localhost" },
+  ])
+    assert.equal(
+      await request(url + "/trips/index.json", headers),
+      200,
+      JSON.stringify(headers),
+    );
+  for (const headers of [
+    // A page served on another local port.
+    { host: "localhost:8100", origin: url },
+    { host: "localhost:8100", "sec-fetch-site": "same-site" },
+    { host: "localhost.attacker.example:8100" },
+    { host: "127.0.0.1:8100.attacker.example" },
+  ])
+    assert.equal(
+      await request(url + "/trips/index.json", headers),
+      403,
+      JSON.stringify(headers),
+    );
+});
+
+test("TRIP_ATLAS_LISTEN takes only an IP address", async (t) => {
+  const file = await emptyTrip(t);
+  for (const value of ["localhost", "0.0.0.0:80", "*"])
+    await assert.rejects(
+      launch(t, [file], { TRIP_ATLAS_LISTEN: value }),
+      /TRIP_ATLAS_LISTEN/,
+      value,
+    );
+});
+
+test(
+  "TRIP_ATLAS_LISTEN=0.0.0.0 answers beyond 127.0.0.1, the default does not",
+  {
+    skip:
+      process.platform !== "linux" &&
+      "only Linux routes all of 127.0.0.0/8 to loopback",
+  },
+  async (t) => {
+    const file = await emptyTrip(t);
+    const elsewhere = (url) =>
+      request(url.replace("127.0.0.1", "127.0.0.2") + "/trips/index.json");
+    assert.equal(await elsewhere(await launch(t, [file])), "ECONNREFUSED");
+    assert.equal(
+      await elsewhere(
+        await launch(t, [file], { TRIP_ATLAS_LISTEN: "0.0.0.0" }),
+      ),
+      200,
+    );
+  },
+);
 
 test("selected file stays live and exposes only safe referenced documents", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "trip atlas "));

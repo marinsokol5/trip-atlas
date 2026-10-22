@@ -60,6 +60,27 @@ A day can carry its forecast: `"weather": { "lowC": 19, "highC": 27, "condition"
 
 ## Host
 
-For self-hosting, I recommend [Tailscale](https://tailscale.com/).
+To keep it running on a server, use Docker. Mount the folder that holds your itinerary, so its documents come along:
+
+```sh
+docker build -t trip-atlas https://github.com/marinsokol5/trip-atlas.git
+docker run -d --restart unless-stopped -p 127.0.0.1:4173:4173 -v "$PWD:/trip:ro" trip-atlas /trip/itinerary.json
+```
+
+Or with Docker Compose:
+
+```yaml
+services:
+  trip-atlas:
+    build: https://github.com/marinsokol5/trip-atlas.git
+    restart: unless-stopped
+    ports: ["127.0.0.1:4173:4173"]
+    volumes: ["./my-trip:/trip:ro"]
+    command: ["/trip/itinerary.json"]
+```
+
+Edit the itinerary and refresh, as locally. Anyone who can reach the port can read the trip and its documents, so publish it on `127.0.0.1` and reach it through a private proxy. I recommend [Tailscale](https://tailscale.com/). Name the proxy's address in `TRIP_ATLAS_HOSTS` (e.g. `-e TRIP_ATLAS_HOSTS=trip.example.ts.net`), and have the proxy pass the original `Host` header on (Caddy and Traefik do; nginx needs `proxy_set_header Host $host;`).
+
+Without Docker, `TRIP_ATLAS_LISTEN` sets the IP address the server listens on (default `127.0.0.1`; the image uses `0.0.0.0`).
 
 [MIT license](LICENSE)

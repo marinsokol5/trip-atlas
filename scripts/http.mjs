@@ -1,3 +1,5 @@
+import { isIP } from "node:net";
+
 /**
  * Extra Host names the viewer answers to, such as a tailnet name in front of
  * `tailscale serve`. Comma-separated; a port is part of the name when it is not 80/443.
@@ -26,16 +28,28 @@ export function parseAllowedHosts(value = "") {
     });
 }
 
+/**
+ * The address the server listens on: loopback unless TRIP_ATLAS_LISTEN names
+ * another IP address, such as 0.0.0.0 inside a container.
+ */
+export function parseListenAddress(value = "") {
+  const address = value.trim() || "127.0.0.1";
+  if (!isIP(address))
+    throw new Error(
+      `TRIP_ATLAS_LISTEN: "${address}" is not an IP address (write it like 0.0.0.0, for a container)`,
+    );
+  return address;
+}
+
 /** Keep the local viewer out of other websites' origins (including DNS rebinding). */
 export function localRequests(req, res, allowedHosts, next) {
   const host = req.headers.host;
-  const port = req.socket.localPort;
-  const local = [
-    `127.0.0.1:${port}`,
-    `localhost:${port}`,
-    ...(port === 80 ? ["127.0.0.1", "localhost"] : []),
-  ].includes(host);
-  // A proxy for a listed name may terminate HTTPS in front of this loopback server.
+  // Any port: a forwarded port (docker run -p, ssh -L) changes the one the browser
+  // sees, and no website can make a browser send these names to this server.
+  const local = /^(127(\.\d{1,3}){3}|localhost|\[::1\])(:\d+)?$/.test(
+    host ?? "",
+  );
+  // A proxy for a listed name may terminate HTTPS in front of this server.
   const listed = !local && allowedHosts.includes(host?.toLowerCase());
   const origins = [`http://${host}`, ...(listed ? [`https://${host}`] : [])];
   if (
