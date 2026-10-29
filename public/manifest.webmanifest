@@ -1,0 +1,14 @@
+{
+  "name": "Trip Atlas",
+  "short_name": "Trip Atlas",
+  "description": "Compare travel plans, routes, nights and costs in a local, read-only atlas.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f4f6f7",
+  "theme_color": "#1a59b8",
+  "icons": [
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

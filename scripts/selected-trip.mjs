@@ -99,7 +99,27 @@ export function selectedTrips(files) {
       }),
     };
   });
-  return async (req, res, next) => {
+  async function tripIndex() {
+    const trips = await Promise.all(
+      entries.map(async (entry) => {
+        // One broken or removed alternative must not prevent opening the others.
+        let virtualName = "trip.json";
+        let title;
+        try {
+          ({ virtualName, title } = await readEntry(entry));
+        } catch {
+          /* Its own route reports the read error. */
+        }
+        return {
+          path: `${entry.folder}/${virtualName}`,
+          label: entry.label,
+          ...(title ? { title } : {}),
+        };
+      }),
+    );
+    return Buffer.from(JSON.stringify({ trips }));
+  }
+  const handler = async (req, res, next) => {
     if (!["GET", "HEAD"].includes(req.method)) {
       res.writeHead(405);
       res.end("Read-only server");
@@ -118,24 +138,7 @@ export function selectedTrips(files) {
       return;
     }
     if (path === "/trips/index.json") {
-      const trips = await Promise.all(
-        entries.map(async (entry) => {
-          // One broken or removed alternative must not prevent opening the others.
-          let virtualName = "trip.json";
-          let title;
-          try {
-            ({ virtualName, title } = await readEntry(entry));
-          } catch {
-            /* Its own route reports the read error. */
-          }
-          return {
-            path: `${entry.folder}/${virtualName}`,
-            label: entry.label,
-            ...(title ? { title } : {}),
-          };
-        }),
-      );
-      sendJson(req, res, Buffer.from(JSON.stringify({ trips })));
+      sendJson(req, res, await tripIndex());
       return;
     }
     const entry = entries.find((entry) =>
@@ -166,6 +169,26 @@ export function selectedTrips(files) {
       );
     }
   };
+  /** The trip list, itineraries and declared documents, at the URLs the viewer requests. */
+  handler.offlineFiles = async () => {
+    const files = [{ url: "/trips/index.json", content: await tripIndex() }];
+    for (const entry of entries) {
+      let read;
+      try {
+        read = await readEntry(entry);
+      } catch {
+        continue;
+      }
+      const url = (path) =>
+        `/trips/${entry.folder}/` +
+        path.split("/").map(encodeURIComponent).join("/");
+      files.push({ url: url(read.virtualName), content: read.content });
+      for (const path of read.allowed)
+        files.push({ url: url(path), root: dirname(entry.file), path });
+    }
+    return files;
+  };
+  return handler;
 }
 export function selectedTrip(file, canonicalFile) {
   return selectedTrips([{ file, canonicalFile }]);

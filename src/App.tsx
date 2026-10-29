@@ -122,6 +122,7 @@ import { ThemedSelect } from "./ThemedSelect";
 import { activityBooking, bookingGaps, noBookingGaps } from "./booking-model";
 import { moneyLabel } from "./overview-model";
 import { MapLabelsMenu } from "./MapLabelsMenu";
+import { OfflineMenu } from "./OfflineMenu";
 import { Flag, flagsShown } from "./Flag";
 import { Logo } from "./Logo";
 import { useStoredBoolean } from "./use-stored-boolean";
@@ -2411,6 +2412,7 @@ function App() {
                 />
               </div>
             )}
+            <OfflineMenu />
             <button
               className="theme-button"
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}

@@ -97,6 +97,10 @@ services:
 
 Edit the itinerary and refresh, as locally. Anyone who can reach the port can read the trip and its documents, so publish it on `127.0.0.1` and reach it through a private proxy. I recommend [Tailscale](https://tailscale.com/). Name the proxy's address in `TRIP_ATLAS_HOSTS` (e.g. `-e TRIP_ATLAS_HOSTS=trip.example.ts.net`), and have the proxy pass the original `Host` header on (Caddy and Traefik do; nginx needs `proxy_set_header Host $host;`).
 
+### Offline
+
+Served over HTTPS (or on `localhost`), the cloud button beside the theme switch saves the trip on that device: the app, calendar, bookings and every declared document, without the zoomed-in map outlines. Once saved, it syncs by itself whenever Trip Atlas opens with a connection, downloading only the files that changed (the server lists them with their hashes at `/offline.json`). When the server can't be reached, it shows the saved copy and says so. Each browser keeps its own copy. On iPhone and iPad, add Trip Atlas to the Home Screen and save it from there: Safari clears a website's saved data after a week without visits.
+
 Without Docker, `TRIP_ATLAS_LISTEN` sets the IP address the server listens on (default `127.0.0.1`; the image uses `0.0.0.0`).
 
 [MIT license](LICENSE)

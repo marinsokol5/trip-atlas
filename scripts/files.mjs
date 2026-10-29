@@ -15,6 +15,7 @@ const types = {
   ".gif": "image/gif",
   ".avif": "image/avif",
   ".pdf": "application/pdf",
+  ".webmanifest": "application/manifest+json",
 };
 const inlineDocuments = new Set([
   ".json",

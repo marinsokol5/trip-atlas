@@ -6,6 +6,7 @@ import { constants } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { staticFiles } from "./files.mjs";
+import { offlineManifest } from "./offline.mjs";
 import { selectedTrips } from "./selected-trip.mjs";
 import {
   appPolicy,
@@ -73,6 +74,10 @@ if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
       );
     }
     const app = staticFiles(appRoot);
+    // Only chosen itineraries can be saved for offline use, not the demos.
+    const offline = trip.offlineFiles
+      ? offlineManifest(appRoot, trip.offlineFiles)
+      : (req, res, next) => next();
     const allowedHosts = parseAllowedHosts(process.env.TRIP_ATLAS_HOSTS);
     const address = parseListenAddress(process.env.TRIP_ATLAS_LISTEN);
     const port = Number(process.env.PORT ?? 4173);
@@ -81,7 +86,7 @@ if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
     const server = createServer((req, res) => {
       localRequests(req, res, allowedHosts, () => {
         res.setHeader("Content-Security-Policy", appPolicy);
-        void trip(req, res, () => app(req, res));
+        void trip(req, res, () => offline(req, res, () => app(req, res)));
       });
     });
     server.on("error", (error) => {

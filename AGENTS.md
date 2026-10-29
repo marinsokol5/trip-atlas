@@ -18,7 +18,8 @@ Trip Atlas is a local, read-only viewer for itinerary JSON files: map, calendar,
 - `src/*-model.ts`: derived map, overview, booking and preparation behavior, specified by the matching `*.test.ts`.
 - `src/App.tsx` and the view components: the React interface.
 - `src/assets/world.json` (1:50m) and `src/assets/detail/<ISO2>.json` (1:10m, bundled as lazily loaded chunks for zoomed-in maps): Natural Earth country outlines; `node scripts/world-detail.mjs <ne_10m_admin_0_countries.geojson>` regenerates the detail files.
-- `scripts/`: CLI, local HTTP server, document boundary and `check`, with integration tests.
+- `scripts/`: CLI, local HTTP server, document boundary, `/offline.json` (`offline.mjs`) and `check`, with integration tests.
+- `src/offline.ts`, `src/OfflineMenu.tsx` and `public/sw.js`: the offline copy. The page saves the files `/offline.json` lists into Cache Storage, downloading only changed hashes; the service worker serves them when the server can't be reached.
 - `trips/`: public demos; `trips/index.json` is the demo picker manifest.
 - `skills/`: agent skills shipped with the package; `trip-atlas-update-itinerary/SKILL.md` links the schema as its field reference.
 

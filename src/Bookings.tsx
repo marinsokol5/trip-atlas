@@ -26,6 +26,7 @@ import { Flag } from "./Flag";
 import { ThemedSelect } from "./ThemedSelect";
 import type { Booking, DocumentLink, Itinerary } from "./itinerary";
 import { documentUrl } from "./itinerary";
+import { standalone } from "./offline";
 import {
   activityDay,
   baggageGroups,
@@ -141,6 +142,8 @@ function Baggage({ booking }: { booking: Booking }) {
     </ul>
   );
 }
+// A Home Screen app opens new tabs in a browser without its offline copy.
+const documentTarget = standalone() ? undefined : "_blank";
 export function Documents({
   documents,
   folder,
@@ -154,7 +157,7 @@ export function Documents({
         <a
           key={index}
           href={documentUrl(folder, document.path)}
-          target="_blank"
+          target={documentTarget}
           rel="noreferrer"
         >
           <ExternalLink className="icon" aria-hidden="true" strokeWidth={1.6} />
@@ -377,7 +380,7 @@ export function BookingCard({
         <a
           key={index}
           href={documentUrl(folder, document.path)}
-          target="_blank"
+          target={documentTarget}
           rel="noreferrer"
           title={document.label}
           aria-label={`Open ${document.label}`}

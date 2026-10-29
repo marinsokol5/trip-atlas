@@ -106,6 +106,65 @@ select {
   padding: 8px;
   display: flex;
 }
+/* Offline copy: a header button beside the theme switch and its status popup. */
+.offline-button {
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.offline-button.offline,
+.offline-button.error {
+  color: #b5521b;
+  border-color: currentColor;
+}
+.offline-button.unsaved,
+.offline-button.saving {
+  color: var(--blue);
+}
+.offline-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 280px;
+  padding: 14px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 8px 30px #0003;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.offline-popup h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.offline-popup p {
+  margin: 0 0 10px;
+}
+.offline-popup .offline-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.offline-popup progress {
+  width: 100%;
+  accent-color: var(--blue);
+}
+.offline-popup button {
+  background: var(--wash);
+  border: 1px solid var(--line);
+  padding: 7px 14px;
+  border-radius: 6px;
+  margin: 0 8px 0 0;
+}
+.offline-popup .offline-remove {
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 7px 10px;
+}
 .icon {
   width: 17px;
   height: 17px;
@@ -2355,14 +2414,15 @@ main[data-theme="dark"] {
 }
 
 @media (max-width: 760px) {
-  .heading:has(> .header-tools > .theme-button:only-child) {
+  .heading:not(:has(> .header-tools > .picker)) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
     gap: 12px;
   }
-  .heading:has(> .header-tools > .theme-button:only-child) .header-tools {
+  .heading:not(:has(> .header-tools > .picker)) .header-tools {
     align-self: start;
+    gap: 8px;
   }
 }
 

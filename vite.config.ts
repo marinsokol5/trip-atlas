@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import licenseModule, { type Dependency } from "rollup-plugin-license";
@@ -40,6 +41,33 @@ export default defineConfig(({ mode }) => {
           },
         },
       }),
+      {
+        // The app files a browser saves for offline use. Zoomed-in map outlines are
+        // most of the build and are left out: offline, the map keeps its 1:50m outlines.
+        name: "offline-shell",
+        apply: "build",
+        generateBundle(_, bundle) {
+          const files = Object.values(bundle)
+            .filter(
+              (file) =>
+                !(
+                  file.type === "chunk" &&
+                  file.facadeModuleId?.includes("/src/assets/detail/")
+                ) && file.fileName !== "index.html",
+            )
+            .map((file) => file.fileName);
+          const publicFiles = readdirSync(
+            fileURLToPath(new URL("./public", import.meta.url)),
+          ).filter((name) => name !== "sw.js" && !name.startsWith("."));
+          this.emitFile({
+            type: "asset",
+            fileName: "offline-shell.json",
+            source: JSON.stringify(
+              ["index.html", ...publicFiles, ...files].sort(),
+            ),
+          });
+        },
+      },
       {
         name: "local-trip-files",
         configureServer(server) {

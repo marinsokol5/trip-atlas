@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { get } from "node:http";
+import { createHash } from "node:crypto";
 import { MAX_JSON_BYTES } from "../src/input-limits.ts";
 
 const script = fileURLToPath(new URL("./serve.mjs", import.meta.url));
@@ -568,4 +569,63 @@ test("trip and booking documents use isolated live allowlists and screenshot MIM
   await writeFile(file, JSON.stringify(source));
   assert.equal((await fetch(url + "/trips/selected/hotel.pdf")).status, 404);
   assert.equal((await fetch(url + "/trips/selected/screen.JPG")).status, 200);
+});
+
+test("/offline.json lists the app without map detail, the trip and only its present declared documents", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "trip-offline-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, "trip.json");
+  const trip = JSON.stringify({
+    version: 1,
+    places: {},
+    days: [{}],
+    documents: [
+      { label: "Ticket", path: "tickets/train ticket.pdf" },
+      { label: "Missing", path: "missing.pdf" },
+    ],
+  });
+  await writeFile(file, trip);
+  await mkdir(join(root, "tickets"));
+  await writeFile(join(root, "tickets", "train ticket.pdf"), "%PDF ticket");
+  await writeFile(join(root, "undeclared.pdf"), "%PDF secret");
+  const url = await launch(t, [file]);
+  const response = await fetch(url + "/offline.json");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  const { version, files } = await response.json();
+  const urls = files.map((f) => f.url);
+  const sha256 = (data) => createHash("sha256").update(data).digest("hex");
+  const byUrl = Object.fromEntries(files.map((f) => [f.url, f]));
+  assert.deepEqual(byUrl["/trips/selected/tickets/train%20ticket.pdf"], {
+    url: "/trips/selected/tickets/train%20ticket.pdf",
+    size: 11,
+    hash: sha256("%PDF ticket"),
+  });
+  assert.equal(byUrl["/trips/selected/trip.json"].hash, sha256(trip));
+  for (const listed of ["/", "/trips/index.json", "/manifest.webmanifest"])
+    assert.ok(urls.includes(listed), listed);
+  assert.ok(urls.some((u) => /^\/assets\/index-.*\.js$/.test(u)));
+  // Zoomed-in outlines, the worker itself, undeclared and missing files stay out.
+  assert.ok(!urls.some((u) => /^\/assets\/[A-Z]{2}-/.test(u)));
+  for (const absent of [
+    "/sw.js",
+    "/trips/selected/undeclared.pdf",
+    "/trips/selected/missing.pdf",
+  ])
+    assert.ok(!urls.includes(absent), absent);
+  // Every listed file is served exactly as hashed.
+  for (const listed of files) {
+    const body = Buffer.from(await (await fetch(url + listed.url)).arrayBuffer());
+    assert.equal(sha256(body), listed.hash, listed.url);
+  }
+  // A changed document changes the version.
+  await writeFile(join(root, "tickets", "train ticket.pdf"), "%PDF changed");
+  const next = await (await fetch(url + "/offline.json")).json();
+  assert.notEqual(next.version, version);
+  assert.equal(await request(url + "/offline.json", { origin: "https://attacker.example" }), 403);
+});
+
+test("demo mode offers no offline copy", async (t) => {
+  const url = await launch(t);
+  assert.equal((await fetch(url + "/offline.json")).status, 404);
 });
