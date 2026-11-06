@@ -14,6 +14,7 @@ import {
   scopedCalendarSlots,
   scopedPosition,
   tripPosition,
+  todayPosition,
   advancePlayback,
   zoomMap,
   wheelZoomFactor,
@@ -875,4 +876,24 @@ test("country codes become flag emoji, names and calendar context", async () => 
   });
   assert.deepEqual(calendarCountryCodes(model, model.days[0]), ["TH", "JP"]);
   assert.equal(calendarCountries(model, model.days[0]), "Thailand → Japan");
+});
+
+test("today is found by the device's local date, only among the days in scope", () => {
+  const days = [
+    { index: 0, date: "2031-03-30" },
+    { index: 1, date: "2031-03-31" },
+    { index: 4, date: "2031-04-03" },
+  ] as Parameters<typeof todayPosition>[0];
+  // Local midnight, when the UTC date may still be yesterday's.
+  assert.equal(todayPosition(days, new Date(2031, 2, 31, 0, 5)), 1.5);
+  assert.equal(todayPosition(days, new Date(2031, 3, 3, 23, 55)), 4.5);
+  assert.equal(todayPosition(days, new Date(2031, 3, 1, 12)), undefined);
+  assert.equal(todayPosition(days, new Date(2031, 3, 4, 12)), undefined);
+  assert.equal(
+    todayPosition(
+      [{ index: 0 }] as Parameters<typeof todayPosition>[0],
+      new Date(2031, 2, 31, 12),
+    ),
+    undefined,
+  );
 });

@@ -160,6 +160,14 @@ export function tripPosition(days: NormalizedDay[], position: number) {
   const bounded = Math.max(0, Math.min(days.length - 0.01, position));
   return days[Math.floor(bounded)].index + (bounded % 1);
 }
+/** Today's place on the timeline, if it's one of these days. The device's date is the traveller's local one. */
+export function todayPosition(days: NormalizedDay[], now = new Date()) {
+  const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join("-");
+  const day = days.find((candidate) => candidate.date === today);
+  return day && day.index + 0.5;
+}
 export function advancePlayback(
   days: NormalizedDay[],
   value: number,

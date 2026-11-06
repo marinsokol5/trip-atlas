@@ -80,6 +80,7 @@ import {
   areaDays,
   scopedPosition,
   tripPosition,
+  todayPosition,
   advancePlayback,
   mapArea,
   componentLegs,
@@ -1628,6 +1629,10 @@ function Calendar({
     activeLegs(model, day).some((leg) => gaps.unbookedFlights.has(leg));
   const scroller = useRef<HTMLDivElement>(null);
   const selectedCell = useRef<HTMLButtonElement>(null);
+  // Open on the selected day before the first paint. On phones it's the page that scrolls.
+  useLayoutEffect(() => {
+    selectedCell.current?.scrollIntoView({ block: "center" });
+  }, []);
   useEffect(() => {
     const container = scroller.current,
       cell = selectedCell.current;
@@ -2269,7 +2274,8 @@ function App() {
           } catch {
             // Open the whole trip when browser storage is unavailable.
           }
-          const initialPosition = areaDays(model, savedCountry)[0]?.index ?? 0;
+          const scope = areaDays(model, savedCountry);
+          const initialPosition = todayPosition(scope) ?? scope[0]?.index ?? 0;
           setItinerary(model);
           setCountry(savedCountry);
           playhead.current = initialPosition;
@@ -2332,6 +2338,17 @@ function App() {
     activeTab === "overview" ||
     activeTab === "bookings" ||
     activeTab === "prepare";
+  // The timeline scrolls sideways on small screens, so opening Map or Calendar centres its day.
+  const timeline = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const strip = timeline.current;
+    const tick = strip?.querySelector('.range-ticks [aria-pressed="true"]');
+    if (!strip || !tick || fullView) return;
+    const bounds = strip.getBoundingClientRect(),
+      selected = tick.getBoundingClientRect();
+    strip.scrollLeft +=
+      selected.left + selected.width / 2 - bounds.left - bounds.width / 2;
+  }, [fullView, loading, itinerary]);
   // ← / → step through the timeline's days in Map and Calendar, like the day-step buttons.
   const stepDay = useRef<(offset: number) => void>(() => {});
   stepDay.current = (offset) => {
@@ -2459,6 +2476,15 @@ function App() {
                 onClick={() => {
                   setPlaying(false);
                   setTab(t);
+                  // Coming from another view, Map and Calendar open on today;
+                  // moving between them keeps the day they share.
+                  const today = todayPosition(days);
+                  if (
+                    fullView &&
+                    (t === "map" || t === "calendar") &&
+                    today !== undefined
+                  )
+                    selectPosition(today);
                   try {
                     window.localStorage.setItem("trip-atlas-view", t);
                   } catch {
@@ -2567,7 +2593,7 @@ function App() {
               </label>
               <TimelineOutput model={itinerary} clock={clock} />
             </div>
-            <div className="timeline-scroll">
+            <div className="timeline-scroll" ref={timeline}>
               <div className="whole-trip">
                 <div className="whole-bands">
                   {days.map((d) => (
