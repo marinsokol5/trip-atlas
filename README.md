@@ -58,7 +58,7 @@ This example shows separate dimensions for each bag, followed by a shared weight
 
 A transport booking's `cost.allocation` links it to its journey, so the Documents and Calendar cards show how long it takes and when it leaves and arrives, with a `+1` for a later date. These clocks stay on the journey, so the card can't disagree with the plan.
 
-Set `origin` and `destination` to the stops on the ticket. Each has a `name` and optionally `coordinates` or a `mapUrl`, which puts a Google Maps pin on that line of the card. Without them the card names the journey's places, unpinned.
+Set `origin` and `destination` to the stops on the ticket. Each has a `name` and optionally `coordinates` or a `mapUrl`, which puts a Google Maps pin on that line of the card. Without them the card names the journey's places: a flight's are airports, so their `coordinates` pin them, while any other journey's stay unpinned. Set the stops on a flight whose journey names a city instead of its airport, or to add a terminal.
 
 ```json
 {

@@ -158,6 +158,38 @@ test("a ticket without stops names the journey's places, unpinned", () => {
   });
 });
 
+test("a flight pins the airports of its journey, unless the ticket names a stop", () => {
+  const trip = trainTrip();
+  trip.places.hanoi.coordinates = { lat: 21.22, lon: 105.8 };
+  trip.days[2].blocks![0] = {
+    ...(trip.days[2].blocks![0] as TravelBlock),
+    mode: "flight",
+  };
+  trip.days[1].blocks = [{ type: "travel", to: "tokyo", mode: "train" }];
+  const pin = "https://www.google.com/maps/search/?api=1&query=21.22,105.8";
+  const model = normalizeTrip(trip);
+  assert.deepEqual(journeyEnds(ticket(), model)?.arrival, {
+    clock: "05:55",
+    dayOffset: 1,
+    name: "Hanoi",
+    link: pin,
+  });
+  // No coordinates on the place: named, but nothing to pin.
+  assert.equal(journeyEnds(ticket(), model)?.departure.link, undefined);
+  assert.deepEqual(
+    journeyEnds(
+      ticket({ destination: { name: "Example Airport, Terminal 2" } }),
+      model,
+    )?.arrival,
+    {
+      clock: "05:55",
+      dayOffset: 1,
+      name: "Example Airport, Terminal 2",
+      link: undefined,
+    },
+  );
+});
+
 test("a ticket's stops show without a linked journey, and untimed tickets show nothing", () => {
   const model = normalizeTrip(fixture());
   const unlinked = ticket({

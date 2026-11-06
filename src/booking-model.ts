@@ -115,6 +115,8 @@ export interface JourneyEnd {
 /**
  * A ticket's two ends. Clocks come from the journey it pays for, so they never
  * disagree with the plan; stops come from the ticket, else the journey's places.
+ * A flight's places are airports, so their coordinates pin them; any other
+ * journey's are whole towns, too vague for a pin.
  * Undefined when there is nothing to show beyond what the card already says.
  */
 export function journeyEnds(
@@ -123,17 +125,25 @@ export function journeyEnds(
 ): { departure: JourneyEnd; arrival: JourneyEnd } | undefined {
   if (booking.type !== "transport") return undefined;
   const leg = transportLeg(booking, model);
+  const flight = !!leg && isFlightLeg(leg);
   const end = (
     stop: Booking["origin"],
-    place: string | undefined,
+    placeId: string | undefined,
     clock: string | undefined,
     dayOffset: number,
-  ): JourneyEnd => ({
-    clock,
-    dayOffset,
-    name: stop?.name ?? (place ? model.trip.places[place].name : undefined),
-    link: stop && mapsLink(stop),
-  });
+  ): JourneyEnd => {
+    const place = placeId ? model.trip.places[placeId] : undefined;
+    return {
+      clock,
+      dayOffset,
+      name: stop?.name ?? place?.name,
+      link: stop
+        ? mapsLink(stop)
+        : place && flight
+          ? mapsLink(place)
+          : undefined,
+    };
+  };
   if (
     !leg?.block.start &&
     !leg?.block.end &&
