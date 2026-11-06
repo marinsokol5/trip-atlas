@@ -21,6 +21,16 @@ export function cancellationLabel(
   return `Free cancellation by ${date}`;
 }
 
+/** A Google Maps link to a pinned spot: its verified link, else its coordinates. */
+export function mapsLink(
+  pin: Pick<Booking, "mapUrl" | "coordinates">,
+): string | undefined {
+  if (pin.mapUrl) return pin.mapUrl;
+  return pin.coordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${pin.coordinates.lat},${pin.coordinates.lon}`
+    : undefined;
+}
+
 /** Group only cabin bags and personal items under a shared per-person limit. */
 export function baggageGroups(
   booking: Pick<Booking, "baggage" | "cabinTotalKg">,
@@ -86,6 +96,60 @@ export function bookingAllocation(
     if (nights) return { type: "accommodation", nights };
   }
   return undefined;
+}
+/** The journey a transport booking pays for. */
+export function transportLeg(booking: Booking, model: Itinerary) {
+  const allocation = bookingAllocation(booking, model.trip);
+  return allocation?.type === "transport"
+    ? model.legs.find((leg) => leg.block.id === allocation.leg)
+    : undefined;
+}
+/** One end of a ticket: when, and where with a Google Maps link if it has one. */
+export interface JourneyEnd {
+  clock?: string;
+  /** Days after departure, for an arrival on a later date. */
+  dayOffset: number;
+  name?: string;
+  link?: string;
+}
+/**
+ * A ticket's two ends. Clocks come from the journey it pays for, so they never
+ * disagree with the plan; stops come from the ticket, else the journey's places.
+ * Undefined when there is nothing to show beyond what the card already says.
+ */
+export function journeyEnds(
+  booking: Booking,
+  model: Itinerary,
+): { departure: JourneyEnd; arrival: JourneyEnd } | undefined {
+  if (booking.type !== "transport") return undefined;
+  const leg = transportLeg(booking, model);
+  const end = (
+    stop: Booking["origin"],
+    place: string | undefined,
+    clock: string | undefined,
+    dayOffset: number,
+  ): JourneyEnd => ({
+    clock,
+    dayOffset,
+    name: stop?.name ?? (place ? model.trip.places[place].name : undefined),
+    link: stop && mapsLink(stop),
+  });
+  if (
+    !leg?.block.start &&
+    !leg?.block.end &&
+    !booking.origin &&
+    !booking.destination
+  )
+    return undefined;
+  return {
+    departure: end(booking.origin, leg?.from, leg?.block.start, 0),
+    arrival: end(
+      booking.destination,
+      leg?.to,
+      leg?.block.end,
+      leg ? leg.endDay - leg.day : 0,
+    ),
+  };
 }
 export function validateBookingAllocations(model: Itinerary) {
   const claimed = new Map<string, number>();

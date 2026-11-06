@@ -54,6 +54,32 @@ This example shows separate dimensions for each bag, followed by a shared weight
 }
 ```
 
+### Tickets
+
+A transport booking's `cost.allocation` links it to its journey, so the Documents and Calendar cards show how long it takes and when it leaves and arrives, with a `+1` for a later date. These clocks stay on the journey, so the card can't disagree with the plan.
+
+Set `origin` and `destination` to the stops on the ticket. Each has a `name` and optionally `coordinates` or a `mapUrl`, which puts a Google Maps pin on that line of the card. Without them the card names the journey's places, unpinned.
+
+```json
+{
+  "type": "transport",
+  "title": "Example Express",
+  "origin": {
+    "name": "Central Station, Gate 2",
+    "coordinates": { "lat": 35.6812, "lon": 139.7671 }
+  },
+  "destination": {
+    "name": "Harbour Terminal",
+    "coordinates": { "lat": 35.4437, "lon": 139.638 }
+  },
+  "cost": {
+    "amount": 40,
+    "status": "paid",
+    "allocation": { "type": "transport", "leg": "tokyo-yokohama" }
+  }
+}
+```
+
 ### Cancellation
 
 Set a booking's `cancellableBy` to its verified local free-cancellation deadline as `YYYY-MM-DD`. The Documents and Calendar cards show “Free cancellation by 12 Nov 2026”. Omit the field when free cancellation is unavailable or its deadline is unknown; nothing is shown. Open the linked booking document for full terms.

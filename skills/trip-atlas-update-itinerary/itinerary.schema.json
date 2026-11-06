@@ -167,7 +167,7 @@
           "maximum": 180
         }
       },
-      "description": "A latitude/longitude pair: map placement for a place, the exact property location for a booking."
+      "description": "A latitude/longitude pair: map placement for a place, the exact property location for a booking, the exact stop for a ticket."
     },
     "document": {
       "title": "DocumentLink",
@@ -516,6 +516,25 @@
         }
       }
     },
+    "bookingStop": {
+      "title": "BookingStop",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "description": "The station, stop or terminal as the ticket names it, with the gate or platform when the ticket gives one.",
+          "$ref": "#/$defs/text"
+        },
+        "coordinates": {
+          "$ref": "#/$defs/coordinates"
+        },
+        "mapUrl": {
+          "description": "A verified Google Maps link to the stop; its pin opens this instead of the bare coordinates. Never invent one.",
+          "$ref": "#/$defs/mapUrl"
+        }
+      }
+    },
     "booking": {
       "title": "BookingInput",
       "type": "object",
@@ -632,6 +651,14 @@
         "mapUrl": {
           "description": "A verified Google Maps link to the place itself; the map pin opens it instead of the bare coordinates. Never invent one.",
           "$ref": "#/$defs/mapUrl"
+        },
+        "origin": {
+          "description": "Transport only: where the ticket boards. The card lists it with the departure clock of the journey in `cost.allocation`.",
+          "$ref": "#/$defs/bookingStop"
+        },
+        "destination": {
+          "description": "Transport only: where the ticket gets off. The card lists it with the arrival clock of the journey in `cost.allocation`.",
+          "$ref": "#/$defs/bookingStop"
         },
         "documents": {
           "$ref": "#/$defs/documents"

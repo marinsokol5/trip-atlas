@@ -136,7 +136,7 @@ export interface PlaceInput {
   coordinates?: Coordinates;
 }
 /**
- * A latitude/longitude pair: map placement for a place, the exact property location for a booking.
+ * A latitude/longitude pair: map placement for a place, the exact property location for a booking, the exact stop for a ticket.
  */
 export interface Coordinates {
   lat: number;
@@ -369,6 +369,8 @@ export interface BookingInput {
    * A verified Google Maps link to the place itself; the map pin opens it instead of the bare coordinates. Never invent one.
    */
   mapUrl?: string;
+  origin?: BookingStop;
+  destination?: BookingStop1;
   documents?: Documents;
   /**
    * The booking price, or a bare number as shorthand for { "amount": n }; omission keeps the existing estimates.
@@ -393,6 +395,34 @@ export interface BaggageAllowance {
    * Maximum sum of height + width + depth per piece in centimetres. Omit when unknown. If dimensionsCm is also set, both limits apply.
    */
   maxLinearCm?: number;
+}
+/**
+ * Transport only: where the ticket boards. The card lists it with the departure clock of the journey in `cost.allocation`.
+ */
+export interface BookingStop {
+  /**
+   * The station, stop or terminal as the ticket names it, with the gate or platform when the ticket gives one.
+   */
+  name: string;
+  coordinates?: Coordinates;
+  /**
+   * A verified Google Maps link to the stop; its pin opens this instead of the bare coordinates. Never invent one.
+   */
+  mapUrl?: string;
+}
+/**
+ * Transport only: where the ticket gets off. The card lists it with the arrival clock of the journey in `cost.allocation`.
+ */
+export interface BookingStop1 {
+  /**
+   * The station, stop or terminal as the ticket names it, with the gate or platform when the ticket gives one.
+   */
+  name: string;
+  coordinates?: Coordinates;
+  /**
+   * A verified Google Maps link to the stop; its pin opens this instead of the bare coordinates. Never invent one.
+   */
+  mapUrl?: string;
 }
 export interface BookingCost {
   /**

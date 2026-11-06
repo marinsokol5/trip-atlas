@@ -2881,6 +2881,51 @@ main[data-theme="dark"] {
   font-size: 11px;
   color: var(--muted);
 }
+.booking-journey {
+  display: grid;
+  gap: 3px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.booking-journey li {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 6px;
+  align-items: start;
+}
+.booking-journey-clock {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.booking-journey-clock small {
+  margin-left: 2px;
+  font-size: 10px;
+}
+.booking-journey a {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.booking-journey a:hover,
+.booking-journey a:focus-visible {
+  color: var(--blue);
+}
+.booking-journey svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.booking-tile .booking-journey {
+  margin-top: 0;
+}
 .booking-meals {
   display: inline-flex;
   gap: 4px;

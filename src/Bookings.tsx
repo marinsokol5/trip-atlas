@@ -38,8 +38,12 @@ import {
   isCheckoutDay,
   isFlightLeg,
   isListedBooking,
+  journeyEnds,
+  mapsLink,
   nightBookingsOnDay,
+  transportLeg,
 } from "./booking-model";
+import type { JourneyEnd } from "./booking-model";
 import {
   dayCountries,
   dayLabel,
@@ -197,13 +201,6 @@ const transportIcons = {
   ferry: Ship,
   car: Car,
 } as const;
-/** The journey a transport booking pays for. */
-function transportLeg(booking: Booking, model: Itinerary) {
-  const allocation = bookingAllocation(booking, model.trip);
-  return allocation?.type === "transport"
-    ? model.legs.find((leg) => leg.block.id === allocation.leg)
-    : undefined;
-}
 /** A transport booking takes the icon of the journey it pays for. */
 function transportIcon(booking: Booking, model: Itinerary) {
   const leg = transportLeg(booking, model);
@@ -243,6 +240,38 @@ function bookingDateChip(booking: Booking, model: Itinerary, index: number) {
     ? `${Number(start.slice(8))}–${dateLabel(end)}`
     : `${dateLabel(start)} – ${dateLabel(end)}`;
 }
+/** One line of a ticket: "22:00  Central Station, Gate 2", pinned when it can be. */
+function JourneyStop({ end, label }: { end: JourneyEnd; label: string }) {
+  if (!end.clock && !end.name) return null;
+  return (
+    <li>
+      <span className="booking-journey-clock" title={label}>
+        {end.clock}
+        {end.dayOffset > 0 && (
+          <small
+            title={`${end.dayOffset} day${end.dayOffset > 1 ? "s" : ""} later`}
+          >
+            +{end.dayOffset}
+          </small>
+        )}
+      </span>
+      {end.link ? (
+        <a
+          href={end.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open in Google Maps"
+          aria-label={`${label}: open ${end.name} in Google Maps`}
+        >
+          <MapPin strokeWidth={1.75} aria-hidden="true" />
+          <span>{end.name}</span>
+        </a>
+      ) : (
+        <span>{end.name}</span>
+      )}
+    </li>
+  );
+}
 const typeLabels = {
   accommodation: "Accommodation",
   transport: "Transport",
@@ -269,7 +298,9 @@ export function BookingCard({
   const count = nights(booking, model),
     cancellation = cancellationLabel(booking),
     leg = transportLeg(booking, model),
-    flightTime = leg && modeKind(leg) === "flight" ? legDuration(leg) : "",
+    journeyTime = leg ? legDuration(leg) : "",
+    journey = journeyEnds(booking, model),
+    pin = mapsLink(booking),
     allocation = allocationLabel(booking, model),
     costStatus = booking.cost?.status ?? "estimated",
     money = (amount: number) =>
@@ -301,7 +332,7 @@ export function BookingCard({
   const identity = (
     <div className="booking-identity">
       <h3>{booking.title}</h3>
-      {(booking.place || count !== undefined || flightTime) && (
+      {(booking.place || count !== undefined || journeyTime) && (
         <p className="booking-meta">
           {[
             // In a day panel "Night: <place>" already names the place.
@@ -310,7 +341,7 @@ export function BookingCard({
               model.days[dayNumber - 1].overnight !== booking.place)
               ? model.trip.places[booking.place].name
               : undefined,
-            flightTime,
+            journeyTime,
             count !== undefined &&
               `${count} ${count === 1 ? "night" : "nights"}`,
           ]
@@ -362,12 +393,9 @@ export function BookingCard({
   );
   const actions = (
     <div className="booking-actions">
-      {(booking.mapUrl || booking.coordinates) && (
+      {pin && (
         <a
-          href={
-            booking.mapUrl ??
-            `https://www.google.com/maps/search/?api=1&query=${booking.coordinates!.lat},${booking.coordinates!.lon}`
-          }
+          href={pin}
           target="_blank"
           rel="noopener noreferrer"
           title="Open in Google Maps"
@@ -392,6 +420,12 @@ export function BookingCard({
   );
   const details = (
     <div className="booking-details">
+      {journey && (
+        <ol className="booking-journey" aria-label="Journey">
+          <JourneyStop end={journey.departure} label="Leaves" />
+          <JourneyStop end={journey.arrival} label="Arrives" />
+        </ol>
+      )}
       {(booking.checkIn || booking.checkOut || booking.meals) && (
         <div className="booking-stay">
           {(booking.checkIn || booking.checkOut) && (

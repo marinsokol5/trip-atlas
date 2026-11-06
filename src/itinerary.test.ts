@@ -34,6 +34,51 @@ const base = (): Trip => ({
   ],
 });
 
+test("ticket stops belong to transport bookings and link only to Google Maps", () => {
+  const trip = (booking: Record<string, unknown>) => ({
+    ...base(),
+    bookings: [booking],
+  });
+  const ticket = (extra: Record<string, unknown>) =>
+    trip({ type: "transport", title: "Example ticket", ...extra });
+  assert.doesNotThrow(() =>
+    normalizeTrip(
+      ticket({
+        origin: { name: "Central Station", coordinates: { lat: 35, lon: 139 } },
+        destination: {
+          name: "Harbour Terminal",
+          mapUrl: "https://maps.google.com/?cid=123",
+        },
+      }),
+    ),
+  );
+  assert.throws(
+    () =>
+      normalizeTrip(ticket({ origin: { coordinates: { lat: 35, lon: 1 } } })),
+    /bookings\[0\]\.origin/,
+  );
+  assert.throws(
+    () =>
+      normalizeTrip(
+        ticket({
+          destination: { name: "Terminal", mapUrl: "https://example.com" },
+        }),
+      ),
+    /bookings\[0\]\.destination\.mapUrl/,
+  );
+  assert.throws(
+    () =>
+      normalizeTrip(
+        trip({
+          type: "accommodation",
+          title: "Example hotel",
+          origin: { name: "Central Station" },
+        }),
+      ),
+    /bookings\[0\]\.origin/,
+  );
+});
+
 test("cancellation schema accepts only an optional date string on the booking", () => {
   const booking = (extra: Record<string, unknown>) => ({
     ...base(),

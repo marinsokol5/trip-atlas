@@ -12,6 +12,8 @@ import {
   bookingsOnDay,
   cancellationLabel,
   hasBookingContent,
+  journeyEnds,
+  mapsLink,
   nightBookingsOnDay,
 } from "./booking-model.ts";
 import {
@@ -87,6 +89,108 @@ test("cancellation deadlines remain authored before the trip and across date cha
       "2026-10-15",
     );
   }
+});
+
+const trainTrip = (): Trip => {
+  const trip = fixture();
+  trip.days[2].blocks = [
+    {
+      type: "travel",
+      id: "night-train",
+      to: "hanoi",
+      mode: "train",
+      start: "22:00",
+      end: "05:55",
+      endDay: 4,
+    },
+  ];
+  return trip;
+};
+const ticket = (fields: Partial<Booking> = {}): Booking => ({
+  type: "transport",
+  title: "Example night train",
+  cost: {
+    amount: 40,
+    status: "paid",
+    allocation: { type: "transport", leg: "night-train" },
+  },
+  ...fields,
+});
+
+test("a ticket takes its clocks from the journey and its stops from the ticket", () => {
+  const booking = ticket({
+    origin: {
+      name: "Example Central, Gate 2",
+      coordinates: { lat: 35.68, lon: 139.76 },
+    },
+    destination: {
+      name: "Example Terminal",
+      mapUrl: "https://maps.google.com/?cid=123",
+    },
+  });
+  assert.deepEqual(journeyEnds(booking, normalizeTrip(trainTrip())), {
+    departure: {
+      clock: "22:00",
+      dayOffset: 0,
+      name: "Example Central, Gate 2",
+      link: "https://www.google.com/maps/search/?api=1&query=35.68,139.76",
+    },
+    arrival: {
+      clock: "05:55",
+      dayOffset: 1,
+      name: "Example Terminal",
+      link: "https://maps.google.com/?cid=123",
+    },
+  });
+});
+
+test("a ticket without stops names the journey's places, unpinned", () => {
+  const trip = trainTrip();
+  trip.days[1].blocks = [{ type: "travel", to: "tokyo", mode: "train" }];
+  assert.deepEqual(journeyEnds(ticket(), normalizeTrip(trip)), {
+    departure: {
+      clock: "22:00",
+      dayOffset: 0,
+      name: "Tokyo",
+      link: undefined,
+    },
+    arrival: { clock: "05:55", dayOffset: 1, name: "Hanoi", link: undefined },
+  });
+});
+
+test("a ticket's stops show without a linked journey, and untimed tickets show nothing", () => {
+  const model = normalizeTrip(fixture());
+  const unlinked = ticket({
+    cost: undefined,
+    origin: { name: "Example Central" },
+  });
+  assert.deepEqual(journeyEnds(unlinked, model)?.departure, {
+    clock: undefined,
+    dayOffset: 0,
+    name: "Example Central",
+    link: undefined,
+  });
+  const untimed = ticket({
+    cost: {
+      amount: 40,
+      allocation: { type: "transport", leg: "japan-vietnam" },
+    },
+  });
+  assert.equal(journeyEnds(untimed, model), undefined);
+  assert.equal(journeyEnds(hotel(), model), undefined);
+});
+
+test("a map link prefers the verified link over the coordinates", () => {
+  const coordinates = { lat: 21.03, lon: 105.85 };
+  assert.equal(mapsLink({}), undefined);
+  assert.equal(
+    mapsLink({ coordinates }),
+    "https://www.google.com/maps/search/?api=1&query=21.03,105.85",
+  );
+  assert.equal(
+    mapsLink({ coordinates, mapUrl: "https://maps.google.com/?cid=123" }),
+    "https://maps.google.com/?cid=123",
+  );
 });
 
 test("combined baggage groups only cabin and personal items, keeping individual caps", () => {

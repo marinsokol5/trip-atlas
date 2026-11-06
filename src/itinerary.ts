@@ -425,6 +425,14 @@ export function parseTrip(input: unknown): Trip {
     if (b.place !== undefined) place(b.place, path + ".place");
     if (b.mapUrl !== undefined && !isGoogleMapsUrl(b.mapUrl))
       fail(path + ".mapUrl", "expected an https Google Maps link");
+    for (const key of ["origin", "destination"] as const) {
+      const stop = b[key];
+      if (stop === undefined) continue;
+      if (b.type !== "transport")
+        fail(`${path}.${key}`, "only transport bookings have stops");
+      if (stop.mapUrl !== undefined && !isGoogleMapsUrl(stop.mapUrl))
+        fail(`${path}.${key}.mapUrl`, "expected an https Google Maps link");
+    }
     for (const key of ["startDate", "endDate"] as const) {
       const date = b[key];
       if (date !== undefined && !dateValid(date))
